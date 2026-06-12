@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "Period Tracker",
+    "slug": "period-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "periodtracker",
+    "userInterfaceStyle": "light",
+    "owner": "periodtracker",
+    "description": "An AI-powered menstrual health companion that combines cycle tracking, wellness insights, mood prediction, and beautifully crafted interactions.",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B9D"
+    },
+    "ios": {
+      "icon": "./assets/images/icon.png",
+      "supportsTabletMode": true,
+      "requireFullScreen": false,
+      "bundleIdentifier": "com.periodtracker.app",
+      "splash": {
+        "image": "./assets/images/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FF6B9D"
+      },
+      "privacyManifests": [
+        {
+          "NSPrivacyTracking": false,
+          "NSPrivacyTrackingDomains": []
+        }
+      ]
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FF6B9D",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "package": "com.periodtracker.app",
+      "permissions": [
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "READ_PHONE_STATE"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FF6B9D",
+          "image": "./assets/images/splash.png",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "minimumDeploymentTarget": "14.0"
+          },
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "period-tracker-app"
+      }
+    }
+  }
+}
