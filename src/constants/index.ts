@@ -42,6 +42,36 @@ export const GRADIENT = {
   calm: ['#B5E7A0', '#7CB342'],
 };
 
+/**
+ * Premium "Aurora Glass" design tokens.
+ * Multi-stop gradients read richer than two-color ramps, and the glass
+ * tokens standardize the frosted-surface look across all cards.
+ */
+export const AURORA = {
+  // Soft dawn backdrop used behind the whole app.
+  backdrop: ['#FFF1F6', '#FDE7F0', '#F3E9FF', '#EAF1FF'],
+  // Floating glow orbs (with alpha) layered over the backdrop for depth.
+  orbs: ['rgba(255,107,157,0.45)', 'rgba(155,89,182,0.38)', 'rgba(255,165,0,0.30)'],
+};
+
+// Per-phase hero gradients — vivid, 3-stop, directional.
+export const PHASE_GRADIENTS: Record<string, string[]> = {
+  Menstrual: ['#FF6B9D', '#E63973', '#B4265A'],
+  Follicular: ['#7CE8B0', '#4CAF50', '#2E9E7E'],
+  Ovulation: ['#FFD36E', '#FFB84D', '#FF8A3D'],
+  Luteal: ['#C89BFF', '#9B59B6', '#6C3F9E'],
+};
+
+// Frosted-glass surface tokens (used by GlassCard).
+export const GLASS = {
+  tint: 'rgba(255,255,255,0.55)',
+  tintStrong: 'rgba(255,255,255,0.72)',
+  tintDark: 'rgba(28,10,26,0.35)',
+  border: 'rgba(255,255,255,0.65)',
+  highlight: 'rgba(255,255,255,0.9)',
+  intensity: 40,
+};
+
 export const SPACING = {
   xs: 4,
   sm: 8,

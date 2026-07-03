@@ -59,6 +59,22 @@ export type SymptomType =
   | 'mood_swings'
   | 'cravings';
 
+/**
+ * A day's symptom log, tracked independently of periods. Keeping this
+ * separate from PeriodEntry ensures logging symptoms on a non-period day
+ * never gets mistaken for the start of a new period in cycle calculations.
+ */
+export interface SymptomLog {
+  id: string;
+  userId: string;
+  date: Date;
+  symptoms: Symptom[];
+  flowIntensity: 'none' | 'light' | 'medium' | 'heavy';
+  notes: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface MoodEntry {
   id: string;
   userId: string;

@@ -1,186 +1,192 @@
-import React, { useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  Switch,
-  Alert,
-} from 'react-native';
+import { useState } from 'react';
+import { View, ScrollView, StyleSheet, Text, Switch, Pressable, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
+import { fontScale, scale } from '../utils/responsive';
 import { useAppStore } from '../store/appStore';
-import Card from '../components/Card';
-import Button from '../components/Button';
+import GradientBackground from '../components/GradientBackground';
+import GlassCard from '../components/GlassCard';
+import EmojiChip from '../components/EmojiChip';
+import Ripple from '../components/Ripple';
 
 const SettingsScreen = ({ navigation }: any) => {
-  const { user, enableNotifications, setEnableNotifications, enableAIInsights, setEnableAIInsights, clearStore } = useAppStore();
+  const {
+    user,
+    enableNotifications,
+    setEnableNotifications,
+    enableAIInsights,
+    setEnableAIInsights,
+    clearStore,
+  } = useAppStore();
   const [notificationsEnabled, setNotificationsEnabled] = useState(enableNotifications);
   const [aiEnabled, setAiEnabled] = useState(enableAIInsights);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
-      { text: 'Cancel', onPress: () => {} },
+    Alert.alert('Log out', 'This will clear your data on this device. Continue?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Logout',
+        text: 'Log out',
+        style: 'destructive',
         onPress: () => {
           clearStore();
-          navigation.replace('Onboarding');
+          navigation.replace?.('Onboarding');
         },
       },
     ]);
   };
 
-  const handleNotificationsChange = (value: boolean) => {
-    setNotificationsEnabled(value);
-    setEnableNotifications(value);
+  const onNotif = (v: boolean) => {
+    setNotificationsEnabled(v);
+    setEnableNotifications(v);
   };
-
-  const handleAIChange = (value: boolean) => {
-    setAiEnabled(value);
-    setEnableAIInsights(value);
+  const onAI = (v: boolean) => {
+    setAiEnabled(v);
+    setEnableAIInsights(v);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={TYPOGRAPHY.h2}>⚙️ Settings</Text>
-        </View>
+    <GradientBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+            <Text style={styles.title}>Settings</Text>
+          </Animated.View>
 
-        {/* Profile Section */}
-        <Card style={styles.card}>
-          <Text style={TYPOGRAPHY.h4}>👤 Profile</Text>
-          <View style={styles.profileItem}>
-            <Text style={TYPOGRAPHY.body2}>Name</Text>
-            <Text style={[TYPOGRAPHY.body1, { fontWeight: '600' }]}>{user?.name}</Text>
-          </View>
-          <View style={[styles.profileItem, { borderTopWidth: 1, borderTopColor: COLORS.divider }]}>
-            <Text style={TYPOGRAPHY.body2}>Cycle Length</Text>
-            <Text style={[TYPOGRAPHY.body1, { fontWeight: '600' }]}>{user?.cycleLength} days</Text>
-          </View>
-        </Card>
+          {/* Profile */}
+          <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <GlassCard style={styles.card}>
+              <View style={styles.profile}>
+                <EmojiChip emoji="🌷" size={scale(56)} colors={['#FFFFFF', '#FFD9E6']} float />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.profileName}>{user?.name ?? 'You'}</Text>
+                  <Text style={styles.profileSub}>Cycle length · {user?.cycleLength ?? '—'} days</Text>
+                </View>
+              </View>
+            </GlassCard>
+          </Animated.View>
 
-        {/* Notifications */}
-        <Card style={styles.card}>
-          <View style={styles.settingRow}>
-            <Text style={TYPOGRAPHY.h4}>🔔 Notifications</Text>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={handleNotificationsChange}
-              trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-              thumbColor={notificationsEnabled ? COLORS.primary : COLORS.textTertiary}
-            />
-          </View>
-          <Text style={[TYPOGRAPHY.body2, { color: COLORS.textSecondary, marginTop: SPACING.sm }]}>
-            Get reminders for period, ovulation, and daily check-ins
-          </Text>
-        </Card>
+          {/* Preferences */}
+          <Animated.View entering={FadeInDown.delay(160).springify()}>
+            <GlassCard style={styles.card}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Text style={styles.settingEmoji}>🔔</Text>
+                  <View>
+                    <Text style={styles.settingTitle}>Notifications</Text>
+                    <Text style={styles.settingDesc}>Period, ovulation & check-in reminders</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={onNotif}
+                  trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
+                  thumbColor={notificationsEnabled ? COLORS.primary : COLORS.textTertiary}
+                />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Text style={styles.settingEmoji}>✨</Text>
+                  <View>
+                    <Text style={styles.settingTitle}>AI Insights</Text>
+                    <Text style={styles.settingDesc}>Personalized predictions & patterns</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={aiEnabled}
+                  onValueChange={onAI}
+                  trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
+                  thumbColor={aiEnabled ? COLORS.primary : COLORS.textTertiary}
+                />
+              </View>
+            </GlassCard>
+          </Animated.View>
 
-        {/* AI Insights */}
-        <Card style={styles.card}>
-          <View style={styles.settingRow}>
-            <Text style={TYPOGRAPHY.h4}>✨ AI Insights</Text>
-            <Switch
-              value={aiEnabled}
-              onValueChange={handleAIChange}
-              trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-              thumbColor={aiEnabled ? COLORS.primary : COLORS.textTertiary}
-            />
-          </View>
-          <Text style={[TYPOGRAPHY.body2, { color: COLORS.textSecondary, marginTop: SPACING.sm }]}>
-            Personalized predictions and health insights
-          </Text>
-        </Card>
+          {/* Privacy & Security */}
+          <Animated.View entering={FadeInDown.delay(220).springify()}>
+            <GlassCard style={styles.card}>
+              <Text style={styles.cardTitle}>🔐 Privacy & Security</Text>
+              {[
+                ['Biometric Lock', 'Coming soon'],
+                ['Data Export', 'Download your data'],
+                ['Privacy Policy', 'Read our policy'],
+              ].map(([label, hint], i, arr) => (
+                <View key={label}>
+                  <View style={styles.linkRow}>
+                    <Text style={styles.linkLabel}>{label}</Text>
+                    <Text style={styles.linkHint}>{hint} ›</Text>
+                  </View>
+                  {i < arr.length - 1 && <View style={styles.divider} />}
+                </View>
+              ))}
+            </GlassCard>
+          </Animated.View>
 
-        {/* Privacy & Security */}
-        <Card style={styles.card}>
-          <Text style={TYPOGRAPHY.h4}>🔐 Privacy & Security</Text>
-          <TouchableOpacity style={styles.settingItem}>
-            <Text style={TYPOGRAPHY.body1}>Biometric Lock</Text>
-            <Text style={[TYPOGRAPHY.caption, { color: COLORS.textSecondary }]}>Coming soon</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.settingItem}>
-            <Text style={TYPOGRAPHY.body1}>Data Export</Text>
-            <Text style={[TYPOGRAPHY.caption, { color: COLORS.textSecondary }]}>Download your data</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.settingItem}>
-            <Text style={TYPOGRAPHY.body1}>Privacy Policy</Text>
-            <Text style={[TYPOGRAPHY.caption, { color: COLORS.textSecondary }]}>Read our policy</Text>
-          </TouchableOpacity>
-        </Card>
+          {/* About */}
+          <Animated.View entering={FadeInDown.delay(280).springify()}>
+            <GlassCard style={styles.card}>
+              <Text style={styles.cardTitle}>ℹ️ About</Text>
+              <View style={styles.linkRow}>
+                <Text style={styles.linkLabel}>App Version</Text>
+                <Text style={styles.linkHint}>1.0.0</Text>
+              </View>
+            </GlassCard>
+          </Animated.View>
 
-        {/* About */}
-        <Card style={styles.card}>
-          <Text style={TYPOGRAPHY.h4}>ℹ️ About</Text>
-          <View style={styles.aboutItem}>
-            <Text style={TYPOGRAPHY.body1}>App Version</Text>
-            <Text style={[TYPOGRAPHY.body1, { fontWeight: '600' }]}>1.0.0</Text>
-          </View>
-          <View style={[styles.aboutItem, { borderTopWidth: 1, borderTopColor: COLORS.divider }]}>
-            <Text style={TYPOGRAPHY.body1}>Help & Support</Text>
-            <Text style={[TYPOGRAPHY.caption, { color: COLORS.textSecondary }]}>Contact us anytime</Text>
-          </View>
-        </Card>
+          {/* Logout */}
+          <Animated.View entering={FadeInDown.delay(340).springify()}>
+            <Ripple onPress={handleLogout} borderRadius={18} style={styles.logout} rippleColor="rgba(230,57,115,0.15)">
+              <Text style={styles.logoutText}>Log out</Text>
+            </Ripple>
+          </Animated.View>
 
-        {/* Logout */}
-        <View style={styles.logoutContainer}>
-          <Button
-            title="Logout"
-            onPress={handleLogout}
-            variant="outline"
-            size="large"
-            style={{ borderColor: COLORS.error }}
-          />
-        </View>
-
-        <View style={{ height: SPACING.xl }} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: scale(110) }} />
+        </ScrollView>
+      </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  header: {
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  card: {
-    marginBottom: SPACING.lg,
-  },
+  container: { flex: 1, paddingHorizontal: SPACING.lg },
+  scroll: { paddingTop: SPACING.md },
+  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
+
+  card: { marginBottom: SPACING.lg },
+  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
+
+  profile: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  profileName: { ...TYPOGRAPHY.h4, color: COLORS.text },
+  profileSub: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: SPACING.xs,
   },
-  settingItem: {
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+  settingLabel: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1, paddingRight: SPACING.md },
+  settingEmoji: { fontSize: 22 },
+  settingTitle: { ...TYPOGRAPHY.body1, fontWeight: '600', color: COLORS.text },
+  settingDesc: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 },
+
+  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.06)', marginVertical: SPACING.md },
+
+  linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.xs },
+  linkLabel: { ...TYPOGRAPHY.body1, color: COLORS.text },
+  linkHint: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary },
+
+  logout: {
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 1.5,
+    borderColor: COLORS.error,
   },
-  profileItem: {
-    paddingVertical: SPACING.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  aboutItem: {
-    paddingVertical: SPACING.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  logoutContainer: {
-    marginTop: SPACING.xl,
-  },
+  logoutText: { ...TYPOGRAPHY.button, color: COLORS.error, fontSize: 16 },
 });
 
 export default SettingsScreen;

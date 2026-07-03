@@ -1,4 +1,4 @@
-import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -7,7 +7,17 @@ import { RootNavigator } from './navigation/RootNavigator';
 import { COLORS } from './constants';
 
 export default function App() {
-  const { showOnboarding, user } = useAppStore();
+  const { showOnboarding, user, hasHydrated } = useAppStore();
+
+  // Wait for persisted state to load from disk before deciding which
+  // navigator to show. Otherwise returning users briefly see onboarding.
+  if (!hasHydrated) {
+    return (
+      <View style={styles.splash}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -38,3 +48,12 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
+});

@@ -1,9 +1,14 @@
-import React, { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Text, SafeAreaView } from 'react-native';
+import { useMemo } from 'react';
+import { View, ScrollView, StyleSheet, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, GRADIENT } from '../constants';
+import { fontScale, scale } from '../utils/responsive';
 import { useAppStore } from '../store/appStore';
-import AnimatedCard from '../components/AnimatedCard';
+import GradientBackground from '../components/GradientBackground';
+import GlassCard from '../components/GlassCard';
+import EmojiChip from '../components/EmojiChip';
 import { AIInsight, PeriodEntry } from '../types';
 import {
   daysUntil,
@@ -55,6 +60,7 @@ const AIInsightsScreen = () => {
     user,
     aiInsights,
     periodEntries,
+    symptomLogs,
     moodEntries,
     healthMetrics,
     enableAIInsights,
@@ -82,7 +88,7 @@ const AIInsightsScreen = () => {
     const daysToPeriod = daysUntil(nextPeriod);
     const recentMood = moodEntries.slice(-7);
     const recentHealth = healthMetrics.slice(-7);
-    const recentSymptoms = periodEntries.slice(-6).flatMap((entry) => entry.symptoms);
+    const recentSymptoms = symptomLogs.slice(-14).flatMap((log) => log.symptoms);
 
     generated.push({
       id: 'phase-guidance',
@@ -189,140 +195,143 @@ const AIInsightsScreen = () => {
     }
 
     return [...savedInsights, ...generated].slice(0, 8);
-  }, [aiInsights, enableAIInsights, healthMetrics, moodEntries, periodEntries, user]);
+  }, [aiInsights, enableAIInsights, healthMetrics, moodEntries, periodEntries, symptomLogs, user]);
 
   const topInsight = insights[0];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={TYPOGRAPHY.h2}>AI Insights</Text>
-          <Text style={[TYPOGRAPHY.body2, { color: COLORS.textSecondary }]}>
-            Personalized patterns based on your cycle and wellness logs
-          </Text>
-        </View>
-
-        {topInsight && (
-          <LinearGradient
-            colors={GRADIENT.primary as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroCard}
-          >
-            <Text style={styles.heroLabel}>Top insight</Text>
-            <Text style={styles.heroTitle}>{topInsight.title}</Text>
-            <Text style={styles.heroBody}>{topInsight.description}</Text>
-          </LinearGradient>
-        )}
-
-        {!enableAIInsights && (
-          <AnimatedCard style={styles.card}>
-            <Text style={TYPOGRAPHY.h4}>Insights are turned off</Text>
-            <Text style={[TYPOGRAPHY.body2, styles.mutedCopy]}>
-              Turn them on in Settings when you want personalized cycle and wellness patterns.
+    <GradientBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+            <Text style={styles.title}>AI Insights</Text>
+            <Text style={styles.subtitle}>
+              Personalized patterns from your cycle & wellness logs
             </Text>
-          </AnimatedCard>
-        )}
+          </Animated.View>
 
-        {enableAIInsights && insights.length === 0 && (
-          <AnimatedCard style={styles.card}>
-            <Text style={TYPOGRAPHY.h4}>Start building your pattern</Text>
-            <Text style={[TYPOGRAPHY.body2, styles.mutedCopy]}>
-              Log a period, symptoms, and daily check-ins to unlock useful predictions.
-            </Text>
-          </AnimatedCard>
-        )}
-
-        {insights.map((insight, idx) => {
-          const tone = toneStyles[insight.type];
-
-          return (
-            <AnimatedCard key={insight.id} delay={idx} style={styles.card}>
-              <View style={styles.insightHeader}>
-                <View style={[styles.typeBadge, { backgroundColor: tone.background }]}>
-                  <Text style={[TYPOGRAPHY.caption, { color: tone.color }]}>{insight.tag}</Text>
+          {topInsight && (
+            <Animated.View entering={FadeInDown.delay(100).springify()}>
+              <LinearGradient
+                colors={GRADIENT.primary as any}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCard}
+              >
+                <View style={styles.heroTop}>
+                  <EmojiChip emoji="✨" size={scale(46)} colors={['#FFFFFF', '#FFE3EF']} float />
+                  <Text style={styles.heroLabel}>Top insight</Text>
                 </View>
-                <View style={styles.insightTitleContainer}>
-                  <Text style={TYPOGRAPHY.h4}>{insight.title}</Text>
-                  <View style={styles.confidenceBadge}>
-                    <Text style={[TYPOGRAPHY.caption, { color: tone.color }]}>
-                      {Math.round(insight.confidence * 100)}% confidence
-                    </Text>
+                <Text style={styles.heroTitle}>{topInsight.title}</Text>
+                <Text style={styles.heroBody}>{topInsight.description}</Text>
+              </LinearGradient>
+            </Animated.View>
+          )}
+
+          {!enableAIInsights && (
+            <Animated.View entering={FadeInDown.delay(160).springify()}>
+              <GlassCard style={styles.card}>
+                <Text style={styles.cardTitle}>Insights are turned off</Text>
+                <Text style={styles.muted}>
+                  Turn them on in Settings when you want personalized cycle and wellness patterns.
+                </Text>
+              </GlassCard>
+            </Animated.View>
+          )}
+
+          {enableAIInsights && insights.length === 0 && (
+            <Animated.View entering={FadeInDown.delay(160).springify()}>
+              <GlassCard style={styles.card}>
+                <EmojiChip emoji="🌱" size={scale(48)} float />
+                <Text style={[styles.cardTitle, { marginTop: SPACING.md }]}>
+                  Start building your pattern
+                </Text>
+                <Text style={styles.muted}>
+                  Log a period, symptoms, and daily check-ins to unlock useful predictions.
+                </Text>
+              </GlassCard>
+            </Animated.View>
+          )}
+
+          {insights.map((insight, idx) => {
+            const tone = toneStyles[insight.type];
+            return (
+              <Animated.View key={insight.id} entering={FadeInDown.delay(180 + idx * 60).springify()}>
+                <GlassCard style={styles.card}>
+                  <View style={styles.insightHeader}>
+                    <View style={[styles.typeBadge, { backgroundColor: tone.background }]}>
+                      <Text style={[TYPOGRAPHY.caption, { color: tone.color, fontWeight: '700' }]}>
+                        {insight.tag}
+                      </Text>
+                    </View>
+                    <View style={styles.confidencePill}>
+                      <Text style={[TYPOGRAPHY.caption, { color: tone.color }]}>
+                        {Math.round(insight.confidence * 100)}%
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </View>
-              <Text style={[TYPOGRAPHY.body2, { marginTop: SPACING.md }]}>
-                {insight.description}
-              </Text>
-            </AnimatedCard>
-          );
-        })}
+                  <Text style={styles.insightTitle}>{insight.title}</Text>
+                  <Text style={styles.insightBody}>{insight.description}</Text>
+                </GlassCard>
+              </Animated.View>
+            );
+          })}
 
-        <View style={{ height: SPACING.xl }} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: scale(110) }} />
+        </ScrollView>
+      </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  header: {
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
+  container: { flex: 1, paddingHorizontal: SPACING.lg },
+  scroll: { paddingTop: SPACING.md },
+  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+
   heroCard: {
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  heroLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.white,
-    opacity: 0.85,
-    marginBottom: SPACING.sm,
-  },
-  heroTitle: {
-    ...TYPOGRAPHY.h3,
-    color: COLORS.white,
-  },
-  heroBody: {
-    ...TYPOGRAPHY.body2,
-    color: COLORS.white,
-    marginTop: SPACING.sm,
-  },
-  card: {
-    marginBottom: SPACING.lg,
-  },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.md },
+  heroLabel: { ...TYPOGRAPHY.caption, color: COLORS.white, opacity: 0.9, letterSpacing: 1 },
+  heroTitle: { ...TYPOGRAPHY.h3, color: COLORS.white },
+  heroBody: { ...TYPOGRAPHY.body2, color: COLORS.white, marginTop: SPACING.sm, opacity: 0.95 },
+
+  card: { marginBottom: SPACING.lg },
+  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text },
+  muted: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.sm },
+
   insightHeader: {
     flexDirection: 'row',
-    gap: SPACING.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
   typeBadge: {
-    minWidth: 72,
-    height: 32,
+    minWidth: 64,
+    height: 28,
     borderRadius: BORDER_RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.md,
   },
-  insightTitleContainer: {
-    flex: 1,
+  confidencePill: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.5)',
   },
-  confidenceBadge: {
-    marginTop: SPACING.sm,
-  },
-  mutedCopy: {
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-  },
+  insightTitle: { ...TYPOGRAPHY.h4, color: COLORS.text },
+  insightBody: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.sm, lineHeight: 20 },
 });
 
 export default AIInsightsScreen;

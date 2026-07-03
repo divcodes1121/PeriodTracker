@@ -1,13 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  FlatList,
-} from 'react-native';
+import { View, ScrollView, StyleSheet, Text, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   startOfMonth,
   endOfMonth,
@@ -18,16 +11,19 @@ import {
   addMonths,
   subMonths,
 } from 'date-fns';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants';
+import { fontScale, scale } from '../utils/responsive';
 import { useAppStore } from '../store/appStore';
-import {
-  getCyclePhase,
-  getPhaseRecommendations,
-} from '../utils/cycleCalculations';
-import Button from '../components/Button';
-import Card from '../components/Card';
+import { getCyclePhase, getPhaseRecommendations } from '../utils/cycleCalculations';
+import GradientBackground from '../components/GradientBackground';
+import GlassCard from '../components/GlassCard';
+import Ripple from '../components/Ripple';
 
-const CalendarScreen = ({ navigation }: any) => {
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const CalendarScreen = () => {
   const { user } = useAppStore();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -54,292 +50,212 @@ const CalendarScreen = ({ navigation }: any) => {
   const getPhaseColorForDate = (date: Date): string => {
     const dayOfCycle = getCycleDayForDate(date);
     if (!dayOfCycle) return COLORS.textTertiary;
-    const phase = getCyclePhase(dayOfCycle);
-    return phase?.color || COLORS.textTertiary;
+    return getCyclePhase(dayOfCycle)?.color || COLORS.textTertiary;
   };
 
   const selectedDateInfo = useMemo(() => {
     if (!selectedDate) return null;
     const dayOfCycle = getCycleDayForDate(selectedDate);
     if (!dayOfCycle) return null;
-    const phase = getCyclePhase(dayOfCycle);
-    return {
-      dayOfCycle,
-      phase,
-      date: selectedDate,
-    };
+    return { dayOfCycle, phase: getCyclePhase(dayOfCycle), date: selectedDate };
   }, [getCycleDayForDate, selectedDate]);
 
-  const renderCalendarDay = ({ item }: { item: Date }) => {
-    const isCurrentMonth = isSameMonth(item, currentMonth);
-    const isSelected = selectedDate && isSameDay(item, selectedDate);
-    const phaseColor = getPhaseColorForDate(item);
-    const dayOfCycle = getCycleDayForDate(item);
+  const leadingBlanks = monthStart.getDay();
+  const cells: (Date | null)[] = [
+    ...Array(leadingBlanks).fill(null),
+    ...daysInMonth,
+  ];
 
-    return (
-      <TouchableOpacity
-        style={[styles.dayCell, isSelected && styles.selectedDay]}
-        onPress={() => setSelectedDate(item)}
-      >
-        <View
-          style={[
-            styles.dayCircle,
-            !isCurrentMonth && styles.otherMonthDay,
-            isSelected && styles.selectedDayCircle,
-            { backgroundColor: isSelected ? phaseColor : 'transparent' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.dayText,
-              !isCurrentMonth && styles.otherMonthText,
-              isSelected && styles.selectedDayText,
-            ]}
-          >
-            {format(item, 'd')}
-          </Text>
-          {isCurrentMonth && dayOfCycle && (
-            <View
-              style={[
-                styles.phaseIndicator,
-                { backgroundColor: isSelected ? COLORS.white : phaseColor },
-              ]}
-            />
-          )}
-        </View>
-      </TouchableOpacity>
-    );
+  const changeMonth = (dir: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    setCurrentMonth(dir < 0 ? subMonths(currentMonth, 1) : addMonths(currentMonth, 1));
   };
 
-  const paddedDays = Array(monthStart.getDay())
-    .fill(null)
-    .map(() => new Date(0))
-    .concat(daysInMonth);
+  const selectDay = (day: Date) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSelectedDate(day);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={TYPOGRAPHY.h2}>📅 Your Cycle Calendar</Text>
-        </View>
+    <GradientBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+            <Text style={styles.title}>Calendar</Text>
+            <Text style={styles.subtitle}>Your cycle, month by month</Text>
+          </Animated.View>
 
-        {/* Month Navigation */}
-        <View style={styles.monthNav}>
-          <Button
-            title="←"
-            onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            variant="outline"
-            size="small"
-          />
-          <Text style={TYPOGRAPHY.h3}>{format(currentMonth, 'MMMM yyyy')}</Text>
-          <Button
-            title="→"
-            onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            variant="outline"
-            size="small"
-          />
-        </View>
-
-        {/* Day Labels */}
-        <View style={styles.dayLabels}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <Text key={day} style={styles.dayLabel}>
-              {day}
-            </Text>
-          ))}
-        </View>
-
-        {/* Calendar Grid */}
-        <View style={styles.calendarGrid}>
-          <FlatList
-            data={paddedDays.slice(0, 42)}
-            renderItem={renderCalendarDay}
-            keyExtractor={(item, index) => `${index}`}
-            numColumns={7}
-            scrollEnabled={false}
-            columnWrapperStyle={styles.row}
-          />
-        </View>
-
-        {/* Legend */}
-        <Card style={styles.legendCard}>
-          <Text style={TYPOGRAPHY.h4}>Phase Colors</Text>
-          <View style={styles.legendItems}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: COLORS.menstrual }]} />
-              <Text style={TYPOGRAPHY.caption}>Menstrual</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: COLORS.follicular }]} />
-              <Text style={TYPOGRAPHY.caption}>Follicular</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: COLORS.ovulation }]} />
-              <Text style={TYPOGRAPHY.caption}>Ovulation</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: COLORS.luteal }]} />
-              <Text style={TYPOGRAPHY.caption}>Luteal</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Selected Date Info */}
-        {selectedDateInfo && (
-          <Card style={styles.infoCard}>
-            <Text style={TYPOGRAPHY.h4}>
-              {format(selectedDateInfo.date, 'EEEE, MMMM d')} (Day{' '}
-              {selectedDateInfo.dayOfCycle})
-            </Text>
-            <View style={styles.phaseContainer}>
-              <View
-                style={[
-                  styles.phaseBadge,
-                  { backgroundColor: selectedDateInfo.phase?.color },
-                ]}
-              >
-                <Text style={[TYPOGRAPHY.button, { color: COLORS.white }]}>
-                  {selectedDateInfo.phase?.name}
-                </Text>
+          <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <GlassCard style={styles.calendarCard}>
+              {/* Month nav */}
+              <View style={styles.monthNav}>
+                <Ripple onPress={() => changeMonth(-1)} borderRadius={999} style={styles.navBtn}>
+                  <Text style={styles.navArrow}>‹</Text>
+                </Ripple>
+                <Text style={styles.monthLabel}>{format(currentMonth, 'MMMM yyyy')}</Text>
+                <Ripple onPress={() => changeMonth(1)} borderRadius={999} style={styles.navBtn}>
+                  <Text style={styles.navArrow}>›</Text>
+                </Ripple>
               </View>
-              <Text style={[TYPOGRAPHY.body2, { marginTop: SPACING.md }]}>
-                {selectedDateInfo.phase?.description}
-              </Text>
-            </View>
 
-            {/* Recommendations */}
-            <View style={styles.recommendationsSection}>
-              <Text style={TYPOGRAPHY.h4}>💡 Recommendations</Text>
-              {getPhaseRecommendations((selectedDateInfo.phase?.name as string) || null).map((rec, idx) => (
-                <Text key={idx} style={[TYPOGRAPHY.body2, { marginTop: SPACING.sm }]}>
-                  • {rec}
+              {/* Weekday labels */}
+              <View style={styles.weekRow}>
+                {WEEKDAYS.map((d) => (
+                  <Text key={d} style={styles.weekday}>{d}</Text>
+                ))}
+              </View>
+
+              {/* Day grid */}
+              <View style={styles.grid}>
+                {cells.map((day, i) => {
+                  if (!day) return <View key={`b-${i}`} style={styles.cell} />;
+                  const isCurrent = isSameMonth(day, currentMonth);
+                  const isSelected = selectedDate && isSameDay(day, selectedDate);
+                  const phaseColor = getPhaseColorForDate(day);
+                  const cycleDay = getCycleDayForDate(day);
+                  return (
+                    <Pressable key={day.toISOString()} style={styles.cell} onPress={() => selectDay(day)}>
+                      <View
+                        style={[
+                          styles.dayCircle,
+                          isSelected && { backgroundColor: phaseColor, borderColor: phaseColor },
+                        ]}
+                      >
+                        <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                          {format(day, 'd')}
+                        </Text>
+                      </View>
+                      {isCurrent && cycleDay && (
+                        <View
+                          style={[
+                            styles.dot,
+                            { backgroundColor: isSelected ? COLORS.white : phaseColor },
+                          ]}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </GlassCard>
+          </Animated.View>
+
+          {/* Legend */}
+          <Animated.View entering={FadeInDown.delay(200).springify()}>
+            <GlassCard style={styles.card}>
+              <Text style={styles.cardTitle}>Phase colors</Text>
+              <View style={styles.legendRow}>
+                {[
+                  ['Menstrual', COLORS.menstrual],
+                  ['Follicular', COLORS.follicular],
+                  ['Ovulation', COLORS.ovulation],
+                  ['Luteal', COLORS.luteal],
+                ].map(([label, color]) => (
+                  <View key={label} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: color as string }]} />
+                    <Text style={styles.legendText}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            </GlassCard>
+          </Animated.View>
+
+          {/* Selected day info */}
+          {selectedDateInfo && (
+            <Animated.View entering={FadeInDown.delay(280).springify()}>
+              <GlassCard style={styles.card}>
+                <Text style={styles.cardTitle}>
+                  {format(selectedDateInfo.date, 'EEEE, MMMM d')} · Day {selectedDateInfo.dayOfCycle}
                 </Text>
-              ))}
-            </View>
-          </Card>
-        )}
+                <View style={[styles.phaseBadge, { backgroundColor: selectedDateInfo.phase?.color }]}>
+                  <Text style={styles.phaseBadgeText}>{selectedDateInfo.phase?.name}</Text>
+                </View>
+                <Text style={styles.phaseDesc}>{selectedDateInfo.phase?.description}</Text>
 
-        <View style={{ height: SPACING.xl }} />
-      </ScrollView>
-    </SafeAreaView>
+                <View style={styles.recSection}>
+                  <Text style={styles.recTitle}>💡 Recommendations</Text>
+                  {getPhaseRecommendations((selectedDateInfo.phase?.name as string) || null).map(
+                    (rec, idx) => (
+                      <Text key={idx} style={styles.recItem}>• {rec}</Text>
+                    )
+                  )}
+                </View>
+              </GlassCard>
+            </Animated.View>
+          )}
+
+          <View style={{ height: scale(110) }} />
+        </ScrollView>
+      </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  header: {
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
+  container: { flex: 1, paddingHorizontal: SPACING.lg },
+  scroll: { paddingTop: SPACING.md },
+  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+
+  calendarCard: { marginBottom: SPACING.lg },
   monthNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
-  dayLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.md,
-  },
-  dayLabel: {
-    ...TYPOGRAPHY.caption,
-    flex: 1,
-    textAlign: 'center',
-    color: COLORS.textSecondary,
-  },
-  calendarGrid: {
-    marginBottom: SPACING.xl,
-  },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
-  },
-  dayCell: {
-    flex: 1,
-    aspectRatio: 1,
-    justifyContent: 'center',
+  navBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.6)',
   },
+  navArrow: { fontSize: 26, color: COLORS.primary, lineHeight: 30 },
+  monthLabel: { ...TYPOGRAPHY.h4, color: COLORS.text },
+
+  weekRow: { flexDirection: 'row', marginBottom: SPACING.sm },
+  weekday: { flex: 1, textAlign: 'center', ...TYPOGRAPHY.caption, color: COLORS.textSecondary },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  cell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   dayCircle: {
-    width: '85%',
+    width: '78%',
     aspectRatio: 1,
-    borderRadius: BORDER_RADIUS.full,
+    borderRadius: 999,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.divider,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  selectedDay: {},
-  selectedDayCircle: {
-    borderColor: COLORS.primary,
-  },
-  dayText: {
-    ...TYPOGRAPHY.body2,
-    color: COLORS.text,
-  },
-  selectedDayText: {
-    color: COLORS.white,
-    fontWeight: '600' as const,
-  },
-  otherMonthDay: {
-    opacity: 0.3,
-  },
-  otherMonthText: {
-    color: COLORS.textTertiary,
-  },
-  phaseIndicator: {
-    position: 'absolute',
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  legendCard: {
-    marginBottom: SPACING.lg,
-  },
-  legendItems: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-  },
-  infoCard: {
-    marginBottom: SPACING.lg,
-  },
-  phaseContainer: {
-    marginTop: SPACING.md,
-  },
+  dayText: { ...TYPOGRAPHY.body2, color: COLORS.text },
+  dayTextSelected: { color: COLORS.white, fontWeight: '700' },
+  dot: { position: 'absolute', bottom: scale(6), width: 5, height: 5, borderRadius: 2.5 },
+
+  card: { marginBottom: SPACING.lg },
+  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
+  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  legendDot: { width: 12, height: 12, borderRadius: 4 },
+  legendText: { ...TYPOGRAPHY.caption, color: COLORS.text },
+
   phaseBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  recommendationsSection: {
+  phaseBadgeText: { ...TYPOGRAPHY.caption, color: COLORS.white, fontWeight: '700' },
+  phaseDesc: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.md },
+  recSection: {
     marginTop: SPACING.lg,
     paddingTop: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
+  recTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.sm },
+  recItem: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.xs },
 });
 
 export default CalendarScreen;

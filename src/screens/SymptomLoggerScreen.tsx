@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Text,
-  SafeAreaView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
-import { COLORS, SPACING, TYPOGRAPHY, SYMPTOMS } from '../constants';
+import { useState } from 'react';
+import { View, ScrollView, StyleSheet, Text, Pressable, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { COLORS, SPACING, TYPOGRAPHY, SYMPTOMS, FLOW_INTENSITY } from '../constants';
+import { fontScale, scale } from '../utils/responsive';
 import { useAppStore } from '../store/appStore';
-import Card from '../components/Card';
-import Button from '../components/Button';
+import GradientBackground from '../components/GradientBackground';
+import GlassCard from '../components/GlassCard';
+import EmojiChip from '../components/EmojiChip';
+import Ripple from '../components/Ripple';
 import { v4 as uuidv4 } from 'uuid';
-import { SymptomType, Symptom } from '../types';
+import { SymptomType, Symptom, SymptomLog } from '../types';
 
 const SymptomLoggerScreen = ({ navigation }: any) => {
-  const { user, updatePeriodEntry, periodEntries } = useAppStore();
+  const { user, upsertSymptomLog } = useAppStore();
   const [selectedSymptoms, setSelectedSymptoms] = useState<Map<SymptomType, number>>(new Map());
   const [flowIntensity, setFlowIntensity] = useState<'light' | 'medium' | 'heavy'>('medium');
   const [notes] = useState<string>('');
@@ -24,178 +22,175 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
   const symptomKeys = Object.keys(SYMPTOMS) as SymptomType[];
 
   const toggleSymptom = (symptom: SymptomType, severity: number) => {
-    const newSymptoms = new Map(selectedSymptoms);
-    if (newSymptoms.has(symptom) && newSymptoms.get(symptom) === severity) {
-      newSymptoms.delete(symptom);
-    } else {
-      newSymptoms.set(symptom, severity);
-    }
-    setSelectedSymptoms(newSymptoms);
+    Haptics.selectionAsync().catch(() => {});
+    const next = new Map(selectedSymptoms);
+    if (next.has(symptom) && next.get(symptom) === severity) next.delete(symptom);
+    else next.set(symptom, severity);
+    setSelectedSymptoms(next);
   };
 
   const handleSave = () => {
     if (!user || selectedSymptoms.size === 0) {
-      Alert.alert('Error', 'Please select at least one symptom');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Alert.alert('Nothing selected', 'Please select at least one symptom');
       return;
     }
-
-    // Find or create today's entry
-    const today = new Date();
-    const todayEntry = periodEntries.find(
-      (e) =>
-        e.startDate.toDateString() === today.toDateString() ||
-        (e.endDate && e.endDate.toDateString() === today.toDateString())
-    );
-
-    const symptoms: Symptom[] = Array.from(selectedSymptoms.entries()).map(
-      ([type, severity]) => ({
-        id: uuidv4(),
-        type,
-        severity,
-        timestamp: new Date(),
-      })
-    );
-
-    if (todayEntry) {
-      updatePeriodEntry(todayEntry.id, {
-        symptoms: [...(todayEntry.symptoms || []), ...symptoms],
-        notes,
-      });
-    }
-
-    Alert.alert('Success', 'Symptoms logged!');
+    const now = new Date();
+    const symptoms: Symptom[] = Array.from(selectedSymptoms.entries()).map(([type, severity]) => ({
+      id: uuidv4(),
+      type,
+      severity,
+      timestamp: now,
+    }));
+    const log: SymptomLog = {
+      id: uuidv4(),
+      userId: user.id,
+      date: now,
+      symptoms,
+      flowIntensity,
+      notes,
+      createdAt: now,
+      updatedAt: now,
+    };
+    upsertSymptomLog(log);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Alert.alert('Saved', 'Your symptoms have been logged!');
     navigation.goBack();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={TYPOGRAPHY.h2}>📊 Log Symptoms</Text>
-          <Text style={[TYPOGRAPHY.body2, { color: COLORS.textSecondary }]}>
-            How are you feeling today?
-          </Text>
-        </View>
+    <GradientBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+            <Text style={styles.title}>Log Symptoms</Text>
+            <Text style={styles.subtitle}>How are you feeling today?</Text>
+          </Animated.View>
 
-        {/* Flow Intensity */}
-        <Card style={styles.card}>
-          <Text style={TYPOGRAPHY.h4}>Flow Intensity</Text>
-          <View style={styles.intensityContainer}>
-            {(['light', 'medium', 'heavy'] as const).map((intensity) => (
-              <TouchableOpacity
-                key={intensity}
-                style={[
-                  styles.intensityButton,
-                  flowIntensity === intensity && styles.intensityButtonActive,
-                ]}
-                onPress={() => setFlowIntensity(intensity)}
-              >
-                <Text style={TYPOGRAPHY.caption}>
-                  {intensity.charAt(0).toUpperCase() + intensity.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Card>
+          {/* Flow intensity */}
+          <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <GlassCard style={styles.card}>
+              <Text style={styles.cardTitle}>Flow intensity</Text>
+              <View style={styles.flowRow}>
+                {(['light', 'medium', 'heavy'] as const).map((intensity) => {
+                  const active = flowIntensity === intensity;
+                  return (
+                    <Ripple
+                      key={intensity}
+                      borderRadius={16}
+                      style={[styles.flowBtn, active && styles.flowBtnActive]}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setFlowIntensity(intensity);
+                      }}
+                    >
+                      <View style={styles.flowInner}>
+                        <Text style={styles.flowEmoji}>{FLOW_INTENSITY[intensity].emoji}</Text>
+                        <Text style={[styles.flowLabel, active && styles.flowLabelActive]}>
+                          {FLOW_INTENSITY[intensity].label}
+                        </Text>
+                      </View>
+                    </Ripple>
+                  );
+                })}
+              </View>
+            </GlassCard>
+          </Animated.View>
 
-        {/* Symptoms Grid */}
-        <Card style={styles.card}>
-          <Text style={TYPOGRAPHY.h4}>Select Symptoms</Text>
-          <View style={styles.symptomsGrid}>
-            {symptomKeys.map((symptom) => (
-              <TouchableOpacity
-                key={symptom}
-                style={[
-                  styles.symptomButton,
-                  selectedSymptoms.has(symptom) && styles.symptomButtonActive,
-                ]}
-                onPress={() => toggleSymptom(symptom, 3)}
-              >
-                <Text style={styles.symptomEmoji}>{SYMPTOMS[symptom].emoji}</Text>
-                <Text style={TYPOGRAPHY.caption}>{SYMPTOMS[symptom].label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Card>
+          {/* Symptoms grid */}
+          <Animated.View entering={FadeInDown.delay(180).springify()}>
+            <GlassCard style={styles.card}>
+              <Text style={styles.cardTitle}>Select symptoms</Text>
+              <View style={styles.grid}>
+                {symptomKeys.map((symptom) => {
+                  const active = selectedSymptoms.has(symptom);
+                  return (
+                    <Pressable
+                      key={symptom}
+                      style={[styles.symptomTile, active && styles.symptomTileActive]}
+                      onPress={() => toggleSymptom(symptom, 3)}
+                    >
+                      <EmojiChip
+                        emoji={SYMPTOMS[symptom].emoji}
+                        size={scale(44)}
+                        colors={active ? ['#FFFFFF', '#FFD9E6'] : ['#FFFFFF', '#F1F1F4']}
+                      />
+                      <Text style={[styles.symptomLabel, active && styles.symptomLabelActive]}>
+                        {SYMPTOMS[symptom].label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </GlassCard>
+          </Animated.View>
 
-        {/* Save Button */}
-        <View style={styles.buttonGroup}>
-          <Button
-            title="Save Symptoms"
-            onPress={handleSave}
-            variant="primary"
-            size="large"
-          />
-        </View>
+          {/* Save */}
+          <Animated.View entering={FadeInDown.delay(260).springify()}>
+            <Ripple onPress={handleSave} borderRadius={18} style={styles.saveBtn} rippleColor="rgba(255,255,255,0.4)">
+              <Text style={styles.saveText}>Save Symptoms</Text>
+            </Ripple>
+          </Animated.View>
 
-        <View style={{ height: SPACING.xl }} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: scale(110) }} />
+        </ScrollView>
+      </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, paddingHorizontal: SPACING.lg },
+  scroll: { paddingTop: SPACING.md },
+  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+
+  card: { marginBottom: SPACING.lg },
+  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
+
+  flowRow: { flexDirection: 'row', gap: SPACING.md },
+  flowBtn: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
   },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-  },
-  header: {
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  card: {
-    marginBottom: SPACING.lg,
-  },
-  intensityContainer: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  intensityButton: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.divider,
-    alignItems: 'center',
-  },
-  intensityButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  symptomsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  symptomButton: {
+  flowBtnActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
+  flowInner: { alignItems: 'center', paddingVertical: SPACING.md, gap: 4 },
+  flowEmoji: { fontSize: 18 },
+  flowLabel: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, fontWeight: '600' },
+  flowLabelActive: { color: COLORS.primaryDark },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, justifyContent: 'space-between' },
+  symptomTile: {
     width: '30%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.divider,
-    justifyContent: 'center',
+    aspectRatio: 0.95,
+    borderRadius: 18,
     alignItems: 'center',
-    padding: SPACING.sm,
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    paddingVertical: SPACING.sm,
   },
-  symptomButtonActive: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primary,
+  symptomTileActive: { backgroundColor: 'rgba(255,107,157,0.14)', borderColor: COLORS.primary },
+  symptomLabel: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textAlign: 'center' },
+  symptomLabelActive: { color: COLORS.primaryDark, fontWeight: '700' },
+
+  saveBtn: {
+    height: 56,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  symptomEmoji: {
-    fontSize: 20,
-    marginBottom: SPACING.xs,
-  },
-  buttonGroup: {
-    gap: SPACING.md,
-    marginTop: SPACING.xl,
-  },
+  saveText: { ...TYPOGRAPHY.button, color: COLORS.white, fontSize: 16 },
 });
 
 export default SymptomLoggerScreen;

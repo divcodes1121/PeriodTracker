@@ -77,7 +77,8 @@
             "buildToolsVersion": "35.0.0"
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

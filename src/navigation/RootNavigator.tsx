@@ -1,7 +1,8 @@
 import React from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { SymbolView } from 'expo-symbols';
+import { BlurView } from 'expo-blur';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -14,6 +15,24 @@ import AIInsightsScreen from '../screens/AIInsightsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 
 import { COLORS } from '../constants';
+
+const TAB_EMOJI: Record<string, string> = {
+  Home: '🏠',
+  Calendar: '🗓️',
+  Analytics: '📊',
+  Settings: '⚙️',
+};
+
+/** Emoji tab icon that lifts + brightens when focused. */
+function TabIcon({ route, focused }: { route: string; focused: boolean }) {
+  return (
+    <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+      <Text style={[styles.tabEmoji, focused && styles.tabEmojiActive]}>
+        {TAB_EMOJI[route] ?? '•'}
+      </Text>
+    </View>
+  );
+}
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -65,34 +84,28 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }: any) => ({
         headerShown: false,
-        tabBarIcon: ({ color, size }: any) => {
-          const iconNameByRoute: Record<string, any> = {
-            Home: { ios: 'house.fill', android: 'home', web: 'home' },
-            Calendar: {
-              ios: 'calendar',
-              android: 'calendar_month',
-              web: 'calendar_month',
-            },
-            Analytics: { ios: 'chart.bar.fill', android: 'bar_chart', web: 'bar_chart' },
-            Settings: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
-          };
-
-          return (
-            <SymbolView
-              name={iconNameByRoute[route.name] ?? iconNameByRoute.Home}
-              size={size}
-              tintColor={color}
-            />
-          );
-        },
+        tabBarIcon: ({ focused }: any) => <TabIcon route={route.name} focused={focused} />,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textTertiary,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
         tabBarStyle: {
-          backgroundColor: COLORS.white,
-          borderTopColor: COLORS.divider,
-          paddingBottom: 8,
-          paddingTop: 8,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: Platform.select({ ios: 88, default: 68 }),
+          paddingTop: 6,
+          borderTopWidth: 0,
+          backgroundColor: 'transparent',
+          elevation: 0,
         },
+        tabBarBackground: () => (
+          <BlurView
+            intensity={40}
+            tint="light"
+            style={[StyleSheet.absoluteFill, styles.tabBarBg]}
+          />
+        ),
       })}
     >
       <Tab.Screen name="Home" component={HomeStack} options={{ title: 'Home' }} />
@@ -102,6 +115,26 @@ function MainTabs() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarBg: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.7)',
+  },
+  tabIcon: {
+    width: 40,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
+  tabIconActive: {
+    backgroundColor: 'rgba(255,107,157,0.14)',
+  },
+  tabEmoji: { fontSize: 18, opacity: 0.6 },
+  tabEmojiActive: { fontSize: 20, opacity: 1 },
+});
 
 export function RootNavigator({ showOnboarding }: { showOnboarding: boolean }) {
   return (
