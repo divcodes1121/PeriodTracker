@@ -5,6 +5,8 @@ import { LineChart } from 'react-native-chart-kit';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
 import { fontScale, scale, CONTENT_MAX_WIDTH } from '../utils/responsive';
+import { useTheme } from '../theme/useTheme';
+import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import { generateCycleStats, daysUntil, getPredictedNextPeriod } from '../utils/cycleCalculations';
 import GradientBackground from '../components/GradientBackground';
@@ -13,6 +15,8 @@ import EmojiChip from '../components/EmojiChip';
 
 const AnalyticsScreen = () => {
   const { user, periodEntries, moodEntries } = useAppStore();
+  const { colors: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const { width } = useWindowDimensions();
   const chartWidth = Math.min(width, CONTENT_MAX_WIDTH) - SPACING.lg * 2 - SPACING.lg * 2;
 
@@ -102,7 +106,7 @@ const AnalyticsScreen = () => {
                       backgroundGradientFromOpacity: 0,
                       backgroundGradientToOpacity: 0,
                       color: (o = 1) => `rgba(255,107,157,${o})`,
-                      labelColor: () => COLORS.textSecondary,
+                      labelColor: () => c.textSecondary,
                       strokeWidth: 3,
                       propsForDots: { r: '5', strokeWidth: '2', stroke: COLORS.primaryDark },
                     }}
@@ -140,21 +144,22 @@ const AnalyticsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemePalette) =>
+  StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.lg },
   scroll: { paddingTop: SPACING.md },
   header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
 
   card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
-  muted: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 4 },
+  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
+  muted: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 4 },
 
   statsGrid: { flexDirection: 'row', justifyContent: 'space-around' },
   stat: { alignItems: 'center' },
-  statNum: { fontSize: fontScale(30), fontWeight: '800', color: COLORS.text },
-  statLabel: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 },
+  statNum: { fontSize: fontScale(30), fontWeight: '800', color: c.text },
+  statLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: 2 },
 
   alert: {
     marginTop: SPACING.lg,
@@ -164,12 +169,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: SPACING.md,
   },
-  alertText: { ...TYPOGRAPHY.body2, color: COLORS.text },
+  alertText: { ...TYPOGRAPHY.body2, color: c.text },
 
   chartWrap: { alignItems: 'center', overflow: 'hidden' },
 
   predRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  predMain: { ...TYPOGRAPHY.body1, fontWeight: '700', color: COLORS.text },
+  predMain: { ...TYPOGRAPHY.body1, fontWeight: '700', color: c.text },
 });
 
 export default AnalyticsScreen;

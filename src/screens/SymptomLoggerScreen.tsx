@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Text, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY, SYMPTOMS, FLOW_INTENSITY } from '../constants';
 import { fontScale, scale } from '../utils/responsive';
+import { useTheme } from '../theme/useTheme';
+import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
@@ -15,6 +17,8 @@ import { SymptomType, Symptom, SymptomLog } from '../types';
 
 const SymptomLoggerScreen = ({ navigation }: any) => {
   const { user, upsertSymptomLog } = useAppStore();
+  const { colors: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [selectedSymptoms, setSelectedSymptoms] = useState<Map<SymptomType, number>>(new Map());
   const [flowIntensity, setFlowIntensity] = useState<'light' | 'medium' | 'heavy'>('medium');
   const [notes] = useState<string>('');
@@ -139,27 +143,28 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemePalette) =>
+  StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.lg },
   scroll: { paddingTop: SPACING.md },
   header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
 
   card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
+  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
 
   flowRow: { flexDirection: 'row', gap: SPACING.md },
   flowBtn: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: c.pillBg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
+    borderColor: c.pillBorder,
   },
   flowBtnActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
   flowInner: { alignItems: 'center', paddingVertical: SPACING.md, gap: 4 },
   flowEmoji: { fontSize: 18 },
-  flowLabel: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, fontWeight: '600' },
+  flowLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, fontWeight: '600' },
   flowLabelActive: { color: COLORS.primaryDark },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, justifyContent: 'space-between' },
@@ -170,13 +175,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: c.pillBg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
+    borderColor: c.pillBorder,
     paddingVertical: SPACING.sm,
   },
   symptomTileActive: { backgroundColor: 'rgba(255,107,157,0.14)', borderColor: COLORS.primary },
-  symptomLabel: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, textAlign: 'center' },
+  symptomLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, textAlign: 'center' },
   symptomLabelActive: { color: COLORS.primaryDark, fontWeight: '700' },
 
   saveBtn: {

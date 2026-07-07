@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Text, Switch, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
 import { fontScale, scale } from '../utils/responsive';
+import { useTheme } from '../theme/useTheme';
+import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
@@ -19,6 +21,8 @@ const SettingsScreen = ({ navigation }: any) => {
     setEnableAIInsights,
     clearStore,
   } = useAppStore();
+  const { colors: c, isDark, toggle } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(enableNotifications);
   const [aiEnabled, setAiEnabled] = useState(enableAIInsights);
 
@@ -81,7 +85,7 @@ const SettingsScreen = ({ navigation }: any) => {
                   value={notificationsEnabled}
                   onValueChange={onNotif}
                   trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-                  thumbColor={notificationsEnabled ? COLORS.primary : COLORS.textTertiary}
+                  thumbColor={notificationsEnabled ? COLORS.primary : c.textTertiary}
                 />
               </View>
               <View style={styles.divider} />
@@ -97,7 +101,23 @@ const SettingsScreen = ({ navigation }: any) => {
                   value={aiEnabled}
                   onValueChange={onAI}
                   trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-                  thumbColor={aiEnabled ? COLORS.primary : COLORS.textTertiary}
+                  thumbColor={aiEnabled ? COLORS.primary : c.textTertiary}
+                />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Text style={styles.settingEmoji}>{isDark ? '🌙' : '☀️'}</Text>
+                  <View>
+                    <Text style={styles.settingTitle}>Dark Mode</Text>
+                    <Text style={styles.settingDesc}>Switch between light & dark themes</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggle}
+                  trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
+                  thumbColor={isDark ? COLORS.primary : c.textTertiary}
                 />
               </View>
             </GlassCard>
@@ -148,18 +168,19 @@ const SettingsScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemePalette) =>
+  StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.lg },
   scroll: { paddingTop: SPACING.md },
   header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
 
   card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
+  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
 
   profile: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  profileName: { ...TYPOGRAPHY.h4, color: COLORS.text },
-  profileSub: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+  profileName: { ...TYPOGRAPHY.h4, color: c.text },
+  profileSub: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
 
   settingRow: {
     flexDirection: 'row',
@@ -169,20 +190,20 @@ const styles = StyleSheet.create({
   },
   settingLabel: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1, paddingRight: SPACING.md },
   settingEmoji: { fontSize: 22 },
-  settingTitle: { ...TYPOGRAPHY.body1, fontWeight: '600', color: COLORS.text },
-  settingDesc: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: 2 },
+  settingTitle: { ...TYPOGRAPHY.body1, fontWeight: '600', color: c.text },
+  settingDesc: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: 2 },
 
-  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.06)', marginVertical: SPACING.md },
+  divider: { height: 1, backgroundColor: c.divider, marginVertical: SPACING.md },
 
   linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.xs },
-  linkLabel: { ...TYPOGRAPHY.body1, color: COLORS.text },
-  linkHint: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary },
+  linkLabel: { ...TYPOGRAPHY.body1, color: c.text },
+  linkHint: { ...TYPOGRAPHY.caption, color: c.textSecondary },
 
   logout: {
     height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: c.pillBg,
     borderWidth: 1.5,
     borderColor: COLORS.error,
   },

@@ -10,6 +10,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, isValid, parseISO } from 'date-fns';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants';
+import { useTheme } from '../theme/useTheme';
 
 interface DateFieldProps {
   label?: string;
@@ -34,8 +35,10 @@ const DateField: React.FC<DateFieldProps> = ({
   maximumDate,
   minimumDate,
 }) => {
+  const { colors: c } = useTheme();
   const [show, setShow] = useState(false);
   const [webText, setWebText] = useState(value ? format(value, 'yyyy-MM-dd') : '');
+  const fieldStyle = { backgroundColor: c.inputBg, borderWidth: 1, borderColor: c.inputBorder };
 
   const handleNativeChange = (_event: unknown, selected?: Date) => {
     // Android closes on selection; iOS stays open until the user taps Done.
@@ -52,12 +55,13 @@ const DateField: React.FC<DateFieldProps> = ({
   if (Platform.OS === 'web') {
     return (
       <View style={styles.wrapper}>
-        {label ? <Text style={styles.label}>{label}</Text> : null}
+        {label ? <Text style={[styles.label, { color: c.textSecondary }]}>{label}</Text> : null}
         <TextInput
           value={webText}
           onChangeText={handleWebChange}
           placeholder="YYYY-MM-DD"
-          style={styles.input}
+          placeholderTextColor={c.textTertiary}
+          style={[styles.input, fieldStyle, { color: c.text }]}
           autoCapitalize="none"
         />
       </View>
@@ -68,11 +72,11 @@ const DateField: React.FC<DateFieldProps> = ({
     <View style={styles.wrapper}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TouchableOpacity
-        style={styles.input}
+        style={[styles.input, fieldStyle]}
         onPress={() => setShow(true)}
         activeOpacity={0.7}
       >
-        <Text style={value ? styles.valueText : styles.placeholderText}>
+        <Text style={[value ? styles.valueText : styles.placeholderText, { color: value ? c.text : c.textTertiary }]}>
           {value ? format(value, 'MMMM d, yyyy') : placeholder}
         </Text>
       </TouchableOpacity>

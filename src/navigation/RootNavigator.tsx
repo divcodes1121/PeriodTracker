@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import { useTheme } from '../theme/useTheme';
+import EmojiChip from '../components/EmojiChip';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -23,14 +25,24 @@ const TAB_EMOJI: Record<string, string> = {
   Settings: '⚙️',
 };
 
-/** Emoji tab icon that lifts + brightens when focused. */
+/** Water-bubble tab icon that bursts when its tab becomes active. */
 function TabIcon({ route, focused }: { route: string; focused: boolean }) {
+  const [trigger, setTrigger] = useState(0);
+  const wasFocused = useRef(focused);
+
+  useEffect(() => {
+    if (focused && !wasFocused.current) setTrigger((t) => t + 1);
+    wasFocused.current = focused;
+  }, [focused]);
+
   return (
-    <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
-      <Text style={[styles.tabEmoji, focused && styles.tabEmojiActive]}>
-        {TAB_EMOJI[route] ?? '•'}
-      </Text>
-    </View>
+    <EmojiChip
+      emoji={TAB_EMOJI[route] ?? '•'}
+      size={34}
+      colors={focused ? ['#FFFFFF', '#FFD9E6'] : ['#FFFFFF', '#ECE6F0']}
+      trigger={trigger}
+      style={{ opacity: focused ? 1 : 0.5 }}
+    />
   );
 }
 
@@ -80,13 +92,14 @@ function SettingsStack() {
 }
 
 function MainTabs() {
+  const { colors } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={({ route }: any) => ({
         headerShown: false,
         tabBarIcon: ({ focused }: any) => <TabIcon route={route.name} focused={focused} />,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textTertiary,
+        tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
         tabBarStyle: {
           position: 'absolute',
@@ -102,8 +115,11 @@ function MainTabs() {
         tabBarBackground: () => (
           <BlurView
             intensity={40}
-            tint="light"
-            style={[StyleSheet.absoluteFill, styles.tabBarBg]}
+            tint={colors.blurTint}
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: colors.tabBarBg, borderTopWidth: 1, borderTopColor: colors.tabBarBorder },
+            ]}
           />
         ),
       })}
@@ -116,25 +132,6 @@ function MainTabs() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabBarBg: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.7)',
-  },
-  tabIcon: {
-    width: 40,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-  },
-  tabIconActive: {
-    backgroundColor: 'rgba(255,107,157,0.14)',
-  },
-  tabEmoji: { fontSize: 18, opacity: 0.6 },
-  tabEmojiActive: { fontSize: 20, opacity: 1 },
-});
 
 export function RootNavigator({ showOnboarding }: { showOnboarding: boolean }) {
   return (

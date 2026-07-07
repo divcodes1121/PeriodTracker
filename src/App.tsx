@@ -1,13 +1,18 @@
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from './store/appStore';
 import { RootNavigator } from './navigation/RootNavigator';
+import { navigationRef } from './navigation/navRef';
+import { useNavHistory } from './navigation/useNavHistory';
+import NavControls from './components/NavControls';
 import { COLORS } from './constants';
 
 export default function App() {
-  const { showOnboarding, user, hasHydrated } = useAppStore();
+  const { showOnboarding, user, hasHydrated, theme } = useAppStore();
+  const recordHistory = useNavHistory((s) => s.record);
 
   // Wait for persisted state to load from disk before deciding which
   // navigator to show. Otherwise returning users briefly see onboarding.
@@ -21,7 +26,11 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <NavigationContainer
+        ref={navigationRef}
+        onReady={() => recordHistory(navigationRef.getRootState())}
+        onStateChange={(state) => recordHistory(state)}
         theme={{
           dark: false,
           colors: {
@@ -44,7 +53,9 @@ export default function App() {
       >
         <RootNavigator showOnboarding={showOnboarding || !user} />
       </NavigationContainer>
-      <StatusBar />
+      {!showOnboarding && user && <NavControls />}
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

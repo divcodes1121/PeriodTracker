@@ -15,6 +15,8 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants';
 import { fontScale, scale } from '../utils/responsive';
+import { useTheme } from '../theme/useTheme';
+import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import { getCyclePhase, getPhaseRecommendations } from '../utils/cycleCalculations';
 import GradientBackground from '../components/GradientBackground';
@@ -25,6 +27,8 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const CalendarScreen = () => {
   const { user } = useAppStore();
+  const { colors: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
@@ -49,8 +53,8 @@ const CalendarScreen = () => {
 
   const getPhaseColorForDate = (date: Date): string => {
     const dayOfCycle = getCycleDayForDate(date);
-    if (!dayOfCycle) return COLORS.textTertiary;
-    return getCyclePhase(dayOfCycle)?.color || COLORS.textTertiary;
+    if (!dayOfCycle) return c.textTertiary;
+    return getCyclePhase(dayOfCycle)?.color || c.textTertiary;
   };
 
   const selectedDateInfo = useMemo(() => {
@@ -191,12 +195,13 @@ const CalendarScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemePalette) =>
+  StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.lg },
   scroll: { paddingTop: SPACING.md },
   header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
 
   calendarCard: { marginBottom: SPACING.lg },
   monthNav: {
@@ -210,13 +215,13 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: c.pillBg,
   },
   navArrow: { fontSize: 26, color: COLORS.primary, lineHeight: 30 },
-  monthLabel: { ...TYPOGRAPHY.h4, color: COLORS.text },
+  monthLabel: { ...TYPOGRAPHY.h4, color: c.text },
 
   weekRow: { flexDirection: 'row', marginBottom: SPACING.sm },
-  weekday: { flex: 1, textAlign: 'center', ...TYPOGRAPHY.caption, color: COLORS.textSecondary },
+  weekday: { flex: 1, textAlign: 'center', ...TYPOGRAPHY.caption, color: c.textSecondary },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
@@ -229,16 +234,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  dayText: { ...TYPOGRAPHY.body2, color: COLORS.text },
+  dayText: { ...TYPOGRAPHY.body2, color: c.text },
   dayTextSelected: { color: COLORS.white, fontWeight: '700' },
   dot: { position: 'absolute', bottom: scale(6), width: 5, height: 5, borderRadius: 2.5 },
 
   card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.md },
+  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   legendDot: { width: 12, height: 12, borderRadius: 4 },
-  legendText: { ...TYPOGRAPHY.caption, color: COLORS.text },
+  legendText: { ...TYPOGRAPHY.caption, color: c.text },
 
   phaseBadge: {
     alignSelf: 'flex-start',
@@ -247,15 +252,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   phaseBadgeText: { ...TYPOGRAPHY.caption, color: COLORS.white, fontWeight: '700' },
-  phaseDesc: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.md },
+  phaseDesc: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: SPACING.md },
   recSection: {
     marginTop: SPACING.lg,
     paddingTop: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: c.divider,
   },
-  recTitle: { ...TYPOGRAPHY.h4, color: COLORS.text, marginBottom: SPACING.sm },
-  recItem: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  recTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.sm },
+  recItem: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: SPACING.xs },
 });
 
 export default CalendarScreen;

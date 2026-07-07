@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, GRADIENT } from '../constants';
 import { fontScale, scale } from '../utils/responsive';
+import { useTheme } from '../theme/useTheme';
+import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
@@ -65,6 +67,8 @@ const AIInsightsScreen = () => {
     healthMetrics,
     enableAIInsights,
   } = useAppStore();
+  const { colors: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   const insights = useMemo<DisplayInsight[]>(() => {
     const savedInsights = aiInsights.map((insight) => ({
@@ -284,12 +288,13 @@ const AIInsightsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemePalette) =>
+  StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.lg },
   scroll: { paddingTop: SPACING.md },
   header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: COLORS.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: 2 },
+  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
+  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
 
   heroCard: {
     borderRadius: BORDER_RADIUS.xl,
@@ -307,8 +312,8 @@ const styles = StyleSheet.create({
   heroBody: { ...TYPOGRAPHY.body2, color: COLORS.white, marginTop: SPACING.sm, opacity: 0.95 },
 
   card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: COLORS.text },
-  muted: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.sm },
+  cardTitle: { ...TYPOGRAPHY.h4, color: c.text },
+  muted: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: SPACING.sm },
 
   insightHeader: {
     flexDirection: 'row',
@@ -328,10 +333,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.full,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: c.pillBg,
   },
-  insightTitle: { ...TYPOGRAPHY.h4, color: COLORS.text },
-  insightBody: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, marginTop: SPACING.sm, lineHeight: 20 },
+  insightTitle: { ...TYPOGRAPHY.h4, color: c.text },
+  insightBody: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: SPACING.sm, lineHeight: 20 },
 });
 
 export default AIInsightsScreen;

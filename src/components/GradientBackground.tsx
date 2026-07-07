@@ -10,8 +10,8 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
-import { AURORA } from '../constants';
 import { CONTENT_MAX_WIDTH } from '../utils/responsive';
+import { useTheme } from '../theme/useTheme';
 
 /* ---------------------------------------------------------------- Orb ---- */
 
@@ -113,7 +113,15 @@ interface DropletProps {
 }
 
 /** A small bubble that rises and fades, looping. */
-const Droplet: React.FC<DropletProps> = ({ x, size, delay, duration, rise }) => {
+const Droplet: React.FC<DropletProps & { color: string; borderColor: string }> = ({
+  x,
+  size,
+  delay,
+  duration,
+  rise,
+  color,
+  borderColor,
+}) => {
   const p = useSharedValue(0);
 
   useEffect(() => {
@@ -130,7 +138,7 @@ const Droplet: React.FC<DropletProps> = ({ x, size, delay, duration, rise }) => 
       style={[
         styles.absolute,
         { bottom: 0, left: x, width: size, height: size, borderRadius: size / 2 },
-        styles.droplet,
+        { backgroundColor: color, borderWidth: 1, borderColor },
         animatedStyle,
       ]}
     />
@@ -147,11 +155,12 @@ interface GradientBackgroundProps {
 
 const GradientBackground: React.FC<GradientBackgroundProps> = ({ children, style, waves = true }) => {
   const { width, height } = useWindowDimensions();
+  const { colors } = useTheme();
 
   return (
     <View style={[styles.container, style]}>
       <LinearGradient
-        colors={AURORA.backdrop as any}
+        colors={colors.auroraBackdrop as any}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -159,21 +168,21 @@ const GradientBackground: React.FC<GradientBackgroundProps> = ({ children, style
 
       {/* Depth: drifting glow orbs */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Orb size={width * 0.95} color={AURORA.orbs[0]} top={-70} left={-90} delay={0} travel={44} duration={6000} />
-        <Orb size={width * 0.85} color={AURORA.orbs[1]} top={height * 0.28} left={width * 0.45} delay={800} travel={58} duration={7500} />
-        <Orb size={width * 0.75} color={AURORA.orbs[2]} top={height * 0.6} left={-50} delay={1600} travel={48} duration={6800} />
+        <Orb size={width * 0.95} color={colors.auroraOrbs[0]} top={-70} left={-90} delay={0} travel={44} duration={6000} />
+        <Orb size={width * 0.85} color={colors.auroraOrbs[1]} top={height * 0.28} left={width * 0.45} delay={800} travel={58} duration={7500} />
+        <Orb size={width * 0.75} color={colors.auroraOrbs[2]} top={height * 0.6} left={-50} delay={1600} travel={48} duration={6800} />
 
         {/* Rising droplets */}
-        <Droplet x={width * 0.2} size={10} delay={0} duration={5200} rise={height * 0.5} />
-        <Droplet x={width * 0.5} size={7} delay={1400} duration={6000} rise={height * 0.55} />
-        <Droplet x={width * 0.75} size={12} delay={2600} duration={5600} rise={height * 0.5} />
-        <Droplet x={width * 0.88} size={6} delay={800} duration={4800} rise={height * 0.45} />
+        <Droplet x={width * 0.2} size={10} delay={0} duration={5200} rise={height * 0.5} color={colors.droplet} borderColor={colors.dropletBorder} />
+        <Droplet x={width * 0.5} size={7} delay={1400} duration={6000} rise={height * 0.55} color={colors.droplet} borderColor={colors.dropletBorder} />
+        <Droplet x={width * 0.75} size={12} delay={2600} duration={5600} rise={height * 0.5} color={colors.droplet} borderColor={colors.dropletBorder} />
+        <Droplet x={width * 0.88} size={6} delay={800} duration={4800} rise={height * 0.45} color={colors.droplet} borderColor={colors.dropletBorder} />
 
         {/* Flowing water waves at the bottom */}
         {waves && (
           <>
-            <Wave width={width} color="rgba(155,89,182,0.10)" bottom={0} height={120} duration={12000} opacity={1} />
-            <Wave width={width} color="rgba(255,107,157,0.12)" bottom={0} height={90} duration={9000} opacity={1} reverse />
+            <Wave width={width} color={colors.waveA} bottom={0} height={120} duration={12000} opacity={1} />
+            <Wave width={width} color={colors.waveB} bottom={0} height={90} duration={9000} opacity={1} reverse />
           </>
         )}
       </View>
@@ -189,13 +198,9 @@ const GradientBackground: React.FC<GradientBackgroundProps> = ({ children, style
 const styles = StyleSheet.create({
   container: { flex: 1 },
   absolute: { position: 'absolute' },
-  droplet: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
-  },
   centerColumn: { flex: 1, alignItems: 'center' },
-  column: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH },
+  // Reserve a slim top band for the floating back/forward controls.
+  column: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH, paddingTop: 44 },
 });
 
 export default GradientBackground;

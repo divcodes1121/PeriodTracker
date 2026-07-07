@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -17,6 +17,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { subYears } from 'date-fns';
 import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, ONBOARDING_STEPS } from '../constants';
+import { useTheme } from '../theme/useTheme';
+import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
@@ -29,6 +31,8 @@ const STEP_ART = ['🌸', '👤', '🔄', '🩸', '🔒', '🚀'];
 
 const OnboardingScreen = () => {
   const { setUser, setShowOnboarding } = useAppStore();
+  const { colors: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
@@ -130,7 +134,7 @@ const OnboardingScreen = () => {
             <Text style={styles.title}>About you</Text>
             <TextInput
               placeholder="Your name"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={c.textTertiary}
               value={name}
               onChangeText={setName}
               style={styles.input}
@@ -152,7 +156,7 @@ const OnboardingScreen = () => {
             <Text style={styles.fieldLabel}>Average cycle length</Text>
             <TextInput
               placeholder="e.g. 28"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={c.textTertiary}
               value={cycleLength}
               onChangeText={setCycleLength}
               keyboardType="numeric"
@@ -161,7 +165,7 @@ const OnboardingScreen = () => {
             <Text style={[styles.fieldLabel, { marginTop: SPACING.md }]}>Period length</Text>
             <TextInput
               placeholder="e.g. 5"
-              placeholderTextColor={COLORS.textTertiary}
+              placeholderTextColor={c.textTertiary}
               value={periodLength}
               onChangeText={setPeriodLength}
               keyboardType="numeric"
@@ -263,7 +267,8 @@ const OnboardingScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemePalette) =>
+  StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SPACING.lg },
   progressRow: {
     flexDirection: 'row',
@@ -275,7 +280,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.12)',
+    backgroundColor: c.trackNeutral,
   },
   dotActive: { width: 26, backgroundColor: COLORS.primary },
   dotDone: { backgroundColor: COLORS.primaryLight },
@@ -285,21 +290,21 @@ const styles = StyleSheet.create({
   art: { fontSize: 72 },
 
   card: { padding: SPACING.xl },
-  title: { ...TYPOGRAPHY.h1, color: COLORS.text, marginBottom: SPACING.md },
-  body: { ...TYPOGRAPHY.body1, color: COLORS.textSecondary, lineHeight: 26 },
-  fieldLabel: { ...TYPOGRAPHY.body2, color: COLORS.text, fontWeight: '600', marginBottom: SPACING.xs },
+  title: { ...TYPOGRAPHY.h1, color: c.text, marginBottom: SPACING.md },
+  body: { ...TYPOGRAPHY.body1, color: c.textSecondary, lineHeight: 26 },
+  fieldLabel: { ...TYPOGRAPHY.body2, color: c.text, fontWeight: '600', marginBottom: SPACING.xs },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: c.inputBg,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: c.inputBorder,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     marginTop: SPACING.sm,
     ...TYPOGRAPHY.body1,
-    color: COLORS.text,
+    color: c.text,
   },
-  hint: { ...TYPOGRAPHY.caption, color: COLORS.textSecondary, marginTop: SPACING.md, lineHeight: 18 },
+  hint: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: SPACING.md, lineHeight: 18 },
 
   buttonRow: { flexDirection: 'row', gap: SPACING.md, paddingVertical: SPACING.lg },
   btn: {
@@ -319,11 +324,11 @@ const styles = StyleSheet.create({
   },
   btnPrimaryText: { ...TYPOGRAPHY.button, color: COLORS.white, fontSize: 16 },
   btnGhost: {
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: c.pillBg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderColor: c.pillBorder,
   },
-  btnGhostText: { ...TYPOGRAPHY.button, color: COLORS.text, fontSize: 16 },
+  btnGhostText: { ...TYPOGRAPHY.button, color: c.text, fontSize: 16 },
 });
 
 export default OnboardingScreen;
