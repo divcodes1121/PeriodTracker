@@ -12,8 +12,8 @@ AI-powered menstrual health app. Expo / React Native, runs on iOS, Android, and 
 ## Run & verify
 - **Web dev server:** `EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1 npx expo start --web --port 8082`
   (the flag is required — see Gotchas). Force a bundle compile: `curl .../index.bundle?platform=web&dev=true`.
-- **Typecheck:** `npm run typecheck` (`tsc --noEmit`; ignore pre-existing `expo-image` errors, see Gotchas). Test files are excluded from this config — they carry Jest globals the Expo `types` list doesn't include.
-- **Unit tests:** `npm test` (Jest + ts-jest, `testEnvironment: node`, **not** `jest-expo`). Scoped to `src/**/*.test.ts` — the pure logic in `src/utils` is RN-free, so it runs without native mocks via `tsconfig.jest.json`. Covers `cycleCalculations.ts`. To test components later, add a separate `jest-expo` project.
+- **Typecheck:** `npm run typecheck` (`tsc --noEmit`) — now **fully clean** (the old `expo-image` errors are gone). Test files are excluded from this config — they carry Jest globals the Expo `types` list doesn't include.
+- **Unit tests:** `npm test` (Jest + ts-jest, `testEnvironment: node`, **not** `jest-expo`). Scoped to `src/**/*.test.ts` — the RN-free logic runs without native mocks via `tsconfig.jest.json`. Covers `cycleCalculations.ts` and **`theme/contrast.test.ts`** (WCAG AA audit of the palette — keep it green when touching colors). To test components later, add a separate `jest-expo` project.
 - **Visual check without a device:** headless Chrome screenshot, or `puppeteer-core` (installed `--no-save`) seeding `localStorage['period-tracker-store']` to skip onboarding. Chrome at `C:/Program Files/Google/Chrome/Application/chrome.exe`. Web is a faithful *logic* preview; animations/haptics only feel right on device.
 
 ## Architecture
@@ -34,36 +34,40 @@ Single Zustand store, **persisted** via `persist` + `createJSONStorage(AsyncStor
 
 ### Navigation — `src/navigation/`
 - `RootNavigator.tsx`: root stack swaps `Onboarding` ↔ `MainTabs` on `showOnboarding || !user`. Tabs (Home/Calendar/Analytics/Settings) each wrap their own native stack; `PeriodLogger`, `SymptomLogger`, `MoodTracker`, `AIInsights` live only in the Home stack (reached from Home's primary "Log Period" CTA and the quick-action grid).
-- Tab bar: frosted `BlurView`, theme-aware; icons are **`EmojiChip` water-bubbles** that burst when their tab becomes active.
-- **Browser-style back/forward:** `navRef.ts` (nav container ref) + `useNavHistory.ts` (separate Zustand store). It snapshots the full nav state on each distinct page and keeps a pointer; back/forward restore snapshots, a new nav truncates forward entries. Wired in `App.tsx` via `onReady`/`onStateChange`. Rendered by `NavControls.tsx`.
+- Tab bar: frosted `BlurView` (the one place glass is still used — content scrolls under it), theme-aware; icons are stroke **`Icon`** glyphs that spring + thicken stroke on activation.
+- **Browser-style back/forward:** `navRef.ts` (nav container ref) + `useNavHistory.ts` (separate Zustand store). It snapshots the full nav state on each distinct page and keeps a pointer; back/forward restore snapshots (`goBack`/`goForward`), a new nav truncates forward entries. Wired in `App.tsx` via `onReady`/`onStateChange`. Rendered by `NavControls.tsx` (chevron `Icon`s on a soft fill, top-left).
 
 ### Theme — `src/theme/`
-- `palette.ts`: `lightPalette` / `darkPalette` (`ThemePalette` type). Brand colors (primary, phase colors) stay in `constants/index.ts` `COLORS`; **only surfaces/text/atmosphere change per theme**.
-- `useTheme()` reads `theme` from the store (reactive → whole UI re-themes on toggle). Returns `{ colors, isDark, toggle, setTheme }`.
-- Toggle lives top-right on Home (`ThemeToggle`) and as a row in Settings. `StatusBar` adapts. App is wrapped in `SafeAreaProvider` (required by the safe-area inset hook).
+- `palette.ts`: `lightPalette` / `darkPalette` (`ThemePalette` type). Editorial neutral system — `bg` (warm off-white `#FCFBFA`), `bgSecondary`, `card` (pure white), `text`/`textSecondary`/`textTertiary`, `fill`/`separator`, chrome. Brand/phase colors stay in `constants` `COLORS`.
+- `tokens.ts`: **the design language.** `TYPE` (SF Pro Display scale — `display`→`overline`, optical tracking), `SPACE` (4-based, generous), `RADIUS`, `SHADOW`/`SHADOW_DARK` (wide soft warm elevation — depth comes from shadow, **never borders**), `MOTION` (springs + durations + `stagger`), `FONT`, `TABULAR`, `MIN_TAP` (44).
+- `useTheme()` reads `theme` from the store (reactive → whole UI re-themes). Returns `{ colors, isDark, toggle, setTheme }`. `App.tsx` derives the `NavigationContainer` theme from the palette (no longer hardcoded light).
+- **`usePhaseColor()` / `phaseInk()` / `inkFor()`** — accessibility-critical. Brand pastels are ~2–3:1 on white, so: `usePhaseColor` returns the surface-safe hue (deep in light via `PHASE_DEEP`, pastel in dark); `phaseInk` returns `PHASE_INK` for white-on-fill (selected calendar day); `inkFor(accent)` darkens a pastel for an icon on its own `${accent}1F` tint. Contrast is enforced by `theme/contrast.test.ts`.
 
-## Design system — "Aurora Glass"
-Tokens in `src/constants/index.ts`: `AURORA`, `PHASE_GRADIENTS`, `GLASS`. Reusable components in `src/components/`:
-- **`GradientBackground`** — animated aurora gradient + drifting glow orbs (SVG radial) + flowing waves + rising droplets; theme-aware; centers content at `CONTENT_MAX_WIDTH` with a **44px top band reserved** for the nav arrows.
-- **`GlassCard`** — frosted `BlurView` + translucent tint + bright top-edge highlight. **No drop shadow** (removed on user request; border defines the edge).
-- **`CycleRing`** — animated gradient SVG progress ring (hero on Home).
-- **`EmojiChip`** — translucent **water-bubble** wrapping an emoji (gloss highlight, sparkle, white under-glow only — no dark shadow). Taps do a **bubble burst** (squash → ring shockwave → droplets scatter → spring back) + haptic. Props: `onPress`, `trigger` (external burst), `disabled`, `float`. When it navigates, nav is delayed ~240ms so the burst is seen. **Used for every icon in the app.**
-- **`Ripple`** — material touch-ripple + spring press + haptic (quick-action tiles, buttons).
-- **`ThemeToggle`**, **`NavControls`** (thin white SVG line-arrows, top-left, disabled at history ends), **`DateField`** (native picker on device, `YYYY-MM-DD` text fallback on web).
-- **`src/utils/responsive.ts`**: `scale()`, `fontScale()`, `CONTENT_MAX_WIDTH` — clamp-scaled for phone→tablet→web.
+## Design system — "Editorial"
+Premium, calm, ~80% neutral; color is an accent. No heavy gradients, minimal glass, stroke icons (never emoji), large whitespace, soft depth. Tokens in `theme/tokens.ts` + `theme/palette.ts`. Reusable components in `src/components/`:
+- **`Screen`** — page scaffold: owns canvas color, `CONTENT_MAX_WIDTH` column, edge gutter, large editorial title/subtitle, and the bottom `tabSafe` inset. Every screen renders inside one.
+- **`Surface`** — the default card (white, soft shadow, no border). `onPress` makes it a spring-pressed haptic button. Replaces `GlassCard`.
+- **`Text`** — typed primitive; pick a `variant` + `tone`, never hand-roll font sizes. `tabular` for numbers.
+- **`Icon`** — SF Symbols-style stroke set on a 24-grid, uniform 1.75 weight, `weight` multiplier. **The only icon source.**
+- **`CycleTimeline`** — hero ring: neutral track + faint phase arcs from `getPhaseRanges` (drawn from the cycle math, can't drift) + animated gradient sweep + marker + breathing halo.
+- **`Button`** (restrained sizes, spring press), **`Pill`** (tactile selectable, color-crossfade), **`Toggle`** (iOS switch, hand-built), **`Severity`** (gesture 1–5 slider, haptic per step), **`Stepper`** (segmented scale, sliding thumb), **`MoodFace`** (drawn expressive face), **`Row`** (grouped-list row), **`TextField`**/**`DateField`**.
+- **`InsightCard`** (AI hero: tone badge, confidence meter, sparkline evidence, "why this" disclosure, ambient glow), **`MetricCard`** (one big number, quiet label), **`BarChart`** + **`Sparkline`** (Apple Health-style, hand-built, honest scales), **`AnimatedNumber`** (UI-thread count-up), **`OnboardingArt`** (abstract geometric SVG per step).
+- **`Reveal`** — the one staggered entrance (index × `MOTION.stagger`); screens use it instead of hand-picked delays.
+- **`src/utils/responsive.ts`**: `scale()`, `fontScale()`, `CONTENT_MAX_WIDTH`.
 
-### Screen style convention
-Theme-aware screens build styles with a factory: `const styles = useMemo(() => makeStyles(c), [c])` where `const makeStyles = (c: ThemePalette) => StyleSheet.create({...})`. Use `c.text/textSecondary/...` for text & surfaces, `COLORS.*` for brand/phase colors. All screens redesigned in Aurora Glass, light + dark.
+### Screen convention
+Screens are functional, theme-read via `useTheme()`; static styles in a module-level `StyleSheet.create`, dynamic bits inline from `c.*`/tokens. Wrap in `<Screen>`, group content in `<Surface>`, stagger with `<Reveal index>`. Editorial copy: **fewer words** ("Luteal · Day 22", not "Current Menstrual Cycle Phase"). Old per-screen `makeStyles(c)` factories are gone.
 
 ## Environment gotchas (fix before EAS release)
 1. **Node 21.3.0 is too old.** RN 0.85 wants Node 20.19+/22.13+/24.3+. It already breaks Metro's error reporter (`util.styleText is not a function`) so real bundling errors show garbled. **Install Node 22 LTS.**
 2. **`EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1` is permanent, not a workaround.** SDK 56 flags `expo-router` as incompatible with `@react-navigation` (which we use). `expo-router` is **not** a direct dependency and can't be uninstalled — `npm ls expo-router` shows it arriving transitively via `expo` → `@expo/cli` → `@expo/router-server`. So the flag is the fix; it must be set in the EAS build env (or `app.json`), not just typed into a local shell, or EAS builds will fail.
-3. **Pre-existing `expo-image` typecheck errors** in leftover template components (`animated-icon.tsx`, `web-badge.tsx`) — unused by the app; ignore or delete.
+3. ~~Pre-existing `expo-image` typecheck errors~~ — **fixed**: the leftover template components were deleted in the redesign. `tsc --noEmit` is now fully clean.
 4. Dev server sometimes stops between sessions — just restart it.
 5. `app.json` sets native `userInterfaceStyle: "light"`; consider `"automatic"` so native dialogs match dark mode in a real build.
+6. `react-native-svg` is now a **direct** dependency (added via `expo install`) — the icon set, charts and cycle ring all depend on it. Previously it was only present transitively via `react-native-chart-kit`.
 
 ## Done
-Persistence + hydration · onboarding last-period date + validation · symptom-log/cycle-math separation · full Aurora Glass redesign (all screens, light + dark) · water-bubble icons with burst · glass tab bar · browser-style back/forward · **period logging (`PeriodLoggerScreen`) + cycle context derived from logged entries** · unit tests for `cycleCalculations`.
+Persistence + hydration · onboarding (full-screen emotional pages + validation) · symptom-log/cycle-math separation · **full "Editorial" redesign (all screens + component system, light + dark, WCAG AA)** · stroke `Icon` set · glass tab bar · browser-style back/forward · **period logging (`PeriodLoggerScreen`) + cycle context derived from logged entries** · unit tests for `cycleCalculations` + contrast audit test.
 
 ## Not done / next (roadmap order)
 1. **Notifications** — `src/services/notifications.ts` (empty `services/` folder), on-device period/log reminders via `expo-notifications`. Now unblocked: there is real logged data to remind against.
@@ -74,8 +78,8 @@ Persistence + hydration · onboarding last-period date + validation · symptom-l
 
 ## Known bugs (not yet fixed)
 - **`upsertSymptomLog` doesn't dedupe** (`appStore.ts`): merging a same-day log does `[...l.symptoms, ...log.symptoms]`, so re-logging cramps on one day stores it twice. Should merge by `type`.
-- **`App.tsx` hardcodes `dark: false`** and light colors in the `NavigationContainer` theme regardless of the store's `theme` — only matters for built-in nav chrome, since screens theme themselves.
-- Three `expo-image` typecheck errors in unused template components — delete `animated-icon.tsx`, `animated-icon.web.tsx`, `web-badge.tsx` rather than keep ignoring them.
+- ~~`App.tsx` hardcodes `dark: false`~~ — **fixed** in the redesign: the `NavigationContainer` theme is derived from the active palette.
+- ~~Three `expo-image` typecheck errors~~ — **fixed**: template components deleted.
 
 ## Notes
 - Sensitive health data — minimize collection, no ad/tracking SDKs, encrypt at rest/in transit.

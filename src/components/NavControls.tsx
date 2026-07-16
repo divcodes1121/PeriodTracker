@@ -1,80 +1,62 @@
-import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Icon from './Icon';
 import { useNavHistory } from '../navigation/useNavHistory';
 import { useTheme } from '../theme/useTheme';
+import { MOTION, SPACE, MIN_TAP } from '../theme/tokens';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// Thin line arrows, drawn on a 24×24 grid with round caps/joins.
-const PATHS = {
-  back: 'M20 12 H6 M12 6 L6 12 L12 18',
-  forward: 'M4 12 H18 M12 6 L18 12 L12 18',
-};
-
-interface ArrowButtonProps {
+function ArrowButton({
+  dir,
+  disabled,
+  onPress,
+}: {
   dir: 'back' | 'forward';
   disabled: boolean;
   onPress: () => void;
-  bg: string;
-  border: string;
-}
-
-const ArrowButton: React.FC<ArrowButtonProps> = ({ dir, disabled, onPress, bg, border }) => {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+}) {
+  const { colors: c } = useTheme();
+  const press = useSharedValue(0);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: 1 - press.value * 0.1 }] }));
 
   return (
     <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={dir === 'back' ? 'Go back' : 'Go forward'}
+      accessibilityState={{ disabled }}
       disabled={disabled}
+      onPressIn={() => (press.value = withSpring(1, MOTION.springSnap))}
+      onPressOut={() => (press.value = withSpring(0, MOTION.spring))}
       onPress={() => {
         Haptics.selectionAsync().catch(() => {});
         onPress();
       }}
-      onPressIn={() => (scale.value = withSpring(0.88, { damping: 14, stiffness: 260 }))}
-      onPressOut={() => (scale.value = withSpring(1, { damping: 12, stiffness: 220 }))}
-      style={[
-        styles.btn,
-        { backgroundColor: bg, borderColor: border },
-        disabled && styles.disabled,
-        animatedStyle,
-      ]}
+      style={[styles.btn, { backgroundColor: c.fill }, disabled && styles.disabled, style]}
     >
-      <Svg width={20} height={20} viewBox="0 0 24 24">
-        <Path
-          d={PATHS[dir]}
-          stroke="#FFFFFF"
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      </Svg>
+      <Icon
+        name={dir === 'back' ? 'chevronLeft' : 'chevronRight'}
+        size={17}
+        color={c.textSecondary}
+      />
     </AnimatedPressable>
   );
-};
+}
 
 /**
- * Slim back / forward line-arrow controls, pinned top-left below the status
- * bar. White arrows on a translucent chip so they read on any background;
- * each greys out when there's no page in that direction.
+ * Browser-style back/forward, floating over the top-left of every screen.
+ * Screens reserve the top band for these via the Screen scaffold's header inset.
  */
-const NavControls: React.FC = () => {
-  const { canGoBack, canGoForward, goBack, goForward } = useNavHistory();
-  const { isDark } = useTheme();
+const NavControls = () => {
   const insets = useSafeAreaInsets();
-
-  // Chip tint kept dark enough that the white arrow reads in both themes.
-  const bg = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(30,16,32,0.30)';
-  const border = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.35)';
+  const { canGoBack, canGoForward, goBack, goForward } = useNavHistory();
 
   return (
-    <View style={[styles.wrap, { top: insets.top + 6 }]} pointerEvents="box-none">
-      <ArrowButton dir="back" disabled={!canGoBack} onPress={goBack} bg={bg} border={border} />
-      <ArrowButton dir="forward" disabled={!canGoForward} onPress={goForward} bg={bg} border={border} />
+    <View style={[styles.wrap, { top: insets.top + SPACE.sm }]} pointerEvents="box-none">
+      <ArrowButton dir="back" disabled={!canGoBack} onPress={goBack} />
+      <ArrowButton dir="forward" disabled={!canGoForward} onPress={goForward} />
     </View>
   );
 };
@@ -82,21 +64,19 @@ const NavControls: React.FC = () => {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    left: 14,
+    left: SPACE.gutter,
     flexDirection: 'row',
-    gap: 8,
+    gap: SPACE.sm,
+    zIndex: 50,
   },
   btn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
+    width: 32,
+    height: 32,
+    borderRadius: MIN_TAP,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disabled: {
-    opacity: 0.32,
-  },
+  disabled: { opacity: 0.3 },
 });
 
 export default NavControls;

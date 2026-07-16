@@ -1,16 +1,12 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Platform,
-  StyleSheet,
-} from 'react-native';
+import { useState } from 'react';
+import { View, TextInput, Platform, StyleSheet, Pressable } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, isValid, parseISO } from 'date-fns';
-import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../constants';
+import Text from './Text';
+import Icon from './Icon';
 import { useTheme } from '../theme/useTheme';
+import { COLORS } from '../constants';
+import { TYPE, SPACE, RADIUS, MIN_TAP } from '../theme/tokens';
 
 interface DateFieldProps {
   label?: string;
@@ -27,20 +23,19 @@ interface DateFieldProps {
  * - Web: the native picker is unsupported, so we fall back to a typed
  *   YYYY-MM-DD field that parses on change.
  */
-const DateField: React.FC<DateFieldProps> = ({
+const DateField = ({
   label,
   value,
   onChange,
   placeholder = 'Select a date',
   maximumDate,
   minimumDate,
-}) => {
+}: DateFieldProps) => {
   const { colors: c } = useTheme();
   const [show, setShow] = useState(false);
   const [webText, setWebText] = useState(value ? format(value, 'yyyy-MM-dd') : '');
-  const fieldStyle = { backgroundColor: c.inputBg, borderWidth: 1, borderColor: c.inputBorder };
 
-  const handleNativeChange = (_event: unknown, selected?: Date) => {
+  const handleNativeChange = (_e: unknown, selected?: Date) => {
     // Android closes on selection; iOS stays open until the user taps Done.
     setShow(Platform.OS === 'ios');
     if (selected) onChange(selected);
@@ -52,34 +47,46 @@ const DateField: React.FC<DateFieldProps> = ({
     if (isValid(parsed)) onChange(parsed);
   };
 
+  const labelNode = label ? (
+    <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.sm }}>
+      {label}
+    </Text>
+  ) : null;
+
   if (Platform.OS === 'web') {
     return (
-      <View style={styles.wrapper}>
-        {label ? <Text style={[styles.label, { color: c.textSecondary }]}>{label}</Text> : null}
-        <TextInput
-          value={webText}
-          onChangeText={handleWebChange}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={c.textTertiary}
-          style={[styles.input, fieldStyle, { color: c.text }]}
-          autoCapitalize="none"
-        />
+      <View style={styles.wrap}>
+        {labelNode}
+        <View style={[styles.field, { backgroundColor: c.inputBg }]}>
+          <TextInput
+            value={webText}
+            onChangeText={handleWebChange}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={c.textTertiary}
+            style={[TYPE.body, styles.input, { color: c.text }]}
+            autoCapitalize="none"
+          />
+          <Icon name="calendar" size={18} color={c.textTertiary} />
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.wrapper}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
-      <TouchableOpacity
-        style={[styles.input, fieldStyle]}
+    <View style={styles.wrap}>
+      {labelNode}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label ?? 'Select a date'}
+        accessibilityValue={{ text: value ? format(value, 'MMMM d, yyyy') : 'none' }}
+        style={[styles.field, { backgroundColor: c.inputBg }]}
         onPress={() => setShow(true)}
-        activeOpacity={0.7}
       >
-        <Text style={[value ? styles.valueText : styles.placeholderText, { color: value ? c.text : c.textTertiary }]}>
+        <Text variant="body" color={value ? c.text : c.textTertiary} style={{ flex: 1 }}>
           {value ? format(value, 'MMMM d, yyyy') : placeholder}
         </Text>
-      </TouchableOpacity>
+        <Icon name="calendar" size={18} color={c.textTertiary} />
+      </Pressable>
 
       {show && (
         <View>
@@ -92,12 +99,15 @@ const DateField: React.FC<DateFieldProps> = ({
             onChange={handleNativeChange}
           />
           {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={styles.doneButton}
+            <Pressable
+              accessibilityRole="button"
+              style={styles.done}
               onPress={() => setShow(false)}
             >
-              <Text style={styles.doneText}>Done</Text>
-            </TouchableOpacity>
+              <Text variant="button" color={COLORS.primaryDark}>
+                Done
+              </Text>
+            </Pressable>
           )}
         </View>
       )}
@@ -106,37 +116,17 @@ const DateField: React.FC<DateFieldProps> = ({
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginTop: SPACING.md,
+  wrap: { marginBottom: SPACE.lg },
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACE.lg,
+    minHeight: MIN_TAP + 6,
   },
-  label: {
-    ...TYPOGRAPHY.body2,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
-  valueText: {
-    ...TYPOGRAPHY.body1,
-    color: COLORS.text,
-  },
-  placeholderText: {
-    ...TYPOGRAPHY.body1,
-    color: COLORS.textTertiary,
-  },
-  doneButton: {
-    alignSelf: 'flex-end',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-  },
-  doneText: {
-    ...TYPOGRAPHY.button,
-    color: COLORS.primary,
-  },
+  input: { flex: 1, paddingVertical: SPACE.md },
+  done: { alignSelf: 'flex-end', paddingVertical: SPACE.sm, paddingHorizontal: SPACE.md },
 });
 
 export default DateField;

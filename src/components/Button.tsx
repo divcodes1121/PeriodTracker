@@ -48,7 +48,10 @@ const Button = ({
   const { colors: c, isDark } = useTheme();
   const shadows = isDark ? SHADOW_DARK : SHADOW;
   const press = useSharedValue(0);
-  const tint = accent ?? COLORS.primary;
+  // Default fill is the deep rose: white-on-Rose-Quartz is only 2.87:1 and
+  // would fail AA for the label. Callers passing `accent` (e.g. a phase color)
+  // are responsible for its own contrast.
+  const tint = accent ?? COLORS.primaryDark;
 
   const height = size === 'lg' ? 54 : MIN_TAP;
 

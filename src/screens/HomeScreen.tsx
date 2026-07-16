@@ -8,9 +8,10 @@ import Icon, { IconName } from '../components/Icon';
 import MetricCard from '../components/MetricCard';
 import CycleTimeline from '../components/CycleTimeline';
 import ThemeToggle from '../components/ThemeToggle';
-import { COLORS } from '../constants';
+import { COLORS, inkFor } from '../constants';
 import { SPACE, RADIUS, MIN_TAP } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
+import { usePhaseColor } from '../theme/usePhaseColor';
 import { useAppStore } from '../store/appStore';
 import {
   getDayOfCycle,
@@ -47,6 +48,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 const HomeScreen = ({ navigation }: any) => {
   const { user, periodEntries } = useAppStore();
   const { colors: c, isDark } = useTheme();
+  const phaseColorFor = usePhaseColor();
   const [refreshing, setRefreshing] = useState(false);
 
   const cycle = useMemo(() => {
@@ -80,7 +82,7 @@ const HomeScreen = ({ navigation }: any) => {
 
   const raw = cycle.phase?.name ?? 'menstrual';
   const phaseName = raw.charAt(0).toUpperCase() + raw.slice(1);
-  const phaseColor = cycle.phase?.color ?? COLORS.primary;
+  const phaseColor = phaseColorFor(raw);
   const firstName = user.name.trim().split(/\s+/)[0];
 
   return (
@@ -114,7 +116,7 @@ const HomeScreen = ({ navigation }: any) => {
             phaseName={phaseName}
             size={268}
           >
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               Day {cycle.dayOfCycle} of {cycle.cycleLength}
             </Text>
             <Text variant="display" style={styles.phaseTitle}>
@@ -141,7 +143,7 @@ const HomeScreen = ({ navigation }: any) => {
             <View style={[styles.insightIcon, { backgroundColor: isDark ? c.fill : COLORS.primarySoft }]}>
               <Icon name="sparkles" size={15} color={COLORS.primaryDark} />
             </View>
-            <Text variant="overline" tone="tertiary" style={{ flex: 1 }}>
+            <Text variant="overline" tone="secondary" style={{ flex: 1 }}>
               Today
             </Text>
             <Icon name="chevronRight" size={17} color={c.textTertiary} />
@@ -178,7 +180,7 @@ const HomeScreen = ({ navigation }: any) => {
 
       {/* Quick actions */}
       <Reveal index={4}>
-        <Text variant="overline" tone="tertiary" style={styles.sectionLabel}>
+        <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
           Log today
         </Text>
         <View style={styles.actions}>
@@ -197,7 +199,7 @@ const HomeScreen = ({ navigation }: any) => {
                     { backgroundColor: isDark ? c.fill : `${a.accent}1F` },
                   ]}
                 >
-                  <Icon name={a.icon} size={19} color={isDark ? a.accent : shade(a.accent)} />
+                  <Icon name={a.icon} size={19} color={isDark ? a.accent : inkFor(a.accent)} />
                 </View>
                 <Text variant="subhead">{a.label}</Text>
               </View>
@@ -221,17 +223,6 @@ function insightFor(phase: string): string {
     default:
       return 'Energy may dip in the days ahead. Consider a lighter workout and an earlier night.';
   }
-}
-
-/** Darker variant of an accent for icon-on-tint contrast in light mode. */
-function shade(hex: string): string {
-  const map: Record<string, string> = {
-    [COLORS.primary]: COLORS.primaryDark,
-    [COLORS.accent]: COLORS.accentDark,
-    [COLORS.success]: COLORS.successDark,
-    [COLORS.warning]: COLORS.warningDark,
-  };
-  return map[hex] ?? hex;
 }
 
 const styles = StyleSheet.create({

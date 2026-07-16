@@ -1,38 +1,93 @@
-import { useState, useMemo } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  Pressable,
-  Alert,
-} from 'react-native';
+import { useState } from 'react';
+import { View, StyleSheet, Alert, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInRight,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { subYears } from 'date-fns';
-import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, ONBOARDING_STEPS } from '../constants';
-import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
-import { useAppStore } from '../store/appStore';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import DateField from '../components/DateField';
+import { useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import Text from '../components/Text';
+import Button from '../components/Button';
+import TextField from '../components/TextField';
+import DateField from '../components/DateField';
+import Icon from '../components/Icon';
+import OnboardingArt, { ArtName } from '../components/OnboardingArt';
+import { useTheme } from '../theme/useTheme';
+import { useAppStore } from '../store/appStore';
 import { User } from '../types';
 import { validateCycleInfo } from '../utils/cycleCalculations';
+import { ONBOARDING_STEPS, COLORS } from '../constants';
+import { SPACE, MOTION, MIN_TAP } from '../theme/tokens';
+import { CONTENT_MAX_WIDTH } from '../utils/responsive';
 
-const STEP_ART = ['🌸', '👤', '🔄', '🩸', '🔒', '🚀'];
+/** Copy per step. Minimal words; the illustration carries the feeling. */
+const PAGES: { art: ArtName; title: string; body: string }[] = [
+  {
+    art: 'cycle',
+    title: 'Understand your cycle',
+    body: 'Meaningful insights from your own body, not from averages.',
+  },
+  {
+    art: 'profile',
+    title: 'A little about you',
+    body: 'Only what is needed to make predictions accurate.',
+  },
+  {
+    art: 'rhythm',
+    title: 'Your rhythm',
+    body: 'Every cycle is different. Tell us roughly what yours looks like.',
+  },
+  {
+    art: 'moment',
+    title: 'Where you are now',
+    body: 'When did your last period start? This anchors everything else.',
+  },
+  {
+    art: 'privacy',
+    title: 'Privacy first',
+    body: 'Your health data stays on this device. Nothing is uploaded, ever.',
+  },
+  {
+    art: 'ready',
+    title: 'You are all set',
+    body: 'Log your first period whenever you are ready, and the picture sharpens from there.',
+  },
+];
+
+/** Animated progress dots. */
+function Dots({ count, active }: { count: number; active: number }) {
+  const { colors: c } = useTheme();
+  return (
+    <View style={styles.dots}>
+      {Array.from({ length: count }).map((_, i) => (
+        <Dot key={i} on={i === active} done={i < active} dim={c.fill} />
+      ))}
+    </View>
+  );
+}
+
+function Dot({ on, done, dim }: { on: boolean; done: boolean; dim: string }) {
+  const w = useSharedValue(on ? 22 : 6);
+  useEffect(() => {
+    w.value = withSpring(on ? 22 : 6, MOTION.spring);
+  }, [on, w]);
+  const style = useAnimatedStyle(() => ({ width: w.value }));
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        { backgroundColor: on || done ? COLORS.primary : dim, opacity: done && !on ? 0.4 : 1 },
+        style,
+      ]}
+    />
+  );
+}
 
 const OnboardingScreen = () => {
   const { setUser, setShowOnboarding } = useAppStore();
   const { colors: c } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
+  const { height } = useWindowDimensions();
+
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
@@ -41,6 +96,8 @@ const OnboardingScreen = () => {
   const [periodLength, setPeriodLength] = useState('5');
 
   const today = new Date();
+  const page = PAGES[step];
+  const isLast = step === ONBOARDING_STEPS.length - 1;
 
   const validateStep = (current: number): string | null => {
     switch (current) {
@@ -61,21 +118,6 @@ const OnboardingScreen = () => {
         return null;
       default:
         return null;
-    }
-  };
-
-  const handleNext = () => {
-    const error = validateStep(step);
-    if (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      Alert.alert('Please check', error);
-      return;
-    }
-    Haptics.selectionAsync().catch(() => {});
-    if (step < ONBOARDING_STEPS.length - 1) {
-      setStep(step + 1);
-    } else {
-      completeOnboarding();
     }
   };
 
@@ -112,223 +154,181 @@ const OnboardingScreen = () => {
     setShowOnboarding(false);
   };
 
-  const handleBack = () => {
-    if (step > 0) setStep(step - 1);
+  const handleNext = () => {
+    const error = validateStep(step);
+    if (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Alert.alert('Please check', error);
+      return;
+    }
+    Haptics.selectionAsync().catch(() => {});
+    if (!isLast) setStep(step + 1);
+    else completeOnboarding();
   };
 
-  const renderStepBody = () => {
-    switch (step) {
-      case 0:
-        return (
-          <>
-            <Text style={styles.title}>Welcome</Text>
-            <Text style={styles.body}>
-              Your AI-powered period companion — cycle tracking, wellness
-              insights, and beautifully calm design.
-            </Text>
-          </>
-        );
-      case 1:
-        return (
-          <>
-            <Text style={styles.title}>About you</Text>
-            <TextInput
-              placeholder="Your name"
-              placeholderTextColor={c.textTertiary}
-              value={name}
-              onChangeText={setName}
-              style={styles.input}
-            />
-            <DateField
-              label="Date of birth"
-              value={dateOfBirth}
-              onChange={setDateOfBirth}
-              placeholder="Select your date of birth"
-              maximumDate={today}
-              minimumDate={subYears(today, 100)}
-            />
-          </>
-        );
-      case 2:
-        return (
-          <>
-            <Text style={styles.title}>Your cycle</Text>
-            <Text style={styles.fieldLabel}>Average cycle length</Text>
-            <TextInput
-              placeholder="e.g. 28"
-              placeholderTextColor={c.textTertiary}
+  const handleBack = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setStep((s) => Math.max(0, s - 1));
+  };
+
+  /** Steps 1–3 collect data; the rest are purely narrative. */
+  const form = (
+    <>
+      {step === 1 && (
+        <>
+          <TextField
+            label="Your name"
+            value={name}
+            onChangeText={setName}
+            placeholder="Sophia"
+            autoCapitalize="words"
+            returnKeyType="next"
+          />
+          <DateField
+            label="Date of birth"
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+            maximumDate={subYears(today, 10)}
+            minimumDate={subYears(today, 70)}
+          />
+        </>
+      )}
+
+      {step === 2 && (
+        <View style={styles.pair}>
+          <View style={{ flex: 1 }}>
+            <TextField
+              label="Cycle length"
               value={cycleLength}
               onChangeText={setCycleLength}
-              keyboardType="numeric"
-              style={styles.input}
+              keyboardType="number-pad"
+              maxLength={2}
+              suffix="days"
             />
-            <Text style={[styles.fieldLabel, { marginTop: SPACING.md }]}>Period length</Text>
-            <TextInput
-              placeholder="e.g. 5"
-              placeholderTextColor={c.textTertiary}
+          </View>
+          <View style={{ flex: 1 }}>
+            <TextField
+              label="Period length"
               value={periodLength}
               onChangeText={setPeriodLength}
-              keyboardType="numeric"
-              style={styles.input}
+              keyboardType="number-pad"
+              maxLength={1}
+              suffix="days"
             />
-            <Text style={styles.hint}>
-              Typical cycles run 21–35 days with a 2–7 day period. You can change
-              this anytime.
-            </Text>
-          </>
-        );
-      case 3:
-        return (
-          <>
-            <Text style={styles.title}>Your last period</Text>
-            <Text style={styles.body}>
-              When did your most recent period start? This anchors all your
-              predictions.
-            </Text>
-            <DateField
-              label="First day of last period"
-              value={lastPeriodStart}
-              onChange={setLastPeriodStart}
-              placeholder="Select the start date"
-              maximumDate={today}
-              minimumDate={subYears(today, 1)}
-            />
-          </>
-        );
-      case 4:
-        return (
-          <>
-            <Text style={styles.title}>Your privacy</Text>
-            <Text style={styles.body}>
-              {'✔  Your data stays on your device\n✔  Biometric lock available\n✔  You are always in control'}
-            </Text>
-          </>
-        );
-      default:
-        return (
-          <>
-            <Text style={styles.title}>All set</Text>
-            <Text style={styles.body}>
-              {"Let's start tracking your cycle with clarity and calm."}
-            </Text>
-          </>
-        );
-    }
-  };
+          </View>
+        </View>
+      )}
+
+      {step === 3 && (
+        <DateField
+          label="Last period started"
+          value={lastPeriodStart}
+          onChange={setLastPeriodStart}
+          maximumDate={today}
+          minimumDate={subYears(today, 1)}
+        />
+      )}
+    </>
+  );
+
+  const compact = height < 700;
 
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {/* Progress dots */}
-        <View style={styles.progressRow}>
-          {ONBOARDING_STEPS.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i === step && styles.dotActive,
-                i < step && styles.dotDone,
-              ]}
-            />
-          ))}
-        </View>
-
+    <View style={[styles.root, { backgroundColor: c.bg }]}>
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Hero emoji */}
-          <Animated.View key={`art-${step}`} entering={FadeIn.duration(400)} style={styles.artWrap}>
-            <Text style={styles.art}>{STEP_ART[step]}</Text>
-          </Animated.View>
+          <View style={styles.column}>
+            {/* Back / skip row */}
+            <View style={styles.topRow}>
+              {step > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back"
+                  hitSlop={10}
+                  onPress={handleBack}
+                  style={[styles.backBtn, { backgroundColor: c.fill }]}
+                >
+                  <Icon name="chevronLeft" size={18} color={c.textSecondary} />
+                </Pressable>
+              ) : (
+                <View style={{ width: MIN_TAP - 6 }} />
+              )}
+              <Dots count={ONBOARDING_STEPS.length} active={step} />
+              <View style={{ width: MIN_TAP - 6 }} />
+            </View>
 
-          {/* Glass content card */}
-          <Animated.View key={`card-${step}`} entering={FadeInRight.duration(350)}>
-            <GlassCard style={styles.card}>{renderStepBody()}</GlassCard>
-          </Animated.View>
+            {/* Page */}
+            <Animated.View
+              key={step}
+              entering={FadeIn.duration(MOTION.base)}
+              exiting={FadeOut.duration(MOTION.instant)}
+              style={styles.page}
+            >
+              <View style={styles.art}>
+                <OnboardingArt name={page.art} size={compact ? 180 : 232} />
+              </View>
+
+              <Text variant="title1" style={styles.title}>
+                {page.title}
+              </Text>
+              <Text variant="body" tone="secondary" style={styles.body}>
+                {page.body}
+              </Text>
+
+              <View style={styles.form}>{form}</View>
+            </Animated.View>
+          </View>
         </ScrollView>
 
-        {/* Buttons */}
-        <Animated.View entering={FadeInDown} style={styles.buttonRow}>
-          {step > 0 && (
-            <Pressable style={[styles.btn, styles.btnGhost]} onPress={handleBack}>
-              <Text style={styles.btnGhostText}>Back</Text>
-            </Pressable>
-          )}
-          <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleNext}>
-            <Text style={styles.btnPrimaryText}>
-              {step === ONBOARDING_STEPS.length - 1 ? 'Get Started' : 'Continue'}
-            </Text>
-          </Pressable>
-        </Animated.View>
+        {/* Footer action */}
+        <View style={styles.footer}>
+          <View style={styles.column}>
+            <Button label={isLast ? 'Start tracking' : 'Continue'} onPress={handleNext} />
+          </View>
+        </View>
       </SafeAreaView>
-    </GradientBackground>
+    </View>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.lg },
-  progressRow: {
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  scroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  column: { width: '100%', maxWidth: CONTENT_MAX_WIDTH, paddingHorizontal: SPACE.gutter },
+
+  topRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    justifyContent: 'center',
-    marginTop: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: SPACE.lg,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: c.trackNeutral,
-  },
-  dotActive: { width: 26, backgroundColor: COLORS.primary },
-  dotDone: { backgroundColor: COLORS.primaryLight },
-
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: SPACING.xl },
-  artWrap: { alignItems: 'center', marginBottom: SPACING.xl },
-  art: { fontSize: 72 },
-
-  card: { padding: SPACING.xl },
-  title: { ...TYPOGRAPHY.h1, color: c.text, marginBottom: SPACING.md },
-  body: { ...TYPOGRAPHY.body1, color: c.textSecondary, lineHeight: 26 },
-  fieldLabel: { ...TYPOGRAPHY.body2, color: c.text, fontWeight: '600', marginBottom: SPACING.xs },
-  input: {
-    backgroundColor: c.inputBg,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: c.inputBorder,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    marginTop: SPACING.sm,
-    ...TYPOGRAPHY.body1,
-    color: c.text,
-  },
-  hint: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: SPACING.md, lineHeight: 18 },
-
-  buttonRow: { flexDirection: 'row', gap: SPACING.md, paddingVertical: SPACING.lg },
-  btn: {
-    flex: 1,
-    height: 54,
-    borderRadius: BORDER_RADIUS.lg,
+  backBtn: {
+    width: MIN_TAP - 6,
+    height: MIN_TAP - 6,
+    borderRadius: MIN_TAP,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnPrimary: {
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 6,
+
+  dots: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  dot: { height: 6, borderRadius: 3 },
+
+  page: { paddingTop: SPACE.h2, paddingBottom: SPACE.xxl },
+  art: { alignItems: 'center', marginBottom: SPACE.h2 },
+  title: { textAlign: 'center' },
+  body: {
+    textAlign: 'center',
+    marginTop: SPACE.md,
+    paddingHorizontal: SPACE.lg,
   },
-  btnPrimaryText: { ...TYPOGRAPHY.button, color: COLORS.white, fontSize: 16 },
-  btnGhost: {
-    backgroundColor: c.pillBg,
-    borderWidth: 1,
-    borderColor: c.pillBorder,
-  },
-  btnGhostText: { ...TYPOGRAPHY.button, color: c.text, fontSize: 16 },
+  form: { marginTop: SPACE.h1 },
+  pair: { flexDirection: 'row', gap: SPACE.lg },
+
+  footer: { alignItems: 'center', paddingBottom: SPACE.lg, paddingTop: SPACE.sm },
 });
 
 export default OnboardingScreen;

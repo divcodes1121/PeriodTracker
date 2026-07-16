@@ -78,7 +78,12 @@ export const lightPalette: ThemePalette = {
 
   text: '#1E1E22',
   textSecondary: '#70707A',
-  textTertiary: '#A0A0AA',
+  /**
+   * Decorative only — chevrons, dots, placeholders, disabled glyphs. At 3.45:1
+   * it clears WCAG 1.4.11 for UI components but NOT the 4.5:1 needed for text,
+   * so meaningful labels (including small overlines) must use textSecondary.
+   */
+  textTertiary: '#8A8A94',
   onAccent: '#FFFFFF',
 
   fill: 'rgba(30,30,34,0.045)',

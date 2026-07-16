@@ -4,10 +4,17 @@
  * change between light and dark live in theme/palette.ts instead.
  */
 export const COLORS = {
-  /** Rose Quartz. Fills, rings and indicators — NOT small text on white. */
+  /**
+   * Rose Quartz. Use for rings, dots, meters and tints — decorative fills that
+   * carry no text. White on this is only 2.87:1, so it must NOT back a label:
+   * filled controls use `primaryDark` instead.
+   */
   primary: '#D97C9B',
   primaryLight: '#F0D3DD',
-  /** Accessible rose for text/icons on a light surface (AA at ≥4.5:1). */
+  /**
+   * Deep rose. The accessible workhorse: text/icons on light surfaces (5.4:1)
+   * and the fill behind white button labels (5.3:1).
+   */
   primaryDark: '#A84A6B',
   /** Very low-alpha rose for tinted backgrounds. */
   primarySoft: 'rgba(217,124,155,0.12)',
@@ -19,7 +26,12 @@ export const COLORS = {
   accentDark: '#6F4E96',
   accentSoft: 'rgba(184,154,216,0.12)',
 
-  // Cycle phases map onto the four brand hues — natural, never neon.
+  /**
+   * Cycle phases map onto the four brand hues — natural, never neon.
+   * These pastels are tuned for DARK surfaces and for tinted fills. On a white
+   * card they only reach ~1.8–2.9:1, so any phase indicator drawn on a light
+   * surface must use PHASE_DEEP instead (see usePhaseColor).
+   */
   menstrual: '#D97C9B',
   follicular: '#8DB596',
   ovulation: '#F5B17A',
@@ -34,7 +46,7 @@ export const COLORS = {
   textSecondary: '#70707A',
   textTertiary: '#A0A0AA',
 
-  error: '#C4566E',
+  error: '#B04A62',
   /** Soft Sage. */
   success: '#8DB596',
   successDark: '#4F7A5A',
@@ -50,6 +62,20 @@ export const COLORS = {
   white: '#FFFFFF',
   black: '#000000',
 };
+
+/**
+ * Maps a brand pastel to its AA-accessible ink, for icons/text drawn on a light
+ * tinted tile (where the pastel itself is only ~2–3:1). Pass-through for colors
+ * that are already dark enough. Used wherever a colored glyph sits on `${c}1F`.
+ */
+export const INK: Record<string, string> = {
+  '#D97C9B': '#A84A6B', // primary  → primaryDark
+  '#B89AD8': '#6F4E96', // accent   → accentDark
+  '#8DB596': '#4F7A5A', // success  → successDark
+  '#F5B17A': '#9A5B22', // warning  → warningDark
+};
+
+export const inkFor = (color: string): string => INK[color] ?? color;
 
 export const GRADIENT = {
   primary: [COLORS.primaryLight, COLORS.primary],
@@ -77,6 +103,29 @@ export const PHASE_GRADIENTS: Record<string, string[]> = {
   Follicular: ['#A8C9AF', '#8DB596', '#6F9A79'],
   Ovulation: ['#F8C79C', '#F5B17A', '#E39355'],
   Luteal: ['#CDB6E4', '#B89AD8', '#9A78C0'],
+};
+
+/**
+ * Deepened phase hues that clear the 3:1 UI-component threshold on a WHITE
+ * card (dots, rings, legend swatches in light mode). Keyed by phase key.
+ */
+export const PHASE_DEEP: Record<string, string> = {
+  menstrual: '#C06585',
+  follicular: '#6F9A79',
+  ovulation: '#C97A3E',
+  luteal: '#9A78C0',
+};
+
+/**
+ * Darkest phase variants — the only ones white text clears AA (4.5:1) on. Use
+ * for any filled surface carrying a white label (e.g. the selected calendar
+ * day). These are the same inks as the semantic *Dark colors above.
+ */
+export const PHASE_INK: Record<string, string> = {
+  menstrual: '#A84A6B',
+  follicular: '#4F7A5A',
+  ovulation: '#9A5B22',
+  luteal: '#6F4E96',
 };
 
 /** Glass is now a rare accent (nav chrome only), not the default surface. */

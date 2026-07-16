@@ -37,7 +37,9 @@ const Toggle = ({ value, onValueChange, accessibilityLabel, disabled }: TogglePr
   }, [value, on]);
 
   const track = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(on.value, [0, 1], [c.switchTrack, COLORS.primary]),
+    // Deep rose, not Rose Quartz: the on-track must clear 3:1 against the card
+    // behind it (WCAG 1.4.11) for the switch boundary to be perceivable.
+    backgroundColor: interpolateColor(on.value, [0, 1], [c.switchTrack, COLORS.primaryDark]),
   }));
 
   const knob = useAnimatedStyle(() => ({

@@ -133,7 +133,7 @@ const InsightCard = ({
         {confidence !== undefined && (
           <View style={styles.confidence}>
             <View style={styles.confidenceLabel}>
-              <Text variant="overline" tone="tertiary">
+              <Text variant="overline" tone="secondary">
                 Confidence
               </Text>
               <Text variant="overline" color={accent} tabular>
@@ -150,7 +150,7 @@ const InsightCard = ({
 
         {reasoning && (
           <View style={[styles.why, { borderTopColor: c.separator }]}>
-            <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.xs }}>
+            <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.xs }}>
               Why this
             </Text>
             <Text variant="caption" tone="secondary">

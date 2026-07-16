@@ -33,7 +33,7 @@ function Stat({ value, label, unit }: { value: number; label: string; unit?: str
           </Text>
         ) : null}
       </View>
-      <Text variant="overline" tone="tertiary" numberOfLines={1}>
+      <Text variant="overline" tone="secondary" numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -108,7 +108,7 @@ const AnalyticsScreen = () => {
       {stats && (
         <Reveal index={0}>
           <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               Your cycle
             </Text>
             <View style={styles.statRow}>
@@ -136,7 +136,7 @@ const AnalyticsScreen = () => {
       {cycleLengths.length > 0 && (
         <Reveal index={1}>
           <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               Cycle length
             </Text>
             <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
@@ -159,7 +159,7 @@ const AnalyticsScreen = () => {
       {nextPeriod && cycleLengths.length > 0 && (
         <Reveal index={2}>
           <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               Next period
             </Text>
             <View style={styles.predRow}>
@@ -175,7 +175,7 @@ const AnalyticsScreen = () => {
                 <Text variant="title3" color={COLORS.primaryDark} tabular>
                   {confidence}%
                 </Text>
-                <Text variant="overline" tone="tertiary">
+                <Text variant="overline" tone="secondary">
                   Confidence
                 </Text>
               </View>
@@ -188,7 +188,7 @@ const AnalyticsScreen = () => {
       {moodSeries.length > 1 && (
         <Reveal index={3}>
           <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               Mood & energy
             </Text>
             <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
@@ -221,7 +221,7 @@ const AnalyticsScreen = () => {
       {symptomFreq.length > 0 && (
         <Reveal index={4}>
           <Surface>
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               Most logged
             </Text>
             <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>

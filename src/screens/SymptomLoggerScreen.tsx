@@ -87,7 +87,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
       {/* Symptom pills */}
       <Reveal index={0}>
         <Surface style={{ marginBottom: SPACE.lg }}>
-          <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.lg }}>
+          <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.lg }}>
             Select what applies
           </Text>
           <View style={styles.pills}>
@@ -111,7 +111,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
           layout={LinearTransition.springify().damping(MOTION.springSoft.damping)}
         >
           <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.lg }}>
+            <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.lg }}>
               How intense?
             </Text>
             {Array.from(selected.entries()).map(([type, severity]) => (
@@ -129,7 +129,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
       {/* Flow */}
       <Reveal index={1}>
         <Surface style={{ marginBottom: SPACE.xl }}>
-          <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.lg }}>
+          <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.lg }}>
             Flow
           </Text>
           <View style={styles.pills}>

@@ -4,6 +4,7 @@ import Text from './Text';
 import Icon, { IconName } from './Icon';
 import AnimatedNumber from './AnimatedNumber';
 import { useTheme } from '../theme/useTheme';
+import { inkFor } from '../constants';
 import { SPACE, RADIUS } from '../theme/tokens';
 
 interface MetricCardProps {
@@ -34,7 +35,8 @@ const MetricCard = ({ label, value, unit, icon, accent, caption, onPress }: Metr
       style={styles.card}
     >
       <View style={[styles.iconWrap, { backgroundColor: isDark ? c.fill : `${accent}1F` }]}>
-        <Icon name={icon} size={17} color={accent} />
+        {/* Pastel accents fail 3:1 on their own light tint — ink them in light mode. */}
+        <Icon name={icon} size={17} color={isDark ? accent : inkFor(accent)} />
       </View>
 
       <View style={styles.valueRow}>
@@ -52,7 +54,7 @@ const MetricCard = ({ label, value, unit, icon, accent, caption, onPress }: Metr
         ) : null}
       </View>
 
-      <Text variant="overline" tone="tertiary" numberOfLines={1}>
+      <Text variant="overline" tone="secondary" numberOfLines={1}>
         {label}
       </Text>
       {caption ? (

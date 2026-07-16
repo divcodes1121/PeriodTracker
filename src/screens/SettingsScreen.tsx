@@ -13,7 +13,7 @@ import { SPACE, RADIUS } from '../theme/tokens';
 
 /** Section heading sitting above a grouped card. */
 const GroupLabel = ({ children }: { children: string }) => (
-  <Text variant="overline" tone="tertiary" style={styles.groupLabel}>
+  <Text variant="overline" tone="secondary" style={styles.groupLabel}>
     {children}
   </Text>
 );

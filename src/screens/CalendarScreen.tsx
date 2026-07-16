@@ -26,6 +26,7 @@ import Text from '../components/Text';
 import Icon from '../components/Icon';
 import Reveal from '../components/Reveal';
 import { useTheme } from '../theme/useTheme';
+import { usePhaseColor, phaseInk } from '../theme/usePhaseColor';
 import { useAppStore } from '../store/appStore';
 import {
   getCyclePhase,
@@ -34,7 +35,6 @@ import {
   deriveCycleContext,
   getPhaseRanges,
 } from '../utils/cycleCalculations';
-import { COLORS } from '../constants';
 import { SPACE, RADIUS, MOTION, MIN_TAP } from '../theme/tokens';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -46,13 +46,17 @@ function DayCell({
   today,
   dimmed,
   phaseColor,
+  phaseInk,
   onPress,
 }: {
   day: Date;
   selected: boolean;
   today: boolean;
   dimmed: boolean;
+  /** Surface-safe hue for the dot and today-ring (≥3:1 on the card). */
   phaseColor: string;
+  /** Deep ink for the selected fill, so the white day number clears AA. */
+  phaseInk: string;
   onPress: () => void;
 }) {
   const { colors: c } = useTheme();
@@ -75,7 +79,7 @@ function DayCell({
       <Animated.View
         style={[
           styles.dayCircle,
-          selected && { backgroundColor: phaseColor },
+          selected && { backgroundColor: phaseInk },
           today && !selected && { borderWidth: 1.5, borderColor: phaseColor },
           style,
         ]}
@@ -102,6 +106,7 @@ function DayCell({
 const CalendarScreen = () => {
   const { user, periodEntries } = useAppStore();
   const { colors: c } = useTheme();
+  const phaseColor = usePhaseColor();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
@@ -178,7 +183,7 @@ const CalendarScreen = () => {
           <View style={styles.weekRow}>
             {WEEKDAYS.map((d, i) => (
               <View key={i} style={styles.weekCell}>
-                <Text variant="overline" tone="tertiary">
+                <Text variant="overline" tone="secondary">
                   {d}
                 </Text>
               </View>
@@ -195,7 +200,8 @@ const CalendarScreen = () => {
                   selected={!!selectedDate && isSameDay(day, selectedDate)}
                   today={isToday(day)}
                   dimmed={!isSameMonth(day, currentMonth)}
-                  phaseColor={phaseFor(day)?.color ?? c.textTertiary}
+                  phaseColor={phaseColor(phaseFor(day)?.name)}
+                  phaseInk={phaseInk(phaseFor(day)?.name)}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
                     setSelectedDate(day);
@@ -211,7 +217,7 @@ const CalendarScreen = () => {
           <View style={[styles.legend, { borderTopColor: c.separator }]}>
             {legend.map((r) => (
               <View key={r.key} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: r.color }]} />
+                <View style={[styles.legendDot, { backgroundColor: phaseColor(r.key) }]} />
                 <Text variant="caption" tone="secondary">
                   {r.key[0].toUpperCase() + r.key.slice(1)}
                 </Text>
@@ -230,7 +236,7 @@ const CalendarScreen = () => {
           layout={LinearTransition.springify().damping(MOTION.springSoft.damping)}
         >
           <Surface>
-            <Text variant="overline" tone="tertiary">
+            <Text variant="overline" tone="secondary">
               {format(selectedDate, 'EEEE, MMMM d')}
             </Text>
 
@@ -239,10 +245,10 @@ const CalendarScreen = () => {
               <View
                 style={[
                   styles.dayBadge,
-                  { backgroundColor: `${selectedInfo.phase?.color ?? COLORS.primary}1F` },
+                  { backgroundColor: `${phaseColor(selectedInfo.phase?.name)}22` },
                 ]}
               >
-                <Text variant="overline" color={selectedInfo.phase?.color ?? COLORS.primary}>
+                <Text variant="overline" color={phaseColor(selectedInfo.phase?.name)}>
                   Day {selectedInfo.day}
                 </Text>
               </View>
@@ -253,7 +259,7 @@ const CalendarScreen = () => {
             </Text>
 
             <View style={[styles.recs, { borderTopColor: c.separator }]}>
-              <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.md }}>
+              <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.md }}>
                 Suggestions
               </Text>
               {getPhaseRecommendations(selectedInfo.phase?.name ?? null).map((rec) => (
