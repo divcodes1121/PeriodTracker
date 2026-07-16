@@ -1,13 +1,15 @@
-import React from 'react';
-import { Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
+import Icon from './Icon';
 import { useTheme } from '../theme/useTheme';
+import { MOTION, MIN_TAP } from '../theme/tokens';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -15,50 +17,49 @@ interface ThemeToggleProps {
   style?: StyleProp<ViewStyle>;
 }
 
-/** Circular glass button that flips light/dark theme with a spin + haptic. */
-const ThemeToggle: React.FC<ThemeToggleProps> = ({ style }) => {
-  const { isDark, toggle, colors } = useTheme();
-  const scale = useSharedValue(1);
+/**
+ * Light/dark switch. The glyph rotates a half turn as it swaps, so the change
+ * reads as one continuous object turning over rather than two icons cutting.
+ */
+const ThemeToggle = ({ style }: ThemeToggleProps) => {
+  const { isDark, toggle, colors: c } = useTheme();
+  const press = useSharedValue(0);
   const spin = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { rotate: `${spin.value}deg` }],
+  const animated = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.value * 0.08 }, { rotate: `${spin.value}deg` }],
   }));
-
-  const onPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    spin.value = withTiming(spin.value + 360, { duration: 500 });
-    toggle();
-  };
 
   return (
     <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => (scale.value = withSpring(0.88))}
-      onPressOut={() => (scale.value = withSpring(1))}
-      style={[
-        styles.btn,
-        { backgroundColor: colors.pillBg, borderColor: colors.glassBorder },
-        animatedStyle,
-        style,
-      ]}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: isDark }}
+      accessibilityLabel={isDark ? 'Switch to light appearance' : 'Switch to dark appearance'}
+      onPressIn={() => (press.value = withSpring(1, MOTION.springSnap))}
+      onPressOut={() => (press.value = withSpring(0, MOTION.spring))}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        spin.value = withTiming(spin.value + 180, {
+          duration: MOTION.base,
+          easing: Easing.bezier(0.22, 1, 0.36, 1),
+        });
+        toggle();
+      }}
+      style={[styles.btn, { backgroundColor: c.fill }, animated, style]}
     >
-      <Text style={styles.icon}>{isDark ? '🌙' : '☀️'}</Text>
+      <Icon name={isDark ? 'moon' : 'sun'} size={19} color={c.textSecondary} />
     </AnimatedPressable>
   );
 };
 
 const styles = StyleSheet.create({
   btn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
+    width: MIN_TAP - 6,
+    height: MIN_TAP - 6,
+    borderRadius: MIN_TAP,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
   },
-  icon: { fontSize: 20 },
 });
 
 export default ThemeToggle;

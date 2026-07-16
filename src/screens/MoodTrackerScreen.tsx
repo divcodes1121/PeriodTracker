@@ -1,106 +1,44 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Text, Pressable, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
-import { fontScale, scale } from '../utils/responsive';
-import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
-import { useAppStore } from '../store/appStore';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import Ripple from '../components/Ripple';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { v4 as uuidv4 } from 'uuid';
+import Screen from '../components/Screen';
+import Surface from '../components/Surface';
+import Text from '../components/Text';
+import Button from '../components/Button';
+import Reveal from '../components/Reveal';
+import MoodFace from '../components/MoodFace';
+import Stepper from '../components/Stepper';
+import { useAppStore } from '../store/appStore';
 import { MoodEntry } from '../types';
+import { COLORS } from '../constants';
+import { SPACE, MOTION } from '../theme/tokens';
 
-const MOOD_EMOJI = ['😢', '☹️', '😐', '🙂', '😄'];
-
-interface ScaleRowProps {
-  title: string;
-  value: number;
-  options: number[];
-  suffix?: string;
-  emoji?: string;
-  onSelect: (v: number) => void;
-  c: ThemePalette;
-}
-
-const ScaleRow: React.FC<ScaleRowProps> = ({ title, value, options, suffix = '', emoji, onSelect, c }) => (
-  <GlassCard style={sr.card}>
-    <View style={sr.header}>
-      <Text style={[sr.title, { color: c.text }]}>{title}</Text>
-      <Text style={[sr.value, { color: c.text }]}>
-        {emoji ? `${emoji}  ` : ''}
-        {value}
-        {suffix}
-      </Text>
-    </View>
-    <View style={sr.pills}>
-      {options.map((v) => {
-        const active = value === v;
-        return (
-          <Pressable
-            key={v}
-            style={[
-              sr.pill,
-              { backgroundColor: c.pillBg, borderColor: c.pillBorder },
-              active && { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-            ]}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              onSelect(v);
-            }}
-          >
-            <Text style={[sr.pillText, { color: active ? COLORS.white : c.textSecondary }]}>
-              {v}
-              {suffix}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  </GlassCard>
-);
-
-const sr = StyleSheet.create({
-  card: { marginBottom: SPACING.md },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  title: { ...TYPOGRAPHY.h4 },
-  value: { ...TYPOGRAPHY.body1, fontWeight: '700' },
-  pills: { flexDirection: 'row', gap: SPACING.sm },
-  pill: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  pillText: { ...TYPOGRAPHY.body2, fontWeight: '600' },
-});
+/**
+ * Valence scale, 1–5. These are the labels for MoodEntry.mood, which is an
+ * ordinal scale — so they read low→high rather than being unordered feelings.
+ */
+const MOODS: { value: number; label: string; color: string }[] = [
+  { value: 1, label: 'Low', color: '#8E8AA8' },
+  { value: 2, label: 'Down', color: COLORS.accent },
+  { value: 3, label: 'Okay', color: COLORS.info },
+  { value: 4, label: 'Good', color: COLORS.success },
+  { value: 5, label: 'Great', color: COLORS.warning },
+];
 
 const MoodTrackerScreen = ({ navigation }: any) => {
   const { user, addMoodEntry } = useAppStore();
-  const { colors: c } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
-  const [mood, setMood] = useState(3);
+
+  const [mood, setMood] = useState<number | null>(null);
   const [stress, setStress] = useState(3);
   const [energy, setEnergy] = useState(3);
   const [sleep, setSleep] = useState(7);
-  const [water] = useState(8);
-  const [exercise] = useState('');
-  const [notes] = useState('');
+
+  const selected = MOODS.find((m) => m.value === mood);
 
   const handleSave = () => {
-    if (!user) {
-      Alert.alert('Error', 'User not found');
-      return;
-    }
+    if (!user || mood === null) return;
     const now = new Date();
     const entry: MoodEntry = {
       id: uuidv4(),
@@ -110,73 +48,86 @@ const MoodTrackerScreen = ({ navigation }: any) => {
       stress,
       energy,
       sleep,
-      waterIntake: water,
-      exercise,
-      notes,
+      waterIntake: 8,
+      exercise: '',
+      notes: '',
       createdAt: now,
     };
     addMoodEntry(entry);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Saved', 'Daily check-in saved!');
+    Alert.alert('Saved', 'Your check-in has been recorded.');
     navigation.goBack();
   };
 
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-            <Text style={styles.title}>Daily Check-in</Text>
-            <Text style={styles.subtitle}>Track your wellness today</Text>
-          </Animated.View>
+    <Screen title="How are you?" subtitle="A moment to check in with yourself">
+      {/* Mood selector */}
+      <Reveal index={0}>
+        <Surface style={{ marginBottom: SPACE.lg }}>
+          <View style={styles.faces}>
+            {MOODS.map((m) => (
+              <MoodFace
+                key={m.value}
+                value={m.value}
+                label={m.label}
+                color={m.color}
+                selected={mood === m.value}
+                onPress={() => setMood(m.value)}
+              />
+            ))}
+          </View>
+        </Surface>
+      </Reveal>
 
-          <Animated.View entering={FadeInDown.delay(100).springify()}>
-            <ScaleRow title="Mood" value={mood} options={[1, 2, 3, 4, 5]} emoji={MOOD_EMOJI[mood - 1]} onSelect={setMood} c={c} />
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(160).springify()}>
-            <ScaleRow title="Stress level" value={stress} options={[1, 2, 3, 4, 5]} onSelect={setStress} c={c} />
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(220).springify()}>
-            <ScaleRow title="Energy level" value={energy} options={[1, 2, 3, 4, 5]} onSelect={setEnergy} c={c} />
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(280).springify()}>
-            <ScaleRow title="Sleep hours" value={sleep} options={[4, 5, 6, 7, 8, 9]} suffix="h" onSelect={setSleep} c={c} />
-          </Animated.View>
+      {/* The rest of the check-in unfolds only once a mood is chosen, so the
+          screen opens as a single calm question rather than a form. */}
+      {mood !== null && (
+        <Animated.View
+          entering={FadeIn.duration(MOTION.base)}
+          layout={LinearTransition.springify().damping(MOTION.springSoft.damping)}
+        >
+          <Text variant="title3" style={styles.question}>
+            What happened today?
+          </Text>
 
-          <Animated.View entering={FadeInDown.delay(340).springify()}>
-            <Ripple onPress={handleSave} borderRadius={18} style={styles.saveBtn} rippleColor="rgba(255,255,255,0.4)">
-              <Text style={styles.saveText}>Save Check-in</Text>
-            </Ripple>
-          </Animated.View>
+          <Surface style={{ marginBottom: SPACE.lg }}>
+            <Stepper
+              label="Stress"
+              value={stress}
+              options={[1, 2, 3, 4, 5]}
+              onChange={setStress}
+              anchors={['Calm', 'Stressed']}
+              accent={selected?.color ?? COLORS.primary}
+            />
+            <Stepper
+              label="Energy"
+              value={energy}
+              options={[1, 2, 3, 4, 5]}
+              onChange={setEnergy}
+              anchors={['Drained', 'Energised']}
+              accent={selected?.color ?? COLORS.primary}
+            />
+            <Stepper
+              label="Sleep"
+              value={sleep}
+              options={[4, 5, 6, 7, 8, 9]}
+              onChange={setSleep}
+              suffix="h"
+              anchors={['Short night', 'Well rested']}
+              accent={selected?.color ?? COLORS.primary}
+            />
+          </Surface>
 
-          <View style={{ height: scale(110) }} />
-        </ScrollView>
-      </SafeAreaView>
-    </GradientBackground>
+          <Button label="Save check-in" onPress={handleSave} accent={selected?.color} />
+        </Animated.View>
+      )}
+    </Screen>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-    container: { flex: 1, paddingHorizontal: SPACING.lg },
-    scroll: { paddingTop: SPACING.md },
-    header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-    title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
-    subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
-
-    saveBtn: {
-      height: 56,
-      marginTop: SPACING.sm,
-      backgroundColor: COLORS.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: COLORS.primary,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.4,
-      shadowRadius: 16,
-      elevation: 6,
-    },
-    saveText: { ...TYPOGRAPHY.button, color: COLORS.white, fontSize: 16 },
-  });
+const styles = StyleSheet.create({
+  faces: { flexDirection: 'row', gap: SPACE.xs },
+  question: { marginBottom: SPACE.lg },
+});
 
 export default MoodTrackerScreen;

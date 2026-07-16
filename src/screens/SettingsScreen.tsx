@@ -1,16 +1,22 @@
-import { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Text, Switch, Pressable, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
-import { fontScale, scale } from '../utils/responsive';
+import { View, StyleSheet, Alert } from 'react-native';
+import Screen from '../components/Screen';
+import Surface from '../components/Surface';
+import Text from '../components/Text';
+import Icon from '../components/Icon';
+import Row from '../components/Row';
+import Toggle from '../components/Toggle';
+import Reveal from '../components/Reveal';
 import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import EmojiChip from '../components/EmojiChip';
-import Ripple from '../components/Ripple';
+import { COLORS } from '../constants';
+import { SPACE, RADIUS } from '../theme/tokens';
+
+/** Section heading sitting above a grouped card. */
+const GroupLabel = ({ children }: { children: string }) => (
+  <Text variant="overline" tone="tertiary" style={styles.groupLabel}>
+    {children}
+  </Text>
+);
 
 const SettingsScreen = ({ navigation }: any) => {
   const {
@@ -22,9 +28,6 @@ const SettingsScreen = ({ navigation }: any) => {
     clearStore,
   } = useAppStore();
   const { colors: c, isDark, toggle } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(enableNotifications);
-  const [aiEnabled, setAiEnabled] = useState(enableAIInsights);
 
   const handleLogout = () => {
     Alert.alert('Log out', 'This will clear your data on this device. Continue?', [
@@ -40,174 +43,140 @@ const SettingsScreen = ({ navigation }: any) => {
     ]);
   };
 
-  const onNotif = (v: boolean) => {
-    setNotificationsEnabled(v);
-    setEnableNotifications(v);
-  };
-  const onAI = (v: boolean) => {
-    setAiEnabled(v);
-    setEnableAIInsights(v);
-  };
+  const soon = (what: string) =>
+    Alert.alert(what, 'This is not available yet — it is on the roadmap.');
+
+  const initial = (user?.name ?? 'Y').trim().charAt(0).toUpperCase();
 
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-            <Text style={styles.title}>Settings</Text>
-          </Animated.View>
+    <Screen title="Settings">
+      {/* Profile */}
+      <Reveal index={0}>
+        <Surface style={{ marginBottom: SPACE.xxl }}>
+          <View style={styles.profile}>
+            <View style={[styles.avatar, { backgroundColor: COLORS.primarySoft }]}>
+              <Text variant="title2" color={COLORS.primaryDark}>
+                {initial}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="title3">{user?.name ?? 'You'}</Text>
+              <Text variant="callout" tone="secondary" style={{ marginTop: 2 }}>
+                {user?.cycleLength ?? '—'}-day cycle · {user?.periodLength ?? '—'}-day period
+              </Text>
+            </View>
+          </View>
+        </Surface>
+      </Reveal>
 
-          {/* Profile */}
-          <Animated.View entering={FadeInDown.delay(100).springify()}>
-            <GlassCard style={styles.card}>
-              <View style={styles.profile}>
-                <EmojiChip emoji="🌷" size={scale(56)} colors={['#FFFFFF', '#FFD9E6']} float />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.profileName}>{user?.name ?? 'You'}</Text>
-                  <Text style={styles.profileSub}>Cycle length · {user?.cycleLength ?? '—'} days</Text>
-                </View>
-              </View>
-            </GlassCard>
-          </Animated.View>
+      {/* Preferences */}
+      <Reveal index={1}>
+        <GroupLabel>Preferences</GroupLabel>
+        <Surface style={{ marginBottom: SPACE.xxl }}>
+          <Row
+            label="Notifications"
+            description="Period and check-in reminders"
+            icon="bell"
+            iconTint={COLORS.warningDark}
+            accessory={
+              <Toggle
+                value={enableNotifications}
+                onValueChange={setEnableNotifications}
+                accessibilityLabel="Notifications"
+              />
+            }
+          />
+          <Row
+            label="AI Insights"
+            description="Patterns from your own logs"
+            icon="sparkles"
+            iconTint={COLORS.primaryDark}
+            accessory={
+              <Toggle
+                value={enableAIInsights}
+                onValueChange={setEnableAIInsights}
+                accessibilityLabel="AI Insights"
+              />
+            }
+          />
+          <Row
+            label="Dark appearance"
+            icon={isDark ? 'moon' : 'sun'}
+            iconTint={COLORS.accentDark}
+            accessory={<Toggle value={isDark} onValueChange={toggle} accessibilityLabel="Dark appearance" />}
+            last
+          />
+        </Surface>
+      </Reveal>
 
-          {/* Preferences */}
-          <Animated.View entering={FadeInDown.delay(160).springify()}>
-            <GlassCard style={styles.card}>
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <Text style={styles.settingEmoji}>🔔</Text>
-                  <View>
-                    <Text style={styles.settingTitle}>Notifications</Text>
-                    <Text style={styles.settingDesc}>Period, ovulation & check-in reminders</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={onNotif}
-                  trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-                  thumbColor={notificationsEnabled ? COLORS.primary : c.textTertiary}
-                />
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <Text style={styles.settingEmoji}>✨</Text>
-                  <View>
-                    <Text style={styles.settingTitle}>AI Insights</Text>
-                    <Text style={styles.settingDesc}>Personalized predictions & patterns</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={aiEnabled}
-                  onValueChange={onAI}
-                  trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-                  thumbColor={aiEnabled ? COLORS.primary : c.textTertiary}
-                />
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <Text style={styles.settingEmoji}>{isDark ? '🌙' : '☀️'}</Text>
-                  <View>
-                    <Text style={styles.settingTitle}>Dark Mode</Text>
-                    <Text style={styles.settingDesc}>Switch between light & dark themes</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={isDark}
-                  onValueChange={toggle}
-                  trackColor={{ false: COLORS.divider, true: COLORS.primaryLight }}
-                  thumbColor={isDark ? COLORS.primary : c.textTertiary}
-                />
-              </View>
-            </GlassCard>
-          </Animated.View>
+      {/* Privacy */}
+      <Reveal index={2}>
+        <GroupLabel>Privacy</GroupLabel>
+        <Surface style={{ marginBottom: SPACE.lg }}>
+          <Row
+            label="Biometric lock"
+            icon="lock"
+            iconTint={COLORS.successDark}
+            value="Soon"
+            onPress={() => soon('Biometric lock')}
+          />
+          <Row
+            label="Export my data"
+            icon="note"
+            iconTint={COLORS.info}
+            onPress={() => soon('Data export')}
+          />
+          <Row
+            label="Privacy policy"
+            icon="info"
+            iconTint={c.textSecondary}
+            onPress={() => soon('Privacy policy')}
+            last
+          />
+        </Surface>
 
-          {/* Privacy & Security */}
-          <Animated.View entering={FadeInDown.delay(220).springify()}>
-            <GlassCard style={styles.card}>
-              <Text style={styles.cardTitle}>🔐 Privacy & Security</Text>
-              {[
-                ['Biometric Lock', 'Coming soon'],
-                ['Data Export', 'Download your data'],
-                ['Privacy Policy', 'Read our policy'],
-              ].map(([label, hint], i, arr) => (
-                <View key={label}>
-                  <View style={styles.linkRow}>
-                    <Text style={styles.linkLabel}>{label}</Text>
-                    <Text style={styles.linkHint}>{hint} ›</Text>
-                  </View>
-                  {i < arr.length - 1 && <View style={styles.divider} />}
-                </View>
-              ))}
-            </GlassCard>
-          </Animated.View>
+        {/* The privacy promise is the product's spine — state it plainly. */}
+        <View style={styles.promise}>
+          <Icon name="lock" size={15} color={c.textTertiary} />
+          <Text variant="caption" tone="tertiary" style={{ flex: 1 }}>
+            Your health data stays on this device. Nothing is uploaded, and there are no tracking
+            or advertising SDKs in this app.
+          </Text>
+        </View>
+      </Reveal>
 
-          {/* About */}
-          <Animated.View entering={FadeInDown.delay(280).springify()}>
-            <GlassCard style={styles.card}>
-              <Text style={styles.cardTitle}>ℹ️ About</Text>
-              <View style={styles.linkRow}>
-                <Text style={styles.linkLabel}>App Version</Text>
-                <Text style={styles.linkHint}>1.0.0</Text>
-              </View>
-            </GlassCard>
-          </Animated.View>
+      {/* Account */}
+      <Reveal index={3}>
+        <GroupLabel>Account</GroupLabel>
+        <Surface style={{ marginBottom: SPACE.xxl }}>
+          <Row label="Log out and erase" icon="trash" iconTint="#C4566E" destructive onPress={handleLogout} last />
+        </Surface>
+      </Reveal>
 
-          {/* Logout */}
-          <Animated.View entering={FadeInDown.delay(340).springify()}>
-            <Ripple onPress={handleLogout} borderRadius={18} style={styles.logout} rippleColor="rgba(230,57,115,0.15)">
-              <Text style={styles.logoutText}>Log out</Text>
-            </Ripple>
-          </Animated.View>
-
-          <View style={{ height: scale(110) }} />
-        </ScrollView>
-      </SafeAreaView>
-    </GradientBackground>
+      <Text variant="caption" tone="tertiary" style={styles.version}>
+        Version 1.0.0
+      </Text>
+    </Screen>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.lg },
-  scroll: { paddingTop: SPACING.md },
-  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
-
-  card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
-
-  profile: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  profileName: { ...TYPOGRAPHY.h4, color: c.text },
-  profileSub: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
-
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-  },
-  settingLabel: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1, paddingRight: SPACING.md },
-  settingEmoji: { fontSize: 22 },
-  settingTitle: { ...TYPOGRAPHY.body1, fontWeight: '600', color: c.text },
-  settingDesc: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: 2 },
-
-  divider: { height: 1, backgroundColor: c.divider, marginVertical: SPACING.md },
-
-  linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.xs },
-  linkLabel: { ...TYPOGRAPHY.body1, color: c.text },
-  linkHint: { ...TYPOGRAPHY.caption, color: c.textSecondary },
-
-  logout: {
-    height: 54,
+const styles = StyleSheet.create({
+  profile: { flexDirection: 'row', alignItems: 'center', gap: SPACE.lg },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: c.pillBg,
-    borderWidth: 1.5,
-    borderColor: COLORS.error,
   },
-  logoutText: { ...TYPOGRAPHY.button, color: COLORS.error, fontSize: 16 },
+  groupLabel: { marginBottom: SPACE.md, marginLeft: SPACE.xs },
+  promise: {
+    flexDirection: 'row',
+    gap: SPACE.md,
+    paddingHorizontal: SPACE.xs,
+    marginBottom: SPACE.xxl,
+  },
+  version: { textAlign: 'center', marginTop: SPACE.sm },
 });
 
 export default SettingsScreen;

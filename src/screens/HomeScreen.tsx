@@ -1,18 +1,16 @@
-import React, { useMemo, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Text,
-  Pressable,
-  RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY, PHASE_GRADIENTS } from '../constants';
-import { fontScale, scale } from '../utils/responsive';
+import { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, RefreshControl } from 'react-native';
+import Text from '../components/Text';
+import Screen from '../components/Screen';
+import Surface from '../components/Surface';
+import Reveal from '../components/Reveal';
+import Icon, { IconName } from '../components/Icon';
+import MetricCard from '../components/MetricCard';
+import CycleTimeline from '../components/CycleTimeline';
+import ThemeToggle from '../components/ThemeToggle';
+import { COLORS } from '../constants';
+import { SPACE, RADIUS, MIN_TAP } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
 import {
   getDayOfCycle,
@@ -23,307 +21,268 @@ import {
   daysUntil,
   deriveCycleContext,
 } from '../utils/cycleCalculations';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import CycleRing from '../components/CycleRing';
-import Ripple from '../components/Ripple';
-import EmojiChip from '../components/EmojiChip';
-import ThemeToggle from '../components/ThemeToggle';
 
-interface QuickActionProps {
-  emoji: string;
-  label: string;
-  colors: [string, string];
-  textColor: string;
-  onPress: () => void;
-  delay: number;
+/** Time-aware greeting — small touch, but it's what makes a dashboard feel present. */
+function greeting(d = new Date()): string {
+  const h = d.getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
-/** Glass tile with a ripple tap, springy press, haptics, and a 3D emoji chip. */
-const QuickAction: React.FC<QuickActionProps> = ({ emoji, label, colors, textColor, onPress, delay }) => (
-  <Animated.View entering={FadeInDown.delay(delay).springify()} style={qa.wrap}>
-    <Ripple onPress={onPress} borderRadius={22} style={qa.ripple}>
-      <GlassCard padded={false}>
-        <View style={qa.inner}>
-          <EmojiChip emoji={emoji} size={scale(46)} colors={colors} onPress={onPress} />
-          <Text style={[qa.label, { color: textColor }]}>{label}</Text>
-        </View>
-      </GlassCard>
-    </Ripple>
-  </Animated.View>
-);
+interface QuickAction {
+  label: string;
+  icon: IconName;
+  accent: string;
+  route: string;
+}
 
-const qa = StyleSheet.create({
-  wrap: { width: '48%' },
-  ripple: { width: '100%' },
-  inner: {
-    height: scale(108),
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.sm,
-  },
-  label: { ...TYPOGRAPHY.body2, fontSize: fontScale(14), fontWeight: '600', textAlign: 'center' },
-});
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Mood', icon: 'heart', accent: COLORS.primary, route: 'MoodTracker' },
+  { label: 'Symptoms', icon: 'activity', accent: COLORS.accent, route: 'SymptomLogger' },
+  { label: 'Period', icon: 'drop', accent: COLORS.menstrual, route: 'PeriodLogger' },
+  { label: 'Insights', icon: 'sparkles', accent: COLORS.success, route: 'AIInsights' },
+];
 
 const HomeScreen = ({ navigation }: any) => {
   const { user, periodEntries } = useAppStore();
-  const { colors: c } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
+  const { colors: c, isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
-  const cycleInfo = useMemo(() => {
+  const cycle = useMemo(() => {
     if (!user) return null;
     const { lastPeriodStart, cycleLength, periodLength } = deriveCycleContext(user, periodEntries);
     const dayOfCycle = getDayOfCycle(lastPeriodStart, cycleLength);
-    const phase = getCyclePhase(dayOfCycle, cycleLength, periodLength);
-    const fertility = getFertilityWindow(lastPeriodStart, cycleLength);
-    const nextPeriod = getPredictedNextPeriod(lastPeriodStart, cycleLength);
     return {
       dayOfCycle,
-      phase,
-      fertility,
-      daysUntilPeriod: daysUntil(nextPeriod),
-      progress: dayOfCycle / cycleLength,
+      cycleLength,
+      periodLength,
+      phase: getCyclePhase(dayOfCycle, cycleLength, periodLength),
+      fertility: getFertilityWindow(lastPeriodStart, cycleLength),
+      daysUntilPeriod: daysUntil(getPredictedNextPeriod(lastPeriodStart, cycleLength)),
     };
   }, [user, periodEntries]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    setTimeout(() => setRefreshing(false), 900);
   }, []);
 
-  if (!user || !cycleInfo) {
+  if (!user || !cycle) {
     return (
-      <GradientBackground>
-        <SafeAreaView style={styles.loadingWrap}>
-          <Text style={[TYPOGRAPHY.h2, { color: c.text }]}>Loading...</Text>
-        </SafeAreaView>
-      </GradientBackground>
+      <Screen scroll={false}>
+        <View style={styles.loading}>
+          <Text tone="secondary">Loading</Text>
+        </View>
+      </Screen>
     );
   }
 
-  const rawPhase = cycleInfo.phase?.name ?? 'menstrual';
-  const phaseName = rawPhase.charAt(0).toUpperCase() + rawPhase.slice(1);
-  const phaseGradient = PHASE_GRADIENTS[phaseName] ?? PHASE_GRADIENTS.Menstrual;
-  const ringColors: [string, string] = [phaseGradient[0], phaseGradient[1]];
-  const progressPct = Math.round(cycleInfo.progress * 100);
+  const raw = cycle.phase?.name ?? 'menstrual';
+  const phaseName = raw.charAt(0).toUpperCase() + raw.slice(1);
+  const phaseColor = cycle.phase?.color ?? COLORS.primary;
+  const firstName = user.name.trim().split(/\s+/)[0];
 
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
-          showsVerticalScrollIndicator={false}
+    <Screen
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+      }
+    >
+      {/* Greeting */}
+      <Reveal index={0}>
+        <View style={styles.greetRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="callout" tone="secondary">
+              {greeting()},
+            </Text>
+            <Text variant="title1" style={{ marginTop: 2 }}>
+              {firstName}
+            </Text>
+          </View>
+          <ThemeToggle />
+        </View>
+      </Reveal>
+
+      {/* Hero — where am I in my cycle */}
+      <Reveal index={1}>
+        <View style={styles.hero}>
+          <CycleTimeline
+            dayOfCycle={cycle.dayOfCycle}
+            cycleLength={cycle.cycleLength}
+            periodLength={cycle.periodLength}
+            phaseName={phaseName}
+            size={268}
+          >
+            <Text variant="overline" tone="tertiary">
+              Day {cycle.dayOfCycle} of {cycle.cycleLength}
+            </Text>
+            <Text variant="display" style={styles.phaseTitle}>
+              {phaseName}
+            </Text>
+            <View style={[styles.phaseDot, { backgroundColor: phaseColor }]} />
+          </CycleTimeline>
+
+          <Text variant="callout" tone="secondary" style={styles.heroCaption}>
+            {cycle.phase?.description}
+          </Text>
+        </View>
+      </Reveal>
+
+      {/* Today's insight */}
+      <Reveal index={2}>
+        <Surface
+          onPress={() => navigation.navigate('AIInsights')}
+          accessibilityLabel="Today's insight"
+          accessibilityHint="Opens AI insights"
+          style={{ marginBottom: SPACE.lg }}
         >
-          {/* Greeting + theme toggle */}
-          <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
-            <View style={styles.headerText}>
-              <Text style={styles.greeting}>Hello, {user.name} 👋</Text>
-              <Text style={styles.subGreeting}>Here's your cycle at a glance</Text>
+          <View style={styles.insightHead}>
+            <View style={[styles.insightIcon, { backgroundColor: isDark ? c.fill : COLORS.primarySoft }]}>
+              <Icon name="sparkles" size={15} color={COLORS.primaryDark} />
             </View>
-            <ThemeToggle />
-          </Animated.View>
-
-          {/* Hero ring */}
-          <Animated.View entering={FadeInDown.delay(120).springify()}>
-            <GlassCard style={styles.heroCard}>
-              <CycleRing progress={cycleInfo.progress} colors={ringColors} size={230} strokeWidth={18} trackColor={c.trackNeutral}>
-                <Text style={styles.ringLabel}>DAY</Text>
-                <Text style={styles.ringDay}>{cycleInfo.dayOfCycle}</Text>
-                <View style={[styles.phasePill, { backgroundColor: phaseGradient[1] }]}>
-                  <Text style={styles.phasePillText}>{phaseName}</Text>
-                </View>
-              </CycleRing>
-              <Text style={styles.heroDescription} numberOfLines={2}>
-                {cycleInfo.phase?.description}
-              </Text>
-              <View style={styles.wellnessRow}>
-                <Text style={styles.wellnessLabel}>Wellness</Text>
-                <View style={styles.wellnessBarTrack}>
-                  <View
-                    style={[
-                      styles.wellnessBarFill,
-                      {
-                        width: `${(cycleInfo.phase?.wellnessScore ?? 5) * 10}%`,
-                        backgroundColor: phaseGradient[1],
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.wellnessScore}>{cycleInfo.phase?.wellnessScore ?? 5}/10</Text>
-              </View>
-            </GlassCard>
-          </Animated.View>
-
-          {/* Stat row */}
-          <View style={styles.statRow}>
-            <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.statCol}>
-              <GlassCard style={styles.statCard}>
-                <EmojiChip emoji="🩸" size={scale(40)} colors={['#FFFFFF', '#FFD9E6']} float delay={0} onPress={() => navigation.navigate('Calendar')} />
-                <Text style={styles.statValue}>{formatCountdown(cycleInfo.daysUntilPeriod)}</Text>
-                <Text style={styles.statCaption}>Next period</Text>
-              </GlassCard>
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.statCol}>
-              <GlassCard style={styles.statCard}>
-                <EmojiChip emoji="💚" size={scale(40)} colors={['#FFFFFF', '#D9F5E4']} float delay={300} onPress={() => navigation.navigate('Calendar')} />
-                <Text style={styles.statValue}>
-                  {cycleInfo.fertility.daysFromNow < 0
-                    ? 'Active'
-                    : formatCountdown(cycleInfo.fertility.daysFromNow)}
-                </Text>
-                <Text style={styles.statCaption}>Fertility</Text>
-              </GlassCard>
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(360).springify()} style={styles.statCol}>
-              <GlassCard style={styles.statCard}>
-                <EmojiChip emoji="🌙" size={scale(40)} colors={['#FFFFFF', '#EADDFF']} float delay={600} onPress={() => navigation.navigate('Analytics')} />
-                <Text style={styles.statValue}>{progressPct}%</Text>
-                <Text style={styles.statCaption}>Cycle done</Text>
-              </GlassCard>
-            </Animated.View>
+            <Text variant="overline" tone="tertiary" style={{ flex: 1 }}>
+              Today
+            </Text>
+            <Icon name="chevronRight" size={17} color={c.textTertiary} />
           </View>
+          <Text variant="body" style={{ marginTop: SPACE.md }}>
+            {insightFor(raw)}
+          </Text>
+        </Surface>
+      </Reveal>
 
-          {/* Log period — primary action */}
-          <Animated.View entering={FadeInDown.delay(390).springify()}>
-            <Ripple onPress={() => navigation.navigate('PeriodLogger')} borderRadius={20} style={styles.logPeriodBtn} rippleColor="rgba(255,255,255,0.35)">
-              <EmojiChip emoji="🩸" size={scale(38)} colors={['#FFFFFF', '#FFD9E6']} onPress={() => navigation.navigate('PeriodLogger')} />
-              <View style={styles.logPeriodText}>
-                <Text style={styles.logPeriodTitle}>Log Period</Text>
-                <Text style={styles.logPeriodSub}>Keep predictions accurate</Text>
-              </View>
-              <Text style={styles.logPeriodChevron}>→</Text>
-            </Ripple>
-          </Animated.View>
+      {/* Countdown + fertility */}
+      <Reveal index={3}>
+        <View style={styles.metrics}>
+          <MetricCard
+            label="Next period"
+            value={formatCountdown(cycle.daysUntilPeriod)}
+            icon="drop"
+            accent={COLORS.menstrual}
+            onPress={() => navigation.navigate('Calendar')}
+          />
+          <MetricCard
+            label="Fertile window"
+            value={
+              cycle.fertility.daysFromNow < 0
+                ? 'Open now'
+                : formatCountdown(cycle.fertility.daysFromNow)
+            }
+            icon="leaf"
+            accent={COLORS.success}
+            onPress={() => navigation.navigate('Calendar')}
+          />
+        </View>
+      </Reveal>
 
-          {/* Quick actions */}
-          <Animated.View entering={FadeIn.delay(400)}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-          </Animated.View>
-          <View style={styles.actionGrid}>
-            <QuickAction emoji="📝" label="Log Symptoms" colors={['#FFFFFF', '#FFD9E6']} textColor={c.text} delay={440} onPress={() => navigation.navigate('SymptomLogger')} />
-            <QuickAction emoji="✨" label="Daily Check-in" colors={['#FFFFFF', '#FFE9C7']} textColor={c.text} delay={500} onPress={() => navigation.navigate('MoodTracker')} />
-            <QuickAction emoji="📅" label="Calendar" colors={['#FFFFFF', '#D9F5E4']} textColor={c.text} delay={560} onPress={() => navigation.navigate('Calendar')} />
-            <QuickAction emoji="📊" label="Analytics" colors={['#FFFFFF', '#EADDFF']} textColor={c.text} delay={620} onPress={() => navigation.navigate('Analytics')} />
-          </View>
-
-          {/* AI insight preview */}
-          <Animated.View entering={FadeInDown.delay(680).springify()}>
-            <Pressable onPress={() => navigation.navigate('AIInsights')}>
-              <GlassCard style={styles.insightCard}>
-                <View style={styles.insightHeader}>
-                  <Text style={styles.insightTitle}>✨ AI Insight</Text>
-                  <Text style={styles.insightLink}>View all →</Text>
+      {/* Quick actions */}
+      <Reveal index={4}>
+        <Text variant="overline" tone="tertiary" style={styles.sectionLabel}>
+          Log today
+        </Text>
+        <View style={styles.actions}>
+          {QUICK_ACTIONS.map((a) => (
+            <Surface
+              key={a.label}
+              onPress={() => navigation.navigate(a.route)}
+              accessibilityLabel={`Log ${a.label}`}
+              padded={false}
+              style={styles.action}
+            >
+              <View style={styles.actionInner}>
+                <View
+                  style={[
+                    styles.actionIcon,
+                    { backgroundColor: isDark ? c.fill : `${a.accent}1F` },
+                  ]}
+                >
+                  <Icon name={a.icon} size={19} color={isDark ? a.accent : shade(a.accent)} />
                 </View>
-                <Text style={styles.insightBody}>
-                  Based on your recent cycles, you may notice mild fatigue and cravings 2–3 days
-                  before your period. Plan for extra rest.
-                </Text>
-              </GlassCard>
-            </Pressable>
-          </Animated.View>
-
-          <View style={{ height: scale(110) }} />
-        </ScrollView>
-      </SafeAreaView>
-    </GradientBackground>
+                <Text variant="subhead">{a.label}</Text>
+              </View>
+            </Surface>
+          ))}
+        </View>
+      </Reveal>
+    </Screen>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-    container: { flex: 1 },
-    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    scrollContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
-    header: {
-      marginTop: SPACING.md,
-      marginBottom: SPACING.lg,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    headerText: { flex: 1 },
-    greeting: { ...TYPOGRAPHY.h2, color: c.text },
-    subGreeting: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
+/** Phase-appropriate one-liner. Supportive, never prescriptive. */
+function insightFor(phase: string): string {
+  switch (phase) {
+    case 'menstrual':
+      return 'Energy is naturally lower today. Gentle movement and warmth tend to help more than pushing through.';
+    case 'follicular':
+      return 'Estrogen is rising and energy usually follows. A good day to start something you have been putting off.';
+    case 'ovulation':
+      return 'You may feel at your most social and clear-headed today. Worth scheduling the harder conversations.';
+    default:
+      return 'Energy may dip in the days ahead. Consider a lighter workout and an earlier night.';
+  }
+}
 
-    heroCard: { alignItems: 'center', paddingVertical: SPACING.xl, marginBottom: SPACING.lg },
-    ringLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, letterSpacing: 2 },
-    ringDay: { fontSize: fontScale(56), fontWeight: '800', color: c.text, lineHeight: fontScale(60) },
-    phasePill: {
-      marginTop: SPACING.sm,
-      paddingHorizontal: SPACING.md,
-      paddingVertical: 4,
-      borderRadius: 999,
-    },
-    phasePillText: { ...TYPOGRAPHY.caption, color: COLORS.white, fontWeight: '700' },
-    heroDescription: {
-      ...TYPOGRAPHY.body2,
-      color: c.textSecondary,
-      textAlign: 'center',
-      marginTop: SPACING.lg,
-      paddingHorizontal: SPACING.md,
-    },
-    wellnessRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.sm,
-      marginTop: SPACING.lg,
-      alignSelf: 'stretch',
-    },
-    wellnessLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary },
-    wellnessBarTrack: {
-      flex: 1,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: c.trackNeutral,
-      overflow: 'hidden',
-    },
-    wellnessBarFill: { height: '100%', borderRadius: 4 },
-    wellnessScore: { ...TYPOGRAPHY.caption, color: c.text, fontWeight: '700' },
+/** Darker variant of an accent for icon-on-tint contrast in light mode. */
+function shade(hex: string): string {
+  const map: Record<string, string> = {
+    [COLORS.primary]: COLORS.primaryDark,
+    [COLORS.accent]: COLORS.accentDark,
+    [COLORS.success]: COLORS.successDark,
+    [COLORS.warning]: COLORS.warningDark,
+  };
+  return map[hex] ?? hex;
+}
 
-    statRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },
-    statCol: { flex: 1 },
-    statCard: { alignItems: 'center', paddingVertical: SPACING.lg },
-    statValue: { ...TYPOGRAPHY.body1, fontWeight: '800', color: c.text, textAlign: 'center', marginTop: SPACING.xs },
-    statCaption: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: 2 },
+const styles = StyleSheet.create({
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-    logPeriodBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.md,
-      backgroundColor: COLORS.primary,
-      paddingVertical: SPACING.md,
-      paddingHorizontal: SPACING.lg,
-      marginBottom: SPACING.xl,
-    },
-    logPeriodText: { flex: 1 },
-    logPeriodTitle: { ...TYPOGRAPHY.body1, fontWeight: '800', color: COLORS.white },
-    logPeriodSub: { ...TYPOGRAPHY.caption, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-    logPeriodChevron: { ...TYPOGRAPHY.h3, color: COLORS.white },
+  greetRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: SPACE.h2,
+    marginBottom: SPACE.xxl,
+  },
 
-    sectionTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
-    actionGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      rowGap: SPACING.md,
-      marginBottom: SPACING.xl,
-    },
+  hero: { alignItems: 'center', marginBottom: SPACE.h1 },
+  phaseTitle: { marginTop: SPACE.xs },
+  phaseDot: { width: 6, height: 6, borderRadius: 3, marginTop: SPACE.md },
+  heroCaption: {
+    textAlign: 'center',
+    marginTop: SPACE.xl,
+    paddingHorizontal: SPACE.lg,
+    maxWidth: 320,
+  },
 
-    insightCard: {},
-    insightHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: SPACING.sm,
-    },
-    insightTitle: { ...TYPOGRAPHY.h4, color: c.text },
-    insightLink: { ...TYPOGRAPHY.body2, color: COLORS.primary, fontWeight: '600' },
-    insightBody: { ...TYPOGRAPHY.body2, color: c.textSecondary, lineHeight: 20 },
-  });
+  insightHead: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  insightIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  metrics: { flexDirection: 'row', gap: SPACE.md, marginBottom: SPACE.h1 },
+
+  sectionLabel: { marginBottom: SPACE.md },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.md },
+  action: { width: '47.6%' },
+  actionInner: {
+    minHeight: MIN_TAP + 32,
+    paddingVertical: SPACE.lg,
+    paddingHorizontal: SPACE.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.md,
+  },
+  actionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default HomeScreen;

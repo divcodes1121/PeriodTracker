@@ -23,10 +23,43 @@ export function getOvulationDay(cycleLength: number = 28): number {
   return clamp(Math.round(cycleLength - 14), 3, cycleLength - 1);
 }
 
+export type PhaseKey = keyof typeof CYCLE_PHASES;
+
+export interface PhaseRange {
+  key: PhaseKey;
+  startDay: number;
+  endDay: number;
+  color: string;
+}
+
+/**
+ * The phase boundaries for a given cycle, derived rather than hardcoded to 28
+ * days. Single source of truth: `getCyclePhase` looks up through this, and the
+ * cycle timeline ring draws these exact arcs, so the visual can never drift
+ * from the math.
+ *
+ * Degenerate ranges (e.g. no follicular window on a very short cycle) are
+ * filtered out, so the result always covers 1..cycleLength without overlap.
+ */
+export function getPhaseRanges(cycleLength: number = 28, periodLength: number = 5): PhaseRange[] {
+  const period = clamp(Math.round(periodLength), 2, 7);
+  const ovulation = clamp(getOvulationDay(cycleLength), period + 2, cycleLength - 1);
+
+  return (
+    [
+      { key: 'menstrual' as const, startDay: 1, endDay: period },
+      { key: 'follicular' as const, startDay: period + 1, endDay: ovulation - 2 },
+      { key: 'ovulation' as const, startDay: ovulation - 1, endDay: ovulation + 1 },
+      { key: 'luteal' as const, startDay: ovulation + 2, endDay: cycleLength },
+    ] satisfies { key: PhaseKey; startDay: number; endDay: number }[]
+  )
+    .filter((r) => r.endDay >= r.startDay && r.startDay <= cycleLength)
+    .map((r) => ({ ...r, endDay: Math.min(r.endDay, cycleLength), color: CYCLE_PHASES[r.key].color }));
+}
+
 /**
  * Calculates the cycle phase for a day of cycle, scaled to the user's actual
- * cycle and period length. Phase boundaries are derived (not hardcoded to a
- * 28-day cycle) so a 21- or 35-day cycle still maps every day to a real phase.
+ * cycle and period length.
  */
 export function getCyclePhase(
   dayOfCycle: number,
@@ -35,40 +68,20 @@ export function getCyclePhase(
 ): CyclePhase | null {
   if (dayOfCycle < 1 || dayOfCycle > cycleLength) return null;
 
-  const period = clamp(Math.round(periodLength), 2, 7);
-  const ovulation = clamp(getOvulationDay(cycleLength), period + 2, cycleLength - 1);
+  const ranges = getPhaseRanges(cycleLength, periodLength);
+  const match =
+    ranges.find((r) => dayOfCycle >= r.startDay && dayOfCycle <= r.endDay) ??
+    ranges[ranges.length - 1];
 
-  let key: keyof typeof CYCLE_PHASES;
-  let startDay: number;
-  let endDay: number;
-
-  if (dayOfCycle <= period) {
-    key = 'menstrual';
-    startDay = 1;
-    endDay = period;
-  } else if (dayOfCycle >= ovulation - 1 && dayOfCycle <= ovulation + 1) {
-    key = 'ovulation';
-    startDay = ovulation - 1;
-    endDay = ovulation + 1;
-  } else if (dayOfCycle < ovulation - 1) {
-    key = 'follicular';
-    startDay = period + 1;
-    endDay = ovulation - 2;
-  } else {
-    key = 'luteal';
-    startDay = ovulation + 2;
-    endDay = cycleLength;
-  }
-
-  const phase = CYCLE_PHASES[key];
+  const phase = CYCLE_PHASES[match.key];
   return {
-    name: key,
-    startDay,
-    endDay,
+    name: match.key,
+    startDay: match.startDay,
+    endDay: match.endDay,
     description: phase.description,
     color: phase.color,
     expectedSymptoms: phase.symptoms,
-    wellnessScore: calculateWellnessScore(key),
+    wellnessScore: calculateWellnessScore(match.key),
   };
 }
 

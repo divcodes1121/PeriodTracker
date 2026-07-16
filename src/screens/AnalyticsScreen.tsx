@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LineChart } from 'react-native-chart-kit';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY } from '../constants';
-import { fontScale, scale, CONTENT_MAX_WIDTH } from '../utils/responsive';
+import { View, StyleSheet } from 'react-native';
+import { format } from 'date-fns';
+import Screen from '../components/Screen';
+import Surface from '../components/Surface';
+import Text from '../components/Text';
+import Icon from '../components/Icon';
+import Reveal from '../components/Reveal';
+import BarChart from '../components/BarChart';
+import Sparkline from '../components/Sparkline';
+import AnimatedNumber from '../components/AnimatedNumber';
 import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
+import { COLORS } from '../constants';
+import { SPACE, RADIUS } from '../theme/tokens';
 import {
   generateCycleStats,
   daysUntil,
@@ -15,170 +20,276 @@ import {
   buildCycleLengths,
   deriveCycleContext,
 } from '../utils/cycleCalculations';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import EmojiChip from '../components/EmojiChip';
+
+/** One big number with a quiet label. */
+function Stat({ value, label, unit }: { value: number; label: string; unit?: string }) {
+  return (
+    <View style={styles.stat}>
+      <View style={styles.statValue}>
+        <AnimatedNumber value={value} variant="title1" />
+        {unit ? (
+          <Text variant="caption" tone="tertiary" style={{ marginBottom: 3 }}>
+            {unit}
+          </Text>
+        ) : null}
+      </View>
+      <Text variant="overline" tone="tertiary" numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 const AnalyticsScreen = () => {
-  const { user, periodEntries, moodEntries } = useAppStore();
-  const { colors: c } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
-  const { width } = useWindowDimensions();
-  const chartWidth = Math.min(width, CONTENT_MAX_WIDTH) - SPACING.lg * 2 - SPACING.lg * 2;
+  const { user, periodEntries, moodEntries, symptomLogs } = useAppStore();
+  const { colors: c, isDark } = useTheme();
 
-  const cycleStats = useMemo(() => {
-    if (!user) return null;
-    // Cycle length is the gap between consecutive period *starts*, so we need
-    // at least two logged periods before any statistics are meaningful.
-    const cycleLengths = buildCycleLengths(periodEntries);
-    if (cycleLengths.length === 0) return null;
+  const cycleLengths = useMemo(() => buildCycleLengths(periodEntries), [periodEntries]);
+
+  const stats = useMemo(() => {
+    if (!user || cycleLengths.length === 0) return null;
     const { lastPeriodStart } = deriveCycleContext(user, periodEntries);
     return generateCycleStats(lastPeriodStart, user.periodLength, cycleLengths);
-  }, [user, periodEntries]);
+  }, [user, periodEntries, cycleLengths]);
 
-  const nextPeriodDate = useMemo(() => {
+  const nextPeriod = useMemo(() => {
     if (!user) return null;
     const { lastPeriodStart, cycleLength } = deriveCycleContext(user, periodEntries);
     return getPredictedNextPeriod(lastPeriodStart, cycleLength);
   }, [user, periodEntries]);
 
-  const moodTrends = useMemo(() => {
-    if (moodEntries.length === 0) return null;
-    const last7 = moodEntries.slice(-7);
-    return {
-      labels: last7.map((_, i) => `${i + 1}`),
-      datasets: [{ data: last7.map((m) => m.mood), color: () => COLORS.primary }],
-    };
-  }, [moodEntries]);
+  /** Prediction confidence grows with logged history and falls with variability. */
+  const confidence = useMemo(() => {
+    if (cycleLengths.length === 0) return 0;
+    const history = Math.min(cycleLengths.length / 6, 1);
+    const steadiness = stats ? Math.max(0, 1 - stats.cycleVariability / 10) : 0.5;
+    return Math.round((history * 0.5 + steadiness * 0.5) * 100);
+  }, [cycleLengths, stats]);
+
+  const moodSeries = useMemo(() => moodEntries.slice(-14).map((m) => m.mood), [moodEntries]);
+  const energySeries = useMemo(() => moodEntries.slice(-14).map((m) => m.energy), [moodEntries]);
+
+  const symptomFreq = useMemo(() => {
+    const counts = symptomLogs
+      .slice(-30)
+      .flatMap((l) => l.symptoms)
+      .reduce<Record<string, number>>((acc, s) => {
+        acc[s.type] = (acc[s.type] ?? 0) + 1;
+        return acc;
+      }, {});
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([type, n]) => ({ label: type.replace('_', ' '), value: n }));
+  }, [symptomLogs]);
+
+  const hasNothing = cycleLengths.length === 0 && moodEntries.length === 0;
 
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-            <Text style={styles.title}>Analytics</Text>
-            <Text style={styles.subtitle}>Patterns from your cycle & wellness</Text>
-          </Animated.View>
+    <Screen title="Analytics" subtitle="What your logs add up to">
+      {hasNothing && (
+        <Reveal index={0}>
+          <Surface>
+            <View style={[styles.emptyIcon, { backgroundColor: c.fill }]}>
+              <Icon name="chart" size={20} color={c.textSecondary} />
+            </View>
+            <Text variant="title3" style={{ marginTop: SPACE.lg }}>
+              Not enough data yet
+            </Text>
+            <Text variant="callout" tone="secondary" style={{ marginTop: SPACE.sm }}>
+              Cycle statistics need at least two logged periods, since a cycle is measured from one
+              start to the next.
+            </Text>
+          </Surface>
+        </Reveal>
+      )}
 
-          {cycleStats ? (
-            <Animated.View entering={FadeInDown.delay(100).springify()}>
-              <GlassCard style={styles.card}>
-                <Text style={styles.cardTitle}>Cycle statistics</Text>
-                <View style={styles.statsGrid}>
-                  <View style={styles.stat}>
-                    <Text style={styles.statNum}>{cycleStats.averageCycleLength}</Text>
-                    <Text style={styles.statLabel}>Avg cycle</Text>
-                  </View>
-                  <View style={styles.stat}>
-                    <Text style={styles.statNum}>{cycleStats.cycleVariability}</Text>
-                    <Text style={styles.statLabel}>Variability</Text>
-                  </View>
-                  <View style={styles.stat}>
-                    <Text style={styles.statNum}>{cycleStats.periodLength}</Text>
-                    <Text style={styles.statLabel}>Period days</Text>
-                  </View>
-                </View>
-                {cycleStats.irregularityDetected && (
-                  <View style={styles.alert}>
-                    <Text style={styles.alertText}>
-                      ⚠️ Your cycles show some variation. Keep tracking for better predictions.
-                    </Text>
-                  </View>
-                )}
-              </GlassCard>
-            </Animated.View>
-          ) : (
-            <Animated.View entering={FadeInDown.delay(100).springify()}>
-              <GlassCard style={styles.card}>
-                <EmojiChip emoji="📊" size={scale(48)} float />
-                <Text style={[styles.cardTitle, { marginTop: SPACING.md }]}>No data yet</Text>
-                <Text style={styles.muted}>
-                  Log a few periods and check-ins to unlock cycle statistics and trends.
+      {/* Cycle summary */}
+      {stats && (
+        <Reveal index={0}>
+          <Surface style={{ marginBottom: SPACE.lg }}>
+            <Text variant="overline" tone="tertiary">
+              Your cycle
+            </Text>
+            <View style={styles.statRow}>
+              <Stat value={stats.averageCycleLength} label="Avg length" unit="d" />
+              <View style={[styles.vRule, { backgroundColor: c.separator }]} />
+              <Stat value={stats.cycleVariability} label="Variability" unit="d" />
+              <View style={[styles.vRule, { backgroundColor: c.separator }]} />
+              <Stat value={stats.periodLength} label="Period" unit="d" />
+            </View>
+
+            {stats.irregularityDetected && (
+              <View style={[styles.notice, { backgroundColor: isDark ? c.fill : '#FDF1E5' }]}>
+                <Icon name="info" size={17} color={COLORS.warningDark} />
+                <Text variant="caption" tone="secondary" style={{ flex: 1 }}>
+                  Your cycles vary by more than a week. That is common, and more logs will sharpen
+                  predictions.
                 </Text>
-              </GlassCard>
-            </Animated.View>
-          )}
+              </View>
+            )}
+          </Surface>
+        </Reveal>
+      )}
 
-          {moodTrends && (
-            <Animated.View entering={FadeInDown.delay(180).springify()}>
-              <GlassCard style={styles.card}>
-                <Text style={styles.cardTitle}>Mood trend (last 7)</Text>
-                <View style={styles.chartWrap}>
-                  <LineChart
-                    data={moodTrends}
-                    width={chartWidth}
-                    height={200}
-                    chartConfig={{
-                      backgroundGradientFrom: 'transparent',
-                      backgroundGradientTo: 'transparent',
-                      backgroundGradientFromOpacity: 0,
-                      backgroundGradientToOpacity: 0,
-                      color: (o = 1) => `rgba(255,107,157,${o})`,
-                      labelColor: () => c.textSecondary,
-                      strokeWidth: 3,
-                      propsForDots: { r: '5', strokeWidth: '2', stroke: COLORS.primaryDark },
-                    }}
-                    bezier
-                    style={{ marginLeft: -SPACING.md }}
-                  />
-                </View>
-              </GlassCard>
-            </Animated.View>
-          )}
+      {/* Cycle length trend */}
+      {cycleLengths.length > 0 && (
+        <Reveal index={1}>
+          <Surface style={{ marginBottom: SPACE.lg }}>
+            <Text variant="overline" tone="tertiary">
+              Cycle length
+            </Text>
+            <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
+              Last {cycleLengths.length} cycle{cycleLengths.length === 1 ? '' : 's'}
+            </Text>
+            <BarChart
+              data={cycleLengths.slice(-6).map((v, i, arr) => ({
+                label: i === arr.length - 1 ? 'Now' : `${arr.length - 1 - i}×`,
+                value: v,
+              }))}
+              color={COLORS.primary}
+              unit="d"
+              showAverage={cycleLengths.length > 1}
+            />
+          </Surface>
+        </Reveal>
+      )}
 
-          {user && nextPeriodDate && (
-            <Animated.View entering={FadeInDown.delay(260).springify()}>
-              <GlassCard style={styles.card}>
-                <Text style={styles.cardTitle}>Next predictions</Text>
-                <View style={styles.predRow}>
-                  <EmojiChip emoji="🩸" size={scale(42)} colors={['#FFFFFF', '#FFD9E6']} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.predMain}>{nextPeriodDate.toLocaleDateString()}</Text>
-                    <Text style={styles.muted}>In {daysUntil(nextPeriodDate)} days</Text>
+      {/* Prediction confidence */}
+      {nextPeriod && cycleLengths.length > 0 && (
+        <Reveal index={2}>
+          <Surface style={{ marginBottom: SPACE.lg }}>
+            <Text variant="overline" tone="tertiary">
+              Next period
+            </Text>
+            <View style={styles.predRow}>
+              <View style={{ flex: 1 }}>
+                <Text variant="title2" style={{ marginTop: SPACE.xs }}>
+                  {format(nextPeriod, 'EEE, MMM d')}
+                </Text>
+                <Text variant="callout" tone="secondary" style={{ marginTop: 2 }}>
+                  In {daysUntil(nextPeriod)} days
+                </Text>
+              </View>
+              <View style={styles.confRing}>
+                <Text variant="title3" color={COLORS.primaryDark} tabular>
+                  {confidence}%
+                </Text>
+                <Text variant="overline" tone="tertiary">
+                  Confidence
+                </Text>
+              </View>
+            </View>
+          </Surface>
+        </Reveal>
+      )}
+
+      {/* Mood & energy */}
+      {moodSeries.length > 1 && (
+        <Reveal index={3}>
+          <Surface style={{ marginBottom: SPACE.lg }}>
+            <Text variant="overline" tone="tertiary">
+              Mood & energy
+            </Text>
+            <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
+              Last {moodSeries.length} check-ins
+            </Text>
+
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
+                <Text variant="caption" tone="secondary">
+                  Mood
+                </Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: COLORS.accent }]} />
+                <Text variant="caption" tone="secondary">
+                  Energy
+                </Text>
+              </View>
+            </View>
+
+            <Sparkline data={moodSeries} color={COLORS.primary} height={64} />
+            <View style={{ height: SPACE.sm }} />
+            <Sparkline data={energySeries} color={COLORS.accent} height={64} />
+          </Surface>
+        </Reveal>
+      )}
+
+      {/* Symptom frequency */}
+      {symptomFreq.length > 0 && (
+        <Reveal index={4}>
+          <Surface>
+            <Text variant="overline" tone="tertiary">
+              Most logged
+            </Text>
+            <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
+              Symptoms, last 30 days
+            </Text>
+            {symptomFreq.map((s) => {
+              const max = symptomFreq[0].value;
+              return (
+                <View key={s.label} style={styles.freqRow}>
+                  <Text variant="callout" style={styles.freqLabel} numberOfLines={1}>
+                    {s.label}
+                  </Text>
+                  <View style={[styles.freqTrack, { backgroundColor: c.fill }]}>
+                    <View
+                      style={[
+                        styles.freqFill,
+                        { width: `${(s.value / max) * 100}%`, backgroundColor: COLORS.accent },
+                      ]}
+                    />
                   </View>
+                  <Text variant="caption" tone="tertiary" tabular style={styles.freqCount}>
+                    {s.value}
+                  </Text>
                 </View>
-              </GlassCard>
-            </Animated.View>
-          )}
-
-          <View style={{ height: scale(110) }} />
-        </ScrollView>
-      </SafeAreaView>
-    </GradientBackground>
+              );
+            })}
+          </Surface>
+        </Reveal>
+      )}
+    </Screen>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.lg },
-  scroll: { paddingTop: SPACING.md },
-  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
-
-  card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
-  muted: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 4 },
-
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-around' },
-  stat: { alignItems: 'center' },
-  statNum: { fontSize: fontScale(30), fontWeight: '800', color: c.text },
-  statLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: 2 },
-
-  alert: {
-    marginTop: SPACING.lg,
-    backgroundColor: 'rgba(255,152,0,0.12)',
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.warning,
-    borderRadius: 10,
-    padding: SPACING.md,
+const styles = StyleSheet.create({
+  emptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  alertText: { ...TYPOGRAPHY.body2, color: c.text },
 
-  chartWrap: { alignItems: 'center', overflow: 'hidden' },
+  statRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACE.lg },
+  stat: { flex: 1, alignItems: 'center' },
+  statValue: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
+  vRule: { width: StyleSheet.hairlineWidth, height: 32 },
 
-  predRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  predMain: { ...TYPOGRAPHY.body1, fontWeight: '700', color: c.text },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.md,
+    marginTop: SPACE.xl,
+    padding: SPACE.md,
+    borderRadius: RADIUS.sm,
+  },
+
+  predRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.lg },
+  confRing: { alignItems: 'flex-end' },
+
+  legendRow: { flexDirection: 'row', gap: SPACE.lg, marginBottom: SPACE.md },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  legendDot: { width: 6, height: 6, borderRadius: 3 },
+
+  freqRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md, marginBottom: SPACE.md },
+  freqLabel: { width: 92, textTransform: 'capitalize' },
+  freqTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
+  freqFill: { height: '100%', borderRadius: 3 },
+  freqCount: { width: 18, textAlign: 'right' },
 });
 
 export default AnalyticsScreen;

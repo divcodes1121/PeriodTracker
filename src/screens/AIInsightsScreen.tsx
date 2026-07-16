@@ -1,17 +1,15 @@
 import { useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, GRADIENT } from '../constants';
-import { fontScale, scale } from '../utils/responsive';
+import { View, StyleSheet } from 'react-native';
+import Screen from '../components/Screen';
+import Surface from '../components/Surface';
+import Text from '../components/Text';
+import Icon from '../components/Icon';
+import Reveal from '../components/Reveal';
+import InsightCard, { InsightTone } from '../components/InsightCard';
 import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import EmojiChip from '../components/EmojiChip';
-import { AIInsight } from '../types';
+import { COLORS } from '../constants';
+import { SPACE, RADIUS } from '../theme/tokens';
 import {
   daysUntil,
   formatCountdown,
@@ -22,8 +20,6 @@ import {
   deriveCycleContext,
 } from '../utils/cycleCalculations';
 
-type InsightTone = AIInsight['type'];
-
 interface DisplayInsight {
   id: string;
   title: string;
@@ -31,19 +27,20 @@ interface DisplayInsight {
   type: InsightTone;
   confidence: number;
   tag: string;
+  /** Plain-language evidence behind the claim. */
+  reasoning?: string;
+  series?: number[];
 }
 
-const toneStyles: Record<InsightTone, { label: string; color: string; background: string }> = {
-  prediction: { label: 'Prediction', color: COLORS.info, background: '#EAF4FF' },
-  trend: { label: 'Trend', color: COLORS.primaryDark, background: '#FFF0F6' },
-  recommendation: { label: 'Tip', color: COLORS.success, background: '#ECF8EF' },
-  warning: { label: 'Watch', color: COLORS.warning, background: '#FFF6E8' },
+const TONE_LABEL: Record<InsightTone, string> = {
+  prediction: 'Prediction',
+  trend: 'Trend',
+  recommendation: 'Tip',
+  warning: 'Watch',
 };
 
-const average = (values: number[]) => {
-  if (values.length === 0) return 0;
-  return values.reduce((total, value) => total + value, 0) / values.length;
-};
+const average = (values: number[]) =>
+  values.length === 0 ? 0 : values.reduce((t, v) => t + v, 0) / values.length;
 
 const AIInsightsScreen = () => {
   const {
@@ -56,21 +53,18 @@ const AIInsightsScreen = () => {
     enableAIInsights,
   } = useAppStore();
   const { colors: c } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
 
   const insights = useMemo<DisplayInsight[]>(() => {
-    const savedInsights = aiInsights.map((insight) => ({
-      id: insight.id,
-      title: insight.title,
-      description: insight.description,
-      type: insight.type,
-      confidence: insight.confidence,
-      tag: toneStyles[insight.type].label,
+    const saved = aiInsights.map((i) => ({
+      id: i.id,
+      title: i.title,
+      description: i.description,
+      type: i.type,
+      confidence: i.confidence,
+      tag: TONE_LABEL[i.type],
     }));
 
-    if (!enableAIInsights || !user) {
-      return savedInsights;
-    }
+    if (!enableAIInsights || !user) return saved;
 
     const generated: DisplayInsight[] = [];
     const cycleLengths = buildCycleLengths(periodEntries);
@@ -81,7 +75,7 @@ const AIInsightsScreen = () => {
     const daysToPeriod = daysUntil(nextPeriod);
     const recentMood = moodEntries.slice(-7);
     const recentHealth = healthMetrics.slice(-7);
-    const recentSymptoms = symptomLogs.slice(-14).flatMap((log) => log.symptoms);
+    const recentSymptoms = symptomLogs.slice(-14).flatMap((l) => l.symptoms);
 
     generated.push({
       id: 'phase-guidance',
@@ -92,6 +86,9 @@ const AIInsightsScreen = () => {
       type: 'recommendation',
       confidence: currentPhase ? 0.82 : 0.62,
       tag: `Day ${dayOfCycle}`,
+      reasoning: currentPhase
+        ? `You are on day ${dayOfCycle} of a ${cycleLength}-day cycle, which falls in the ${currentPhase.name} phase (days ${currentPhase.startDay}–${currentPhase.endDay}).`
+        : 'Based on your onboarding cycle length, since no periods have been logged yet.',
     });
 
     if (daysToPeriod >= 0 && daysToPeriod <= 5) {
@@ -102,6 +99,7 @@ const AIInsightsScreen = () => {
         type: 'prediction',
         confidence: Math.min(0.9, 0.72 + cycleLengths.length * 0.03),
         tag: 'Upcoming',
+        reasoning: `Projected from your last logged start plus a ${cycleLength}-day average. Confidence rises with each cycle you log — currently ${cycleLengths.length}.`,
       });
     }
 
@@ -121,13 +119,15 @@ const AIInsightsScreen = () => {
         type: variation > 7 ? 'warning' : 'trend',
         confidence: Math.min(0.94, 0.66 + cycleLengths.length * 0.05),
         tag: `${cycleLengths.length} cycles`,
+        reasoning: `Measured as the gap between consecutive period starts across ${cycleLengths.length} logged cycles.`,
+        series: cycleLengths,
       });
     }
 
     if (recentMood.length >= 3) {
-      const avgEnergy = average(recentMood.map((entry) => entry.energy));
-      const avgSleep = average(recentMood.map((entry) => entry.sleep));
-      const avgWater = average(recentMood.map((entry) => entry.waterIntake));
+      const avgEnergy = average(recentMood.map((e) => e.energy));
+      const avgSleep = average(recentMood.map((e) => e.sleep));
+      const avgWater = average(recentMood.map((e) => e.waterIntake));
 
       if (avgEnergy <= 2.8) {
         generated.push({
@@ -137,6 +137,8 @@ const AIInsightsScreen = () => {
           type: 'recommendation',
           confidence: 0.78,
           tag: 'Energy',
+          reasoning: `Averaged across your last ${recentMood.length} check-ins.`,
+          series: recentMood.map((e) => e.energy),
         });
       }
 
@@ -148,13 +150,12 @@ const AIInsightsScreen = () => {
           type: 'warning',
           confidence: 0.76,
           tag: 'Sleep',
+          reasoning: `Your last ${recentMood.length} check-ins fall below the 7-hour mark.`,
+          series: recentMood.map((e) => e.sleep),
         });
       }
 
-      if (
-        avgWater < 7 ||
-        recentHealth.some((metric) => metric.waterIntake && metric.waterIntake < 7)
-      ) {
+      if (avgWater < 7 || recentHealth.some((m) => m.waterIntake && m.waterIntake < 7)) {
         generated.push({
           id: 'hydration-support',
           title: 'Hydration dip spotted',
@@ -163,169 +164,96 @@ const AIInsightsScreen = () => {
           type: 'recommendation',
           confidence: 0.74,
           tag: 'Hydration',
+          reasoning: 'Drawn from water intake recorded in your recent check-ins and health metrics.',
         });
       }
     }
 
     if (recentSymptoms.length > 0) {
-      const symptomCounts = recentSymptoms.reduce<Record<string, number>>((counts, symptom) => {
-        counts[symptom.type] = (counts[symptom.type] ?? 0) + 1;
-        return counts;
+      const counts = recentSymptoms.reduce<Record<string, number>>((acc, s) => {
+        acc[s.type] = (acc[s.type] ?? 0) + 1;
+        return acc;
       }, {});
-      const topSymptom = Object.entries(symptomCounts).sort((a, b) => b[1] - a[1])[0];
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
 
-      if (topSymptom) {
+      if (top) {
         generated.push({
           id: 'symptom-pattern',
-          title: `${topSymptom[0].replace('_', ' ')} pattern`,
+          title: `${top[0].replace('_', ' ')} pattern`,
           description:
             'This symptom appears most often in your recent logs. Keep tracking severity so the app can learn whether it clusters before your period.',
           type: 'trend',
-          confidence: Math.min(0.88, 0.68 + topSymptom[1] * 0.04),
+          confidence: Math.min(0.88, 0.68 + top[1] * 0.04),
           tag: 'Symptoms',
+          reasoning: `Logged ${top[1]} time${top[1] === 1 ? '' : 's'} across your last 14 days of symptom entries.`,
         });
       }
     }
 
-    return [...savedInsights, ...generated].slice(0, 8);
+    return [...saved, ...generated].slice(0, 8);
   }, [aiInsights, enableAIInsights, healthMetrics, moodEntries, periodEntries, symptomLogs, user]);
 
-  const topInsight = insights[0];
-
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-            <Text style={styles.title}>AI Insights</Text>
-            <Text style={styles.subtitle}>
-              Personalized patterns from your cycle & wellness logs
+    <Screen title="Insights" subtitle="Patterns found in your own logs">
+      {!enableAIInsights && (
+        <Reveal index={0}>
+          <Surface>
+            <View style={[styles.emptyIcon, { backgroundColor: c.fill }]}>
+              <Icon name="sparkles" size={20} color={c.textSecondary} />
+            </View>
+            <Text variant="title3" style={{ marginTop: SPACE.lg }}>
+              Insights are off
             </Text>
-          </Animated.View>
+            <Text variant="callout" tone="secondary" style={{ marginTop: SPACE.sm }}>
+              Turn them on in Settings whenever you want personalised cycle and wellness patterns.
+            </Text>
+          </Surface>
+        </Reveal>
+      )}
 
-          {topInsight && (
-            <Animated.View entering={FadeInDown.delay(100).springify()}>
-              <LinearGradient
-                colors={GRADIENT.primary as any}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.heroCard}
-              >
-                <View style={styles.heroTop}>
-                  <EmojiChip emoji="✨" size={scale(46)} colors={['#FFFFFF', '#FFE3EF']} float />
-                  <Text style={styles.heroLabel}>Top insight</Text>
-                </View>
-                <Text style={styles.heroTitle}>{topInsight.title}</Text>
-                <Text style={styles.heroBody}>{topInsight.description}</Text>
-              </LinearGradient>
-            </Animated.View>
-          )}
+      {enableAIInsights && insights.length === 0 && (
+        <Reveal index={0}>
+          <Surface>
+            <View style={[styles.emptyIcon, { backgroundColor: COLORS.primarySoft }]}>
+              <Icon name="leaf" size={20} color={COLORS.primaryDark} />
+            </View>
+            <Text variant="title3" style={{ marginTop: SPACE.lg }}>
+              Nothing to show yet
+            </Text>
+            <Text variant="callout" tone="secondary" style={{ marginTop: SPACE.sm }}>
+              Log a period, some symptoms and a few check-ins. Patterns appear here as soon as
+              there is enough to be honest about.
+            </Text>
+          </Surface>
+        </Reveal>
+      )}
 
-          {!enableAIInsights && (
-            <Animated.View entering={FadeInDown.delay(160).springify()}>
-              <GlassCard style={styles.card}>
-                <Text style={styles.cardTitle}>Insights are turned off</Text>
-                <Text style={styles.muted}>
-                  Turn them on in Settings when you want personalized cycle and wellness patterns.
-                </Text>
-              </GlassCard>
-            </Animated.View>
-          )}
-
-          {enableAIInsights && insights.length === 0 && (
-            <Animated.View entering={FadeInDown.delay(160).springify()}>
-              <GlassCard style={styles.card}>
-                <EmojiChip emoji="🌱" size={scale(48)} float />
-                <Text style={[styles.cardTitle, { marginTop: SPACING.md }]}>
-                  Start building your pattern
-                </Text>
-                <Text style={styles.muted}>
-                  Log a period, symptoms, and daily check-ins to unlock useful predictions.
-                </Text>
-              </GlassCard>
-            </Animated.View>
-          )}
-
-          {insights.map((insight, idx) => {
-            const tone = toneStyles[insight.type];
-            return (
-              <Animated.View key={insight.id} entering={FadeInDown.delay(180 + idx * 60).springify()}>
-                <GlassCard style={styles.card}>
-                  <View style={styles.insightHeader}>
-                    <View style={[styles.typeBadge, { backgroundColor: tone.background }]}>
-                      <Text style={[TYPOGRAPHY.caption, { color: tone.color, fontWeight: '700' }]}>
-                        {insight.tag}
-                      </Text>
-                    </View>
-                    <View style={styles.confidencePill}>
-                      <Text style={[TYPOGRAPHY.caption, { color: tone.color }]}>
-                        {Math.round(insight.confidence * 100)}%
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.insightTitle}>{insight.title}</Text>
-                  <Text style={styles.insightBody}>{insight.description}</Text>
-                </GlassCard>
-              </Animated.View>
-            );
-          })}
-
-          <View style={{ height: scale(110) }} />
-        </ScrollView>
-      </SafeAreaView>
-    </GradientBackground>
+      {insights.map((i, idx) => (
+        <Reveal key={i.id} index={idx}>
+          <InsightCard
+            title={i.title}
+            body={i.description}
+            tone={i.type}
+            tag={i.tag}
+            confidence={i.confidence}
+            reasoning={i.reasoning}
+            series={i.series}
+            hero={idx === 0}
+          />
+        </Reveal>
+      ))}
+    </Screen>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.lg },
-  scroll: { paddingTop: SPACING.md },
-  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
-
-  heroCard: {
-    borderRadius: BORDER_RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  heroTop: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.md },
-  heroLabel: { ...TYPOGRAPHY.caption, color: COLORS.white, opacity: 0.9, letterSpacing: 1 },
-  heroTitle: { ...TYPOGRAPHY.h3, color: COLORS.white },
-  heroBody: { ...TYPOGRAPHY.body2, color: COLORS.white, marginTop: SPACING.sm, opacity: 0.95 },
-
-  card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: c.text },
-  muted: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: SPACING.sm },
-
-  insightHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  typeBadge: {
-    minWidth: 64,
-    height: 28,
-    borderRadius: BORDER_RADIUS.full,
+const styles = StyleSheet.create({
+  emptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: SPACING.md,
   },
-  confidencePill: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.full,
-    backgroundColor: c.pillBg,
-  },
-  insightTitle: { ...TYPOGRAPHY.h4, color: c.text },
-  insightBody: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: SPACING.sm, lineHeight: 20 },
 });
 
 export default AIInsightsScreen;

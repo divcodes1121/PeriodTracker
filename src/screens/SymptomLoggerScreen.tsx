@@ -1,46 +1,66 @@
-import { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Text, Pressable, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { View, StyleSheet, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { COLORS, SPACING, TYPOGRAPHY, SYMPTOMS, FLOW_INTENSITY } from '../constants';
-import { fontScale, scale } from '../utils/responsive';
-import { useTheme } from '../theme/useTheme';
-import type { ThemePalette } from '../theme/palette';
-import { useAppStore } from '../store/appStore';
-import GradientBackground from '../components/GradientBackground';
-import GlassCard from '../components/GlassCard';
-import EmojiChip from '../components/EmojiChip';
-import Ripple from '../components/Ripple';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { v4 as uuidv4 } from 'uuid';
+import Screen from '../components/Screen';
+import Surface from '../components/Surface';
+import Text from '../components/Text';
+import Button from '../components/Button';
+import Pill from '../components/Pill';
+import Reveal from '../components/Reveal';
+import Severity from '../components/Severity';
+import { IconName } from '../components/Icon';
+import { useAppStore } from '../store/appStore';
 import { SymptomType, Symptom, SymptomLog } from '../types';
+import { SYMPTOMS, FLOW_INTENSITY, COLORS } from '../constants';
+import { SPACE, MOTION } from '../theme/tokens';
+
+/** Icon per symptom — replaces the duplicate-emoji set (cramps and headache
+ *  both used 🤕, which made the grid unreadable at a glance). */
+const SYMPTOM_ICON: Record<SymptomType, IconName> = {
+  cramps: 'flame',
+  headache: 'activity',
+  fatigue: 'moon',
+  bloating: 'drop',
+  acne: 'sun',
+  nausea: 'water',
+  backpain: 'activity',
+  anxiety: 'heart',
+  mood_swings: 'trend',
+  cravings: 'leaf',
+};
+
+const FLOWS = ['light', 'medium', 'heavy'] as const;
 
 const SymptomLoggerScreen = ({ navigation }: any) => {
   const { user, upsertSymptomLog } = useAppStore();
-  const { colors: c } = useTheme();
-  const styles = useMemo(() => makeStyles(c), [c]);
-  const [selectedSymptoms, setSelectedSymptoms] = useState<Map<SymptomType, number>>(new Map());
-  const [flowIntensity, setFlowIntensity] = useState<'light' | 'medium' | 'heavy'>('medium');
-  const [notes] = useState<string>('');
+  const [selected, setSelected] = useState<Map<SymptomType, number>>(new Map());
+  const [flow, setFlow] = useState<'light' | 'medium' | 'heavy'>('medium');
 
-  const symptomKeys = Object.keys(SYMPTOMS) as SymptomType[];
+  const keys = Object.keys(SYMPTOMS) as SymptomType[];
 
-  const toggleSymptom = (symptom: SymptomType, severity: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const next = new Map(selectedSymptoms);
-    if (next.has(symptom) && next.get(symptom) === severity) next.delete(symptom);
-    else next.set(symptom, severity);
-    setSelectedSymptoms(next);
+  const toggle = (s: SymptomType) => {
+    const next = new Map(selected);
+    if (next.has(s)) next.delete(s);
+    else next.set(s, 3);
+    setSelected(next);
+  };
+
+  const setSeverity = (s: SymptomType, v: number) => {
+    const next = new Map(selected);
+    next.set(s, v);
+    setSelected(next);
   };
 
   const handleSave = () => {
-    if (!user || selectedSymptoms.size === 0) {
+    if (!user || selected.size === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      Alert.alert('Nothing selected', 'Please select at least one symptom');
+      Alert.alert('Nothing selected', 'Choose at least one symptom to log.');
       return;
     }
     const now = new Date();
-    const symptoms: Symptom[] = Array.from(selectedSymptoms.entries()).map(([type, severity]) => ({
+    const symptoms: Symptom[] = Array.from(selected.entries()).map(([type, severity]) => ({
       id: uuidv4(),
       type,
       severity,
@@ -51,151 +71,89 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
       userId: user.id,
       date: now,
       symptoms,
-      flowIntensity,
-      notes,
+      flowIntensity: flow,
+      notes: '',
       createdAt: now,
       updatedAt: now,
     };
     upsertSymptomLog(log);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Saved', 'Your symptoms have been logged!');
+    Alert.alert('Saved', 'Your symptoms have been logged.');
     navigation.goBack();
   };
 
   return (
-    <GradientBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-            <Text style={styles.title}>Log Symptoms</Text>
-            <Text style={styles.subtitle}>How are you feeling today?</Text>
-          </Animated.View>
+    <Screen title="Symptoms" subtitle="How is your body feeling today?">
+      {/* Symptom pills */}
+      <Reveal index={0}>
+        <Surface style={{ marginBottom: SPACE.lg }}>
+          <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.lg }}>
+            Select what applies
+          </Text>
+          <View style={styles.pills}>
+            {keys.map((k) => (
+              <Pill
+                key={k}
+                label={SYMPTOMS[k].label}
+                icon={SYMPTOM_ICON[k]}
+                selected={selected.has(k)}
+                onPress={() => toggle(k)}
+              />
+            ))}
+          </View>
+        </Surface>
+      </Reveal>
 
-          {/* Flow intensity */}
-          <Animated.View entering={FadeInDown.delay(100).springify()}>
-            <GlassCard style={styles.card}>
-              <Text style={styles.cardTitle}>Flow intensity</Text>
-              <View style={styles.flowRow}>
-                {(['light', 'medium', 'heavy'] as const).map((intensity) => {
-                  const active = flowIntensity === intensity;
-                  return (
-                    <Ripple
-                      key={intensity}
-                      borderRadius={16}
-                      style={[styles.flowBtn, active && styles.flowBtnActive]}
-                      onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
-                        setFlowIntensity(intensity);
-                      }}
-                    >
-                      <View style={styles.flowInner}>
-                        <Text style={styles.flowEmoji}>{FLOW_INTENSITY[intensity].emoji}</Text>
-                        <Text style={[styles.flowLabel, active && styles.flowLabelActive]}>
-                          {FLOW_INTENSITY[intensity].label}
-                        </Text>
-                      </View>
-                    </Ripple>
-                  );
-                })}
-              </View>
-            </GlassCard>
-          </Animated.View>
+      {/* Severity — only for what was actually selected */}
+      {selected.size > 0 && (
+        <Animated.View
+          entering={FadeIn.duration(MOTION.base)}
+          layout={LinearTransition.springify().damping(MOTION.springSoft.damping)}
+        >
+          <Surface style={{ marginBottom: SPACE.lg }}>
+            <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.lg }}>
+              How intense?
+            </Text>
+            {Array.from(selected.entries()).map(([type, severity]) => (
+              <Severity
+                key={type}
+                label={SYMPTOMS[type].label}
+                value={severity}
+                onChange={(v) => setSeverity(type, v)}
+              />
+            ))}
+          </Surface>
+        </Animated.View>
+      )}
 
-          {/* Symptoms grid */}
-          <Animated.View entering={FadeInDown.delay(180).springify()}>
-            <GlassCard style={styles.card}>
-              <Text style={styles.cardTitle}>Select symptoms</Text>
-              <View style={styles.grid}>
-                {symptomKeys.map((symptom) => {
-                  const active = selectedSymptoms.has(symptom);
-                  return (
-                    <Pressable
-                      key={symptom}
-                      style={[styles.symptomTile, active && styles.symptomTileActive]}
-                      onPress={() => toggleSymptom(symptom, 3)}
-                    >
-                      <EmojiChip
-                        emoji={SYMPTOMS[symptom].emoji}
-                        size={scale(44)}
-                        colors={active ? ['#FFFFFF', '#FFD9E6'] : ['#FFFFFF', '#F1F1F4']}
-                      />
-                      <Text style={[styles.symptomLabel, active && styles.symptomLabelActive]}>
-                        {SYMPTOMS[symptom].label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </GlassCard>
-          </Animated.View>
+      {/* Flow */}
+      <Reveal index={1}>
+        <Surface style={{ marginBottom: SPACE.xl }}>
+          <Text variant="overline" tone="tertiary" style={{ marginBottom: SPACE.lg }}>
+            Flow
+          </Text>
+          <View style={styles.pills}>
+            {FLOWS.map((f) => (
+              <Pill
+                key={f}
+                label={FLOW_INTENSITY[f].label}
+                icon="drop"
+                selected={flow === f}
+                onPress={() => setFlow(f)}
+                accent={COLORS.menstrual}
+              />
+            ))}
+          </View>
+        </Surface>
+      </Reveal>
 
-          {/* Save */}
-          <Animated.View entering={FadeInDown.delay(260).springify()}>
-            <Ripple onPress={handleSave} borderRadius={18} style={styles.saveBtn} rippleColor="rgba(255,255,255,0.4)">
-              <Text style={styles.saveText}>Save Symptoms</Text>
-            </Ripple>
-          </Animated.View>
-
-          <View style={{ height: scale(110) }} />
-        </ScrollView>
-      </SafeAreaView>
-    </GradientBackground>
+      <Button label="Save symptoms" onPress={handleSave} />
+    </Screen>
   );
 };
 
-const makeStyles = (c: ThemePalette) =>
-  StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: SPACING.lg },
-  scroll: { paddingTop: SPACING.md },
-  header: { marginTop: SPACING.md, marginBottom: SPACING.lg },
-  title: { ...TYPOGRAPHY.h2, fontSize: fontScale(28), color: c.text },
-  subtitle: { ...TYPOGRAPHY.body2, color: c.textSecondary, marginTop: 2 },
-
-  card: { marginBottom: SPACING.lg },
-  cardTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
-
-  flowRow: { flexDirection: 'row', gap: SPACING.md },
-  flowBtn: {
-    flex: 1,
-    backgroundColor: c.pillBg,
-    borderWidth: 1,
-    borderColor: c.pillBorder,
-  },
-  flowBtnActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
-  flowInner: { alignItems: 'center', paddingVertical: SPACING.md, gap: 4 },
-  flowEmoji: { fontSize: 18 },
-  flowLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, fontWeight: '600' },
-  flowLabelActive: { color: COLORS.primaryDark },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, justifyContent: 'space-between' },
-  symptomTile: {
-    width: '30%',
-    aspectRatio: 0.95,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    backgroundColor: c.pillBg,
-    borderWidth: 1,
-    borderColor: c.pillBorder,
-    paddingVertical: SPACING.sm,
-  },
-  symptomTileActive: { backgroundColor: 'rgba(255,107,157,0.14)', borderColor: COLORS.primary },
-  symptomLabel: { ...TYPOGRAPHY.caption, color: c.textSecondary, textAlign: 'center' },
-  symptomLabelActive: { color: COLORS.primaryDark, fontWeight: '700' },
-
-  saveBtn: {
-    height: 56,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  saveText: { ...TYPOGRAPHY.button, color: COLORS.white, fontSize: 16 },
+const styles = StyleSheet.create({
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.sm },
 });
 
 export default SymptomLoggerScreen;

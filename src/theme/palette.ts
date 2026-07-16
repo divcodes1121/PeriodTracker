@@ -1,96 +1,155 @@
 /**
- * Theme palettes. Brand colors (primary, phase colors, semantic) stay shared
- * via constants/COLORS; only the surface/text/atmosphere values change between
- * light and dark. Components read these through the useTheme() hook so a theme
- * switch re-renders everything.
+ * Theme palettes for the editorial design language.
+ *
+ * The canvas is a warm off-white (never pure #FFF — it reads clinical and makes
+ * white cards invisible). Cards are pure white and separate from the canvas by
+ * a soft shadow, not a border. Brand color lives in constants/COLORS and is used
+ * sparingly: roughly 80% of any screen should be neutral.
+ *
+ * Components read these through useTheme() so a theme switch re-renders the app.
  */
 
 export interface ThemePalette {
+  // ---- Canvas & surfaces -------------------------------------------------
+  /** App background. Warm off-white in light, warm charcoal in dark. */
+  bg: string;
+  /** Recessed background for grouped/inset sections. */
+  bgSecondary: string;
+  /** Card surface. */
+  card: string;
+  /** A card sitting on top of another card. */
+  cardElevated: string;
+  /** Very subtle wash tinted toward the current phase, used behind the hero. */
+  canvasTint: string;
+
+  // ---- Text --------------------------------------------------------------
   text: string;
   textSecondary: string;
   textTertiary: string;
+  /** Text drawn on top of a filled brand-color surface. */
+  onAccent: string;
 
-  // Aurora background
+  // ---- Fills & lines -----------------------------------------------------
+  /** Subtle neutral fill: unselected pills, progress tracks, chart grids. */
+  fill: string;
+  /** A step stronger — pressed states, dividers on colored surfaces. */
+  fillStrong: string;
+  /** Hairline separator. Used rarely; shadow and space do most of the work. */
+  separator: string;
+  divider: string;
+  trackNeutral: string;
+
+  // ---- Controls ----------------------------------------------------------
+  inputBg: string;
+  inputBorder: string;
+  pillBg: string;
+  pillBorder: string;
+  /** Off-state track for switches. */
+  switchTrack: string;
+
+  // ---- Chrome ------------------------------------------------------------
+  tabBarBg: string;
+  tabBarBorder: string;
+  blurTint: 'light' | 'dark';
+
+  /** Scrim behind modals and bottom sheets. */
+  scrim: string;
+
+  // ---- Legacy aurora tokens ----------------------------------------------
+  // Retained so the ambient canvas keeps compiling; retuned to be almost
+  // invisible. The editorial language does not use heavy gradients or glass.
   auroraBackdrop: string[];
   auroraOrbs: string[];
   waveA: string;
   waveB: string;
   droplet: string;
   dropletBorder: string;
-
-  // Glass surfaces
   glassTint: string;
   glassBorder: string;
   glassHighlight: string;
-  blurTint: 'light' | 'dark';
-
-  // Controls
-  inputBg: string;
-  inputBorder: string;
-  trackNeutral: string;
-  divider: string;
-  pillBg: string;
-  pillBorder: string;
-
-  // Tab bar
-  tabBarBg: string;
-  tabBarBorder: string;
 }
 
 export const lightPalette: ThemePalette = {
-  text: '#1A1A1A',
-  textSecondary: '#5A5A66',
-  textTertiary: '#9E9E9E',
+  bg: '#FCFBFA',
+  bgSecondary: '#F7F4F6',
+  card: '#FFFFFF',
+  cardElevated: '#FFFFFF',
+  canvasTint: 'rgba(217,124,155,0.04)',
 
-  auroraBackdrop: ['#FFF1F6', '#FDE7F0', '#F3E9FF', '#EAF1FF'],
-  auroraOrbs: ['rgba(255,107,157,0.45)', 'rgba(155,89,182,0.38)', 'rgba(255,165,0,0.30)'],
-  waveA: 'rgba(155,89,182,0.10)',
-  waveB: 'rgba(255,107,157,0.12)',
-  droplet: 'rgba(255,255,255,0.6)',
-  dropletBorder: 'rgba(255,255,255,0.8)',
+  text: '#1E1E22',
+  textSecondary: '#70707A',
+  textTertiary: '#A0A0AA',
+  onAccent: '#FFFFFF',
 
-  glassTint: 'rgba(255,255,255,0.55)',
-  glassBorder: 'rgba(255,255,255,0.65)',
-  glassHighlight: 'rgba(255,255,255,0.9)',
+  fill: 'rgba(30,30,34,0.045)',
+  fillStrong: 'rgba(30,30,34,0.09)',
+  separator: 'rgba(30,30,34,0.08)',
+  divider: 'rgba(30,30,34,0.07)',
+  trackNeutral: 'rgba(30,30,34,0.06)',
+
+  inputBg: '#F7F4F6',
+  inputBorder: 'transparent',
+  pillBg: 'rgba(30,30,34,0.04)',
+  pillBorder: 'transparent',
+  switchTrack: 'rgba(30,30,34,0.12)',
+
+  tabBarBg: 'rgba(252,251,250,0.82)',
+  tabBarBorder: 'rgba(30,30,34,0.06)',
   blurTint: 'light',
 
-  inputBg: 'rgba(255,255,255,0.7)',
-  inputBorder: 'rgba(255,255,255,0.8)',
-  trackNeutral: 'rgba(0,0,0,0.06)',
-  divider: 'rgba(0,0,0,0.06)',
-  pillBg: 'rgba(255,255,255,0.5)',
-  pillBorder: 'rgba(255,255,255,0.7)',
+  scrim: 'rgba(30,30,34,0.32)',
 
-  tabBarBg: 'rgba(255,255,255,0.6)',
-  tabBarBorder: 'rgba(255,255,255,0.7)',
+  auroraBackdrop: ['#FCFBFA', '#FBF8F9', '#F9F6F8', '#F7F4F6'],
+  auroraOrbs: ['rgba(217,124,155,0.10)', 'rgba(184,154,216,0.09)', 'rgba(141,181,150,0.06)'],
+  waveA: 'rgba(184,154,216,0.05)',
+  waveB: 'rgba(217,124,155,0.05)',
+  droplet: 'rgba(255,255,255,0.5)',
+  dropletBorder: 'rgba(255,255,255,0.7)',
+  glassTint: 'rgba(255,255,255,0.72)',
+  glassBorder: 'rgba(30,30,34,0.06)',
+  glassHighlight: 'rgba(255,255,255,0.9)',
 };
 
 export const darkPalette: ThemePalette = {
-  text: '#F5F5F7',
-  textSecondary: '#B8B8C4',
-  textTertiary: '#7A7A88',
+  // Warm charcoal, not blue-black — it keeps the rose/lavender accents honest.
+  bg: '#131316',
+  bgSecondary: '#1A1A1E',
+  card: '#1D1D22',
+  cardElevated: '#26262C',
+  canvasTint: 'rgba(217,124,155,0.06)',
 
-  auroraBackdrop: ['#2A1121', '#231027', '#1A1030', '#121229'],
-  auroraOrbs: ['rgba(255,107,157,0.28)', 'rgba(155,89,182,0.30)', 'rgba(255,165,0,0.16)'],
-  waveA: 'rgba(155,89,182,0.20)',
-  waveB: 'rgba(255,107,157,0.16)',
-  droplet: 'rgba(255,255,255,0.22)',
-  dropletBorder: 'rgba(255,255,255,0.3)',
+  text: '#F4F4F6',
+  textSecondary: '#9A9AA6',
+  textTertiary: '#6E6E7A',
+  onAccent: '#FFFFFF',
 
-  glassTint: 'rgba(38,24,44,0.5)',
-  glassBorder: 'rgba(255,255,255,0.14)',
-  glassHighlight: 'rgba(255,255,255,0.18)',
+  fill: 'rgba(255,255,255,0.06)',
+  fillStrong: 'rgba(255,255,255,0.12)',
+  separator: 'rgba(255,255,255,0.09)',
+  divider: 'rgba(255,255,255,0.08)',
+  trackNeutral: 'rgba(255,255,255,0.10)',
+
+  inputBg: '#26262C',
+  inputBorder: 'transparent',
+  pillBg: 'rgba(255,255,255,0.06)',
+  pillBorder: 'transparent',
+  switchTrack: 'rgba(255,255,255,0.16)',
+
+  tabBarBg: 'rgba(19,19,22,0.82)',
+  tabBarBorder: 'rgba(255,255,255,0.08)',
   blurTint: 'dark',
 
-  inputBg: 'rgba(255,255,255,0.08)',
-  inputBorder: 'rgba(255,255,255,0.16)',
-  trackNeutral: 'rgba(255,255,255,0.12)',
-  divider: 'rgba(255,255,255,0.1)',
-  pillBg: 'rgba(255,255,255,0.08)',
-  pillBorder: 'rgba(255,255,255,0.16)',
+  scrim: 'rgba(0,0,0,0.55)',
 
-  tabBarBg: 'rgba(28,18,34,0.7)',
-  tabBarBorder: 'rgba(255,255,255,0.12)',
+  auroraBackdrop: ['#131316', '#161618', '#18161B', '#1A181D'],
+  auroraOrbs: ['rgba(217,124,155,0.14)', 'rgba(184,154,216,0.12)', 'rgba(141,181,150,0.07)'],
+  waveA: 'rgba(184,154,216,0.07)',
+  waveB: 'rgba(217,124,155,0.07)',
+  droplet: 'rgba(255,255,255,0.14)',
+  dropletBorder: 'rgba(255,255,255,0.2)',
+  glassTint: 'rgba(29,29,34,0.72)',
+  glassBorder: 'rgba(255,255,255,0.08)',
+  glassHighlight: 'rgba(255,255,255,0.10)',
 };
 
 export const palettes = { light: lightPalette, dark: darkPalette };

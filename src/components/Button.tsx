@@ -1,109 +1,120 @@
-import React from 'react';
-import { TouchableOpacity, Text, ViewStyle } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS, TYPOGRAPHY } from '../constants';
+import { ReactNode } from 'react';
+import { Pressable, StyleProp, ViewStyle, View, StyleSheet } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Text from './Text';
+import Icon, { IconName } from './Icon';
+import { useTheme } from '../theme/useTheme';
+import { COLORS } from '../constants';
+import { RADIUS, SPACE, MOTION, SHADOW, SHADOW_DARK, MIN_TAP } from '../theme/tokens';
+
+type Variant = 'primary' | 'secondary' | 'tinted' | 'plain';
+type Size = 'md' | 'lg';
 
 interface ButtonProps {
-  title: string;
+  label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'small' | 'medium' | 'large';
+  variant?: Variant;
+  size?: Size;
+  icon?: IconName;
+  iconRight?: IconName;
   disabled?: boolean;
-  loading?: boolean;
-  style?: ViewStyle;
+  fullWidth?: boolean;
+  /** Overrides the accent used by `primary`/`tinted` (e.g. a phase color). */
+  accent?: string;
+  style?: StyleProp<ViewStyle>;
+  children?: ReactNode;
 }
 
-const Button = React.forwardRef<any, ButtonProps>(
-  (
-    {
-      title,
-      onPress,
-      variant = 'primary',
-      size = 'medium',
-      disabled = false,
-      loading = false,
-      style,
-    },
-    ref
-  ) => {
-    const getContainerStyle = () => {
-      const baseStyle = {
-        borderRadius: BORDER_RADIUS.lg,
-        justifyContent: 'center' as const,
-        alignItems: 'center' as const,
-      };
+/**
+ * The one button. Sizes are restrained — the brief calls for elegance, so
+ * even `lg` is 54pt rather than the chunky 60pt+ of a template app.
+ *
+ * Press feedback is a spring scale plus a selection haptic; there is no ripple
+ * because the editorial language expresses touch through motion, not ink.
+ */
+const Button = ({
+  label,
+  onPress,
+  variant = 'primary',
+  size = 'lg',
+  icon,
+  iconRight,
+  disabled = false,
+  fullWidth = true,
+  accent,
+  style,
+}: ButtonProps) => {
+  const { colors: c, isDark } = useTheme();
+  const shadows = isDark ? SHADOW_DARK : SHADOW;
+  const press = useSharedValue(0);
+  const tint = accent ?? COLORS.primary;
 
-      const variantStyles = {
-        primary: {
-          backgroundColor: COLORS.primary,
-        },
-        secondary: {
-          backgroundColor: COLORS.secondary,
-        },
-        outline: {
-          backgroundColor: COLORS.transparent,
-          borderWidth: 2,
-          borderColor: COLORS.primary,
-        },
-        ghost: {
-          backgroundColor: COLORS.transparent,
-        },
-      };
+  const height = size === 'lg' ? 54 : MIN_TAP;
 
-      const sizeStyles = {
-        small: {
-          paddingHorizontal: SPACING.md,
-          paddingVertical: SPACING.sm,
-        },
-        medium: {
-          paddingHorizontal: SPACING.lg,
-          paddingVertical: SPACING.md,
-        },
-        large: {
-          paddingHorizontal: SPACING.xl,
-          paddingVertical: SPACING.lg,
-        },
-      };
+  const surface: Record<Variant, ViewStyle> = {
+    primary: { backgroundColor: tint, ...shadows.sm },
+    secondary: { backgroundColor: c.card, ...shadows.sm },
+    tinted: { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : `${tint}1A` },
+    plain: { backgroundColor: 'transparent' },
+  };
 
-      return [
-        baseStyle,
-        variantStyles[variant],
-        sizeStyles[size],
-        disabled && { opacity: 0.5 },
-      ];
-    };
+  const labelColor: Record<Variant, string> = {
+    primary: c.onAccent,
+    secondary: c.text,
+    tinted: isDark ? c.text : COLORS.primaryDark,
+    plain: COLORS.primaryDark,
+  };
 
-    const getTextStyle = () => {
-      const baseTextStyle = {
-        ...TYPOGRAPHY.button,
-      };
+  const animated = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.value * 0.02 }],
+    opacity: 1 - press.value * 0.06,
+  }));
 
-      const variantTextColors = {
-        primary: COLORS.white,
-        secondary: COLORS.white,
-        outline: COLORS.primary,
-        ghost: COLORS.primary,
-      };
-
-      return {
-        ...baseTextStyle,
-        color: variantTextColors[variant],
-      };
-    };
-
-    return (
-      <TouchableOpacity
-        ref={ref}
-        onPress={onPress}
-        disabled={disabled || loading}
-        style={[getContainerStyle(), style]}
-        activeOpacity={0.7}
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPressIn={() => {
+        press.value = withSpring(1, MOTION.springSnap);
+        Haptics.selectionAsync().catch(() => {});
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, MOTION.spring);
+      }}
+      onPress={onPress}
+      style={[fullWidth && { alignSelf: 'stretch' }, style]}
+    >
+      <Animated.View
+        style={[
+          styles.base,
+          surface[variant],
+          { height, opacity: disabled ? 0.4 : 1 },
+          animated,
+        ]}
       >
-        <Text style={getTextStyle()}>{loading ? 'Loading...' : title}</Text>
-      </TouchableOpacity>
-    );
-  }
-);
+        <View style={styles.row}>
+          {icon && <Icon name={icon} size={19} color={labelColor[variant]} />}
+          <Text variant="button" color={labelColor[variant]} numberOfLines={1}>
+            {label}
+          </Text>
+          {iconRight && <Icon name={iconRight} size={19} color={labelColor[variant]} />}
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+};
 
-Button.displayName = 'Button';
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACE.xxl,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+});
 
 export default Button;

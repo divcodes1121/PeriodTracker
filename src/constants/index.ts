@@ -1,34 +1,51 @@
+/**
+ * Brand & semantic color. Mature, natural, low-saturation — used as an accent
+ * on a neutral canvas, never as the canvas itself. Surface/text colors that
+ * change between light and dark live in theme/palette.ts instead.
+ */
 export const COLORS = {
-  primary: '#FF6B9D',
-  primaryLight: '#FFB3D9',
-  primaryDark: '#E63973',
-  
-  secondary: '#C44569',
-  accent: '#FFA500',
-  accentLight: '#FFD700',
-  
-  menstrual: '#E63973',
-  follicular: '#A1DE93',
-  ovulation: '#FFB84D',
-  luteal: '#9B59B6',
-  
-  background: '#FAFAFA',
-  backgroundDark: '#F5F5F5',
+  /** Rose Quartz. Fills, rings and indicators — NOT small text on white. */
+  primary: '#D97C9B',
+  primaryLight: '#F0D3DD',
+  /** Accessible rose for text/icons on a light surface (AA at ≥4.5:1). */
+  primaryDark: '#A84A6B',
+  /** Very low-alpha rose for tinted backgrounds. */
+  primarySoft: 'rgba(217,124,155,0.12)',
+
+  secondary: '#B89AD8',
+  /** Lavender. */
+  accent: '#B89AD8',
+  accentLight: '#E4D9F2',
+  accentDark: '#6F4E96',
+  accentSoft: 'rgba(184,154,216,0.12)',
+
+  // Cycle phases map onto the four brand hues — natural, never neon.
+  menstrual: '#D97C9B',
+  follicular: '#8DB596',
+  ovulation: '#F5B17A',
+  luteal: '#B89AD8',
+
+  background: '#FCFBFA',
+  backgroundDark: '#F7F4F6',
   surface: '#FFFFFF',
-  surfaceDark: '#F8F8F8',
-  
-  text: '#1A1A1A',
-  textSecondary: '#757575',
-  textTertiary: '#9E9E9E',
-  
-  error: '#E63973',
-  success: '#4CAF50',
-  warning: '#FF9800',
-  info: '#2196F3',
-  
-  divider: '#EEEEEE',
-  border: '#E0E0E0',
-  
+  surfaceDark: '#F7F4F6',
+
+  text: '#1E1E22',
+  textSecondary: '#70707A',
+  textTertiary: '#A0A0AA',
+
+  error: '#C4566E',
+  /** Soft Sage. */
+  success: '#8DB596',
+  successDark: '#4F7A5A',
+  /** Warm Peach. */
+  warning: '#F5B17A',
+  warningDark: '#9A5B22',
+  info: '#7C9BD9',
+
+  divider: 'rgba(30,30,34,0.07)',
+  border: 'rgba(30,30,34,0.08)',
+
   transparent: 'transparent',
   white: '#FFFFFF',
   black: '#000000',
@@ -36,40 +53,40 @@ export const COLORS = {
 
 export const GRADIENT = {
   primary: [COLORS.primaryLight, COLORS.primary],
-  fertility: [COLORS.primaryLight, COLORS.accent],
-  wellness: ['#A1DE93', '#4CAF50'],
-  sunset: [COLORS.accentLight, COLORS.accent],
-  calm: ['#B5E7A0', '#7CB342'],
+  fertility: [COLORS.accentLight, COLORS.accent],
+  wellness: ['#A8C9AF', COLORS.success],
+  sunset: ['#F8C79C', COLORS.warning],
+  calm: [COLORS.accentLight, COLORS.accent],
 };
 
 /**
- * Premium "Aurora Glass" design tokens.
- * Multi-stop gradients read richer than two-color ramps, and the glass
- * tokens standardize the frosted-surface look across all cards.
+ * Ambient canvas tokens. Deliberately near-neutral: the backdrop should read as
+ * a single warm off-white, with color only perceptible as a faint bloom.
  */
 export const AURORA = {
-  // Soft dawn backdrop used behind the whole app.
-  backdrop: ['#FFF1F6', '#FDE7F0', '#F3E9FF', '#EAF1FF'],
-  // Floating glow orbs (with alpha) layered over the backdrop for depth.
-  orbs: ['rgba(255,107,157,0.45)', 'rgba(155,89,182,0.38)', 'rgba(255,165,0,0.30)'],
+  backdrop: ['#FCFBFA', '#FBF8F9', '#F9F6F8', '#F7F4F6'],
+  orbs: ['rgba(217,124,155,0.10)', 'rgba(184,154,216,0.09)', 'rgba(141,181,150,0.06)'],
 };
 
-// Per-phase hero gradients — vivid, 3-stop, directional.
+/**
+ * Per-phase ramps. Tonal (one hue, three values) rather than rainbow — they
+ * read as a material, not as a highlighter.
+ */
 export const PHASE_GRADIENTS: Record<string, string[]> = {
-  Menstrual: ['#FF6B9D', '#E63973', '#B4265A'],
-  Follicular: ['#7CE8B0', '#4CAF50', '#2E9E7E'],
-  Ovulation: ['#FFD36E', '#FFB84D', '#FF8A3D'],
-  Luteal: ['#C89BFF', '#9B59B6', '#6C3F9E'],
+  Menstrual: ['#E5A0B6', '#D97C9B', '#C06585'],
+  Follicular: ['#A8C9AF', '#8DB596', '#6F9A79'],
+  Ovulation: ['#F8C79C', '#F5B17A', '#E39355'],
+  Luteal: ['#CDB6E4', '#B89AD8', '#9A78C0'],
 };
 
-// Frosted-glass surface tokens (used by GlassCard).
+/** Glass is now a rare accent (nav chrome only), not the default surface. */
 export const GLASS = {
-  tint: 'rgba(255,255,255,0.55)',
-  tintStrong: 'rgba(255,255,255,0.72)',
-  tintDark: 'rgba(28,10,26,0.35)',
-  border: 'rgba(255,255,255,0.65)',
+  tint: 'rgba(255,255,255,0.72)',
+  tintStrong: 'rgba(255,255,255,0.85)',
+  tintDark: 'rgba(29,29,34,0.72)',
+  border: 'rgba(30,30,34,0.06)',
   highlight: 'rgba(255,255,255,0.9)',
-  intensity: 40,
+  intensity: 24,
 };
 
 export const SPACING = {
@@ -157,12 +174,17 @@ export const TYPOGRAPHY = {
   },
 };
 
+/**
+ * Per-phase metadata only — color, copy, expected symptoms. The day ranges here
+ * are legacy and unused: real boundaries are derived from the user's cycle in
+ * cycleCalculations.getCyclePhase(). Copy is deliberately short and plain.
+ */
 export const CYCLE_PHASES = {
   menstrual: {
     name: 'Menstrual',
     days: { start: 1, end: 5 },
     color: COLORS.menstrual,
-    description: 'Your period - a time for rest and self-care',
+    description: 'A time to slow down and be gentle with yourself.',
     symptoms: ['Cramps', 'Fatigue', 'Mood changes'],
     recommendations: ['Rest', 'Warm compress', 'Light exercise'],
   },
@@ -170,7 +192,7 @@ export const CYCLE_PHASES = {
     name: 'Follicular',
     days: { start: 6, end: 14 },
     color: COLORS.follicular,
-    description: 'Rising energy - great time for new projects',
+    description: 'Energy is building. A good week to begin things.',
     symptoms: ['Energy boost', 'Confidence', 'Creativity'],
     recommendations: ['Start new projects', 'Exercise', 'Social time'],
   },
@@ -178,7 +200,7 @@ export const CYCLE_PHASES = {
     name: 'Ovulation',
     days: { start: 15, end: 17 },
     color: COLORS.ovulation,
-    description: 'Peak fertility - enhanced mood and confidence',
+    description: 'Peak energy and fertility. You may feel your most social.',
     symptoms: ['High energy', 'Increased libido', 'Confidence'],
     recommendations: ['Plan important meetings', 'Social activities'],
   },
@@ -186,7 +208,7 @@ export const CYCLE_PHASES = {
     name: 'Luteal',
     days: { start: 18, end: 28 },
     color: COLORS.luteal,
-    description: 'Inward phase - time for reflection',
+    description: 'Winding down. Rest is productive too.',
     symptoms: ['Fatigue', 'Mood shifts', 'Cravings'],
     recommendations: ['Self-care', 'Journaling', 'Gentle exercise'],
   },

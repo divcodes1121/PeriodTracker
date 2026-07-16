@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTheme } from '../theme/useTheme';
-import EmojiChip from '../components/EmojiChip';
+import Icon, { IconName } from '../components/Icon';
+import { MOTION, TYPE } from '../theme/tokens';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -19,31 +21,33 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 
 import { COLORS } from '../constants';
 
-const TAB_EMOJI: Record<string, string> = {
-  Home: '🏠',
-  Calendar: '🗓️',
-  Analytics: '📊',
-  Settings: '⚙️',
+const TAB_ICON: Record<string, IconName> = {
+  Home: 'home',
+  Calendar: 'calendar',
+  Analytics: 'chart',
+  Settings: 'settings',
 };
 
-/** Water-bubble tab icon that bursts when its tab becomes active. */
-function TabIcon({ route, focused }: { route: string; focused: boolean }) {
-  const [trigger, setTrigger] = useState(0);
-  const wasFocused = useRef(focused);
+/**
+ * Tab icon. On becoming active it settles with a restrained spring — a nod,
+ * not a bounce — and the stroke thickens slightly to carry the selected state
+ * alongside color (color alone would fail for color-blind users).
+ */
+function TabIcon({ route, focused, color }: { route: string; focused: boolean; color: string }) {
+  const active = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    if (focused && !wasFocused.current) setTrigger((t) => t + 1);
-    wasFocused.current = focused;
-  }, [focused]);
+    active.value = withSpring(focused ? 1 : 0, MOTION.spring);
+  }, [focused, active]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + active.value * 0.06 }, { translateY: -active.value * 1.5 }],
+  }));
 
   return (
-    <EmojiChip
-      emoji={TAB_EMOJI[route] ?? '•'}
-      size={34}
-      colors={focused ? ['#FFFFFF', '#FFD9E6'] : ['#FFFFFF', '#ECE6F0']}
-      trigger={trigger}
-      style={{ opacity: focused ? 1 : 0.5 }}
-    />
+    <Animated.View style={style}>
+      <Icon name={TAB_ICON[route] ?? 'home'} size={24} color={color} weight={focused ? 1.15 : 1} />
+    </Animated.View>
   );
 }
 
@@ -99,28 +103,40 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }: any) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }: any) => <TabIcon route={route.name} focused={focused} />,
-        tabBarActiveTintColor: COLORS.primary,
+        tabBarIcon: ({ focused, color }: any) => (
+          <TabIcon route={route.name} focused={focused} color={color} />
+        ),
+        tabBarActiveTintColor: COLORS.primaryDark,
         tabBarInactiveTintColor: colors.textTertiary,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+        tabBarLabelStyle: {
+          ...TYPE.overline,
+          textTransform: 'none',
+          letterSpacing: 0,
+          marginTop: 4,
+        },
         tabBarStyle: {
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          height: Platform.select({ ios: 88, default: 68 }),
-          paddingTop: 6,
+          height: Platform.select({ ios: 86, default: 66 }),
+          paddingTop: 10,
           borderTopWidth: 0,
           backgroundColor: 'transparent',
           elevation: 0,
         },
+        // The one place glass earns its keep: content scrolls under the bar.
         tabBarBackground: () => (
           <BlurView
-            intensity={40}
+            intensity={24}
             tint={colors.blurTint}
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: colors.tabBarBg, borderTopWidth: 1, borderTopColor: colors.tabBarBorder },
+              {
+                backgroundColor: colors.tabBarBg,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.tabBarBorder,
+              },
             ]}
           />
         ),
