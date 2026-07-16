@@ -18,7 +18,12 @@ import { fontScale, scale } from '../utils/responsive';
 import { useTheme } from '../theme/useTheme';
 import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
-import { getCyclePhase, getPhaseRecommendations } from '../utils/cycleCalculations';
+import {
+  getCyclePhase,
+  getPhaseRecommendations,
+  getCycleDayForDate,
+  deriveCycleContext,
+} from '../utils/cycleCalculations';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
 import Ripple from '../components/Ripple';
@@ -26,11 +31,16 @@ import Ripple from '../components/Ripple';
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const CalendarScreen = () => {
-  const { user } = useAppStore();
+  const { user, periodEntries } = useAppStore();
   const { colors: c } = useTheme();
   const styles = useMemo(() => makeStyles(c), [c]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+
+  const cycle = useMemo(
+    () => (user ? deriveCycleContext(user, periodEntries) : null),
+    [user, periodEntries]
+  );
 
   const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
   const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
@@ -39,30 +49,28 @@ const CalendarScreen = () => {
     [monthStart, monthEnd]
   );
 
-  const getCycleDayForDate = React.useCallback(
-    (date: Date): number | null => {
-      if (!user) return null;
-      const daysSinceStart = Math.floor(
-        (date.getTime() - user.lastPeriodStart.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      const dayOfCycle = (daysSinceStart % user.cycleLength) + 1;
-      return dayOfCycle > 0 && dayOfCycle <= user.cycleLength ? dayOfCycle : null;
-    },
-    [user]
+  const cycleDayFor = React.useCallback(
+    (date: Date): number | null =>
+      cycle ? getCycleDayForDate(date, cycle.lastPeriodStart, cycle.cycleLength) : null,
+    [cycle]
   );
 
   const getPhaseColorForDate = (date: Date): string => {
-    const dayOfCycle = getCycleDayForDate(date);
-    if (!dayOfCycle) return c.textTertiary;
-    return getCyclePhase(dayOfCycle)?.color || c.textTertiary;
+    const dayOfCycle = cycleDayFor(date);
+    if (!dayOfCycle || !cycle) return c.textTertiary;
+    return getCyclePhase(dayOfCycle, cycle.cycleLength, cycle.periodLength)?.color || c.textTertiary;
   };
 
   const selectedDateInfo = useMemo(() => {
-    if (!selectedDate) return null;
-    const dayOfCycle = getCycleDayForDate(selectedDate);
+    if (!selectedDate || !cycle) return null;
+    const dayOfCycle = cycleDayFor(selectedDate);
     if (!dayOfCycle) return null;
-    return { dayOfCycle, phase: getCyclePhase(dayOfCycle), date: selectedDate };
-  }, [getCycleDayForDate, selectedDate]);
+    return {
+      dayOfCycle,
+      phase: getCyclePhase(dayOfCycle, cycle.cycleLength, cycle.periodLength),
+      date: selectedDate,
+    };
+  }, [cycleDayFor, selectedDate, cycle]);
 
   const leadingBlanks = monthStart.getDay();
   const cells: (Date | null)[] = [
@@ -116,7 +124,7 @@ const CalendarScreen = () => {
                   const isCurrent = isSameMonth(day, currentMonth);
                   const isSelected = selectedDate && isSameDay(day, selectedDate);
                   const phaseColor = getPhaseColorForDate(day);
-                  const cycleDay = getCycleDayForDate(day);
+                  const cycleDay = cycleDayFor(day);
                   return (
                     <Pressable key={day.toISOString()} style={styles.cell} onPress={() => selectDay(day)}>
                       <View

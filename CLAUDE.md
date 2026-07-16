@@ -12,7 +12,8 @@ AI-powered menstrual health app. Expo / React Native, runs on iOS, Android, and 
 ## Run & verify
 - **Web dev server:** `EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1 npx expo start --web --port 8082`
   (the flag is required — see Gotchas). Force a bundle compile: `curl .../index.bundle?platform=web&dev=true`.
-- **Typecheck:** `npx tsc --noEmit` (ignore pre-existing `expo-image` errors, see Gotchas).
+- **Typecheck:** `npm run typecheck` (`tsc --noEmit`; ignore pre-existing `expo-image` errors, see Gotchas). Test files are excluded from this config — they carry Jest globals the Expo `types` list doesn't include.
+- **Unit tests:** `npm test` (Jest + ts-jest, `testEnvironment: node`, **not** `jest-expo`). Scoped to `src/**/*.test.ts` — the pure logic in `src/utils` is RN-free, so it runs without native mocks via `tsconfig.jest.json`. Covers `cycleCalculations.ts`. To test components later, add a separate `jest-expo` project.
 - **Visual check without a device:** headless Chrome screenshot, or `puppeteer-core` (installed `--no-save`) seeding `localStorage['period-tracker-store']` to skip onboarding. Chrome at `C:/Program Files/Google/Chrome/Application/chrome.exe`. Web is a faithful *logic* preview; animations/haptics only feel right on device.
 
 ## Architecture
@@ -26,10 +27,13 @@ Single Zustand store, **persisted** via `persist` + `createJSONStorage(AsyncStor
 
 ### Data model — `src/types/index.ts`
 - **`SymptomLog` is separate from `PeriodEntry`** (deliberate). Logging symptoms on a non-period day must NOT create a period entry, or it corrupts cycle-length math. `upsertSymptomLog` merges by calendar day. `AIInsightsScreen` reads symptoms from `symptomLogs`.
-- Cycle math lives in `src/utils/cycleCalculations.ts` (pure functions: phase, ovulation, fertility window, variability, predictions). Most testable code — no tests exist yet.
+- Cycle math lives in `src/utils/cycleCalculations.ts` (pure functions: phase, ovulation, fertility window, variability, predictions). Unit-tested in `cycleCalculations.test.ts`.
+- **`PeriodEntry` is the source of truth for the cycle.** `PeriodLoggerScreen` (Home stack) is the only writer of `periodEntries`, via `addPeriodEntry`/`deletePeriodEntry`. **Never** read `user.lastPeriodStart`/`user.cycleLength` directly for predictions — those are onboarding *fallbacks* only. Instead call **`deriveCycleContext(user, periodEntries)`**, which returns the effective `{ lastPeriodStart, cycleLength, periodLength }`: newest logged start + average gap between starts once entries exist, onboarding values otherwise. Home/Calendar/Analytics/AIInsights all go through it.
+- **Cycle length = gap between consecutive period *starts*** (`buildCycleLengths`), never `endDate − startDate` (that's period *duration*, ~5 days). Implausible gaps (<15 or >60 days) are filtered so a double-log or tracking break can't skew predictions.
+- **Phase boundaries scale to the user's cycle** (`getCyclePhase(day, cycleLength, periodLength)`), using a fixed ~14-day luteal phase (`getOvulationDay = cycleLength − 14`). They are NOT hardcoded to 28 days — always pass `cycleLength`/`periodLength`. `CYCLE_PHASES` in constants supplies only per-phase metadata (color/description/symptoms), not the day ranges.
 
 ### Navigation — `src/navigation/`
-- `RootNavigator.tsx`: root stack swaps `Onboarding` ↔ `MainTabs` on `showOnboarding || !user`. Tabs (Home/Calendar/Analytics/Settings) each wrap their own native stack; `SymptomLogger`, `MoodTracker`, `AIInsights` live only in the Home stack.
+- `RootNavigator.tsx`: root stack swaps `Onboarding` ↔ `MainTabs` on `showOnboarding || !user`. Tabs (Home/Calendar/Analytics/Settings) each wrap their own native stack; `PeriodLogger`, `SymptomLogger`, `MoodTracker`, `AIInsights` live only in the Home stack (reached from Home's primary "Log Period" CTA and the quick-action grid).
 - Tab bar: frosted `BlurView`, theme-aware; icons are **`EmojiChip` water-bubbles** that burst when their tab becomes active.
 - **Browser-style back/forward:** `navRef.ts` (nav container ref) + `useNavHistory.ts` (separate Zustand store). It snapshots the full nav state on each distinct page and keeps a pointer; back/forward restore snapshots, a new nav truncates forward entries. Wired in `App.tsx` via `onReady`/`onStateChange`. Rendered by `NavControls.tsx`.
 
@@ -53,20 +57,25 @@ Theme-aware screens build styles with a factory: `const styles = useMemo(() => m
 
 ## Environment gotchas (fix before EAS release)
 1. **Node 21.3.0 is too old.** RN 0.85 wants Node 20.19+/22.13+/24.3+. It already breaks Metro's error reporter (`util.styleText is not a function`) so real bundling errors show garbled. **Install Node 22 LTS.**
-2. **`expo-router` is present but unused.** SDK 56 flags it as incompatible with `@react-navigation` (which we use). Must set `EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1` to bundle, or remove `expo-router` from the tree. Will block EAS builds otherwise.
+2. **`EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1` is permanent, not a workaround.** SDK 56 flags `expo-router` as incompatible with `@react-navigation` (which we use). `expo-router` is **not** a direct dependency and can't be uninstalled — `npm ls expo-router` shows it arriving transitively via `expo` → `@expo/cli` → `@expo/router-server`. So the flag is the fix; it must be set in the EAS build env (or `app.json`), not just typed into a local shell, or EAS builds will fail.
 3. **Pre-existing `expo-image` typecheck errors** in leftover template components (`animated-icon.tsx`, `web-badge.tsx`) — unused by the app; ignore or delete.
 4. Dev server sometimes stops between sessions — just restart it.
 5. `app.json` sets native `userInterfaceStyle: "light"`; consider `"automatic"` so native dialogs match dark mode in a real build.
 
 ## Done
-Persistence + hydration · onboarding last-period date + validation · symptom-log/cycle-math separation · full Aurora Glass redesign (all screens, light + dark) · water-bubble icons with burst · glass tab bar · browser-style back/forward.
+Persistence + hydration · onboarding last-period date + validation · symptom-log/cycle-math separation · full Aurora Glass redesign (all screens, light + dark) · water-bubble icons with burst · glass tab bar · browser-style back/forward · **period logging (`PeriodLoggerScreen`) + cycle context derived from logged entries** · unit tests for `cycleCalculations`.
 
 ## Not done / next (roadmap order)
-1. **Notifications** — `src/services/notifications.ts` (empty `services/` folder), on-device period/log reminders via `expo-notifications`.
-2. **Backend/auth** — needs a decision: **Firebase** (already in deps) vs **Supabase** (SQL + RLS, stronger privacy story). Then cloud sync, account + in-app data deletion (store requirement).
+1. **Notifications** — `src/services/notifications.ts` (empty `services/` folder), on-device period/log reminders via `expo-notifications`. Now unblocked: there is real logged data to remind against.
+2. **Backend/auth** — **deferred on purpose.** Local-only is the privacy selling point, and there's no point syncing until the on-device data model settles. When it's time: **Supabase** (SQL + RLS) over Firebase for the privacy story, despite Firebase already being in deps. Then cloud sync, account + in-app data deletion (store requirement).
 3. Apple Health / Health Connect, partner sharing, PDF export, widgets.
-4. Tests for `cycleCalculations.ts`; Sentry; CI/CD (EAS Build/Submit/Update).
+4. Sentry; CI/CD (EAS Build/Submit/Update).
 5. Privacy: this category gets heavy scrutiny — accurate store data-safety labels, data minimization, GDPR export/delete, age gate. Keep a local-only mode as a selling point.
+
+## Known bugs (not yet fixed)
+- **`upsertSymptomLog` doesn't dedupe** (`appStore.ts`): merging a same-day log does `[...l.symptoms, ...log.symptoms]`, so re-logging cramps on one day stores it twice. Should merge by `type`.
+- **`App.tsx` hardcodes `dark: false`** and light colors in the `NavigationContainer` theme regardless of the store's `theme` — only matters for built-in nav chrome, since screens theme themselves.
+- Three `expo-image` typecheck errors in unused template components — delete `animated-icon.tsx`, `animated-icon.web.tsx`, `web-badge.tsx` rather than keep ignoring them.
 
 ## Notes
 - Sensitive health data — minimize collection, no ad/tracking SDKs, encrypt at rest/in transit.

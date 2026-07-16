@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "module": "commonjs",
+    "moduleResolution": "bundler",
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "types": ["jest", "node"],
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": false
+  }
+}

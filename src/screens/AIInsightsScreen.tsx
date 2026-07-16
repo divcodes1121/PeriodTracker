@@ -11,13 +11,15 @@ import { useAppStore } from '../store/appStore';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
 import EmojiChip from '../components/EmojiChip';
-import { AIInsight, PeriodEntry } from '../types';
+import { AIInsight } from '../types';
 import {
   daysUntil,
   formatCountdown,
   getCyclePhase,
   getDayOfCycle,
   getPredictedNextPeriod,
+  buildCycleLengths,
+  deriveCycleContext,
 } from '../utils/cycleCalculations';
 
 type InsightTone = AIInsight['type'];
@@ -31,8 +33,6 @@ interface DisplayInsight {
   tag: string;
 }
 
-const DAY_MS = 1000 * 60 * 60 * 24;
-
 const toneStyles: Record<InsightTone, { label: string; color: string; background: string }> = {
   prediction: { label: 'Prediction', color: COLORS.info, background: '#EAF4FF' },
   trend: { label: 'Trend', color: COLORS.primaryDark, background: '#FFF0F6' },
@@ -43,18 +43,6 @@ const toneStyles: Record<InsightTone, { label: string; color: string; background
 const average = (values: number[]) => {
   if (values.length === 0) return 0;
   return values.reduce((total, value) => total + value, 0) / values.length;
-};
-
-const buildCycleLengths = (entries: PeriodEntry[]) => {
-  const starts = entries
-    .map((entry) => entry.startDate)
-    .filter(Boolean)
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  return starts
-    .slice(1)
-    .map((start, index) => Math.round((start.getTime() - starts[index].getTime()) / DAY_MS))
-    .filter((length) => length >= 15 && length <= 60);
 };
 
 const AIInsightsScreen = () => {
@@ -86,9 +74,10 @@ const AIInsightsScreen = () => {
 
     const generated: DisplayInsight[] = [];
     const cycleLengths = buildCycleLengths(periodEntries);
-    const dayOfCycle = getDayOfCycle(user.lastPeriodStart, user.cycleLength);
-    const currentPhase = getCyclePhase(dayOfCycle);
-    const nextPeriod = getPredictedNextPeriod(user.lastPeriodStart, user.cycleLength);
+    const { lastPeriodStart, cycleLength, periodLength } = deriveCycleContext(user, periodEntries);
+    const dayOfCycle = getDayOfCycle(lastPeriodStart, cycleLength);
+    const currentPhase = getCyclePhase(dayOfCycle, cycleLength, periodLength);
+    const nextPeriod = getPredictedNextPeriod(lastPeriodStart, cycleLength);
     const daysToPeriod = daysUntil(nextPeriod);
     const recentMood = moodEntries.slice(-7);
     const recentHealth = healthMetrics.slice(-7);

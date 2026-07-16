@@ -21,6 +21,7 @@ import {
   formatCountdown,
   getPredictedNextPeriod,
   daysUntil,
+  deriveCycleContext,
 } from '../utils/cycleCalculations';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
@@ -66,25 +67,26 @@ const qa = StyleSheet.create({
 });
 
 const HomeScreen = ({ navigation }: any) => {
-  const { user } = useAppStore();
+  const { user, periodEntries } = useAppStore();
   const { colors: c } = useTheme();
   const styles = useMemo(() => makeStyles(c), [c]);
   const [refreshing, setRefreshing] = useState(false);
 
   const cycleInfo = useMemo(() => {
     if (!user) return null;
-    const dayOfCycle = getDayOfCycle(user.lastPeriodStart, user.cycleLength);
-    const phase = getCyclePhase(dayOfCycle);
-    const fertility = getFertilityWindow(user.lastPeriodStart, user.cycleLength);
-    const nextPeriod = getPredictedNextPeriod(user.lastPeriodStart, user.cycleLength);
+    const { lastPeriodStart, cycleLength, periodLength } = deriveCycleContext(user, periodEntries);
+    const dayOfCycle = getDayOfCycle(lastPeriodStart, cycleLength);
+    const phase = getCyclePhase(dayOfCycle, cycleLength, periodLength);
+    const fertility = getFertilityWindow(lastPeriodStart, cycleLength);
+    const nextPeriod = getPredictedNextPeriod(lastPeriodStart, cycleLength);
     return {
       dayOfCycle,
       phase,
       fertility,
       daysUntilPeriod: daysUntil(nextPeriod),
-      progress: dayOfCycle / user.cycleLength,
+      progress: dayOfCycle / cycleLength,
     };
-  }, [user]);
+  }, [user, periodEntries]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -186,6 +188,18 @@ const HomeScreen = ({ navigation }: any) => {
             </Animated.View>
           </View>
 
+          {/* Log period — primary action */}
+          <Animated.View entering={FadeInDown.delay(390).springify()}>
+            <Ripple onPress={() => navigation.navigate('PeriodLogger')} borderRadius={20} style={styles.logPeriodBtn} rippleColor="rgba(255,255,255,0.35)">
+              <EmojiChip emoji="🩸" size={scale(38)} colors={['#FFFFFF', '#FFD9E6']} onPress={() => navigation.navigate('PeriodLogger')} />
+              <View style={styles.logPeriodText}>
+                <Text style={styles.logPeriodTitle}>Log Period</Text>
+                <Text style={styles.logPeriodSub}>Keep predictions accurate</Text>
+              </View>
+              <Text style={styles.logPeriodChevron}>→</Text>
+            </Ripple>
+          </Animated.View>
+
           {/* Quick actions */}
           <Animated.View entering={FadeIn.delay(400)}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -276,6 +290,20 @@ const makeStyles = (c: ThemePalette) =>
     statCard: { alignItems: 'center', paddingVertical: SPACING.lg },
     statValue: { ...TYPOGRAPHY.body1, fontWeight: '800', color: c.text, textAlign: 'center', marginTop: SPACING.xs },
     statCaption: { ...TYPOGRAPHY.caption, color: c.textSecondary, marginTop: 2 },
+
+    logPeriodBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.md,
+      backgroundColor: COLORS.primary,
+      paddingVertical: SPACING.md,
+      paddingHorizontal: SPACING.lg,
+      marginBottom: SPACING.xl,
+    },
+    logPeriodText: { flex: 1 },
+    logPeriodTitle: { ...TYPOGRAPHY.body1, fontWeight: '800', color: COLORS.white },
+    logPeriodSub: { ...TYPOGRAPHY.caption, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+    logPeriodChevron: { ...TYPOGRAPHY.h3, color: COLORS.white },
 
     sectionTitle: { ...TYPOGRAPHY.h4, color: c.text, marginBottom: SPACING.md },
     actionGrid: {

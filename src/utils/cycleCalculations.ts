@@ -1,25 +1,75 @@
 import { startOfDay, endOfDay, addDays, differenceInDays, format } from 'date-fns';
-import { CyclePhase, CycleStats } from '../types';
+import { CyclePhase, CycleStats, PeriodEntry, User } from '../types';
 import { CYCLE_PHASES } from '../constants';
 
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+/** Always-positive modulo, so cycle-day math works for dates before day 1. */
+function positiveMod(n: number, m: number): number {
+  return ((n % m) + m) % m;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 /**
- * Calculates the cycle phase based on day of cycle
+ * Ovulation day for a given cycle length, using the clinically standard
+ * fixed ~14-day luteal phase (ovulation ≈ cycleLength − 14) rather than
+ * naively halving the cycle. For a 28-day cycle this is day 14; for a
+ * 35-day cycle, day 21; for a 21-day cycle, day 7.
  */
-export function getCyclePhase(dayOfCycle: number): CyclePhase | null {
-  for (const [key, phase] of Object.entries(CYCLE_PHASES)) {
-    if (dayOfCycle >= phase.days.start && dayOfCycle <= phase.days.end) {
-      return {
-        name: key as any,
-        startDay: phase.days.start,
-        endDay: phase.days.end,
-        description: phase.description,
-        color: phase.color,
-        expectedSymptoms: phase.symptoms,
-        wellnessScore: calculateWellnessScore(key),
-      };
-    }
+export function getOvulationDay(cycleLength: number = 28): number {
+  return clamp(Math.round(cycleLength - 14), 3, cycleLength - 1);
+}
+
+/**
+ * Calculates the cycle phase for a day of cycle, scaled to the user's actual
+ * cycle and period length. Phase boundaries are derived (not hardcoded to a
+ * 28-day cycle) so a 21- or 35-day cycle still maps every day to a real phase.
+ */
+export function getCyclePhase(
+  dayOfCycle: number,
+  cycleLength: number = 28,
+  periodLength: number = 5
+): CyclePhase | null {
+  if (dayOfCycle < 1 || dayOfCycle > cycleLength) return null;
+
+  const period = clamp(Math.round(periodLength), 2, 7);
+  const ovulation = clamp(getOvulationDay(cycleLength), period + 2, cycleLength - 1);
+
+  let key: keyof typeof CYCLE_PHASES;
+  let startDay: number;
+  let endDay: number;
+
+  if (dayOfCycle <= period) {
+    key = 'menstrual';
+    startDay = 1;
+    endDay = period;
+  } else if (dayOfCycle >= ovulation - 1 && dayOfCycle <= ovulation + 1) {
+    key = 'ovulation';
+    startDay = ovulation - 1;
+    endDay = ovulation + 1;
+  } else if (dayOfCycle < ovulation - 1) {
+    key = 'follicular';
+    startDay = period + 1;
+    endDay = ovulation - 2;
+  } else {
+    key = 'luteal';
+    startDay = ovulation + 2;
+    endDay = cycleLength;
   }
-  return null;
+
+  const phase = CYCLE_PHASES[key];
+  return {
+    name: key,
+    startDay,
+    endDay,
+    description: phase.description,
+    color: phase.color,
+    expectedSymptoms: phase.symptoms,
+    wellnessScore: calculateWellnessScore(key),
+  };
 }
 
 /**
@@ -36,12 +86,26 @@ export function calculateWellnessScore(phase: string): number {
 }
 
 /**
- * Gets the current day of cycle
+ * Gets the current day of cycle (1-based). Works for any "today", including
+ * before the reference start, thanks to a positive modulo.
  */
 export function getDayOfCycle(lastPeriodStart: Date, cycleLength: number = 28): number {
   const today = new Date();
-  const daysSinceStart = differenceInDays(today, lastPeriodStart);
-  return (daysSinceStart % cycleLength) + 1;
+  const daysSinceStart = differenceInDays(startOfDay(today), startOfDay(lastPeriodStart));
+  return positiveMod(daysSinceStart, cycleLength) + 1;
+}
+
+/**
+ * Cycle day for an arbitrary date relative to a reference period start.
+ * Returns a value in 1..cycleLength for every date (past or future).
+ */
+export function getCycleDayForDate(
+  date: Date,
+  lastPeriodStart: Date,
+  cycleLength: number = 28
+): number {
+  const days = differenceInDays(startOfDay(date), startOfDay(lastPeriodStart));
+  return positiveMod(days, cycleLength) + 1;
 }
 
 /**
@@ -58,7 +122,7 @@ export function getFertilityWindow(
   lastPeriodStart: Date,
   cycleLength: number = 28
 ): { start: Date; end: Date; daysFromNow: number } {
-  const ovulationDay = Math.round(cycleLength / 2);
+  const ovulationDay = getOvulationDay(cycleLength);
   const fertilityStart = addDays(lastPeriodStart, ovulationDay - 5);
   const fertilityEnd = addDays(lastPeriodStart, ovulationDay + 1);
   const daysFromNow = differenceInDays(fertilityStart, new Date());
@@ -74,8 +138,52 @@ export function getFertilityWindow(
  * Calculates ovulation date
  */
 export function getOvulationDate(lastPeriodStart: Date, cycleLength: number = 28): Date {
-  const ovulationDay = Math.round(cycleLength / 2);
-  return addDays(lastPeriodStart, ovulationDay);
+  return addDays(lastPeriodStart, getOvulationDay(cycleLength));
+}
+
+/**
+ * Derives cycle lengths from logged period entries as the gap (in days)
+ * between consecutive period *starts* — NOT the duration of each period.
+ * Implausible gaps (a double-log, or a months-long tracking break) are
+ * filtered out so one bad entry can't skew predictions.
+ */
+export function buildCycleLengths(entries: PeriodEntry[]): number[] {
+  const starts = entries
+    .map((entry) => entry.startDate)
+    .filter(Boolean)
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return starts
+    .slice(1)
+    .map((start, index) => Math.round((start.getTime() - starts[index].getTime()) / DAY_MS))
+    .filter((length) => length >= 15 && length <= 60);
+}
+
+/**
+ * The effective cycle to drive predictions from. Logged period entries are the
+ * source of truth once they exist; the onboarding values are only a fallback
+ * for a user who hasn't logged a period yet. Without this, the whole app would
+ * extrapolate forever from the single date typed during onboarding.
+ */
+export function deriveCycleContext(
+  user: Pick<User, 'lastPeriodStart' | 'cycleLength' | 'periodLength'>,
+  entries: PeriodEntry[]
+): { lastPeriodStart: Date; cycleLength: number; periodLength: number } {
+  const starts = entries
+    .map((e) => e.startDate)
+    .filter(Boolean)
+    .sort((a, b) => b.getTime() - a.getTime());
+
+  const cycleLengths = buildCycleLengths(entries);
+  const lastPeriodStart = starts[0] ?? user.lastPeriodStart;
+  const cycleLength =
+    cycleLengths.length > 0 ? calculateAverageCycleLength(cycleLengths) : user.cycleLength;
+
+  return {
+    lastPeriodStart,
+    cycleLength,
+    periodLength: user.periodLength,
+  };
 }
 
 /**
@@ -117,7 +225,7 @@ export function generateCycleStats(
 ): CycleStats {
   const avgCycleLength = calculateAverageCycleLength(cycles);
   const variability = calculateCycleVariability(cycles);
-  const ovDay = Math.round(avgCycleLength / 2);
+  const ovDay = getOvulationDay(avgCycleLength);
 
   return {
     averageCycleLength: avgCycleLength,

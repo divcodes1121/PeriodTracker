@@ -13,6 +13,7 @@ import AnalyticsScreen from '../screens/AnalyticsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import MoodTrackerScreen from '../screens/MoodTrackerScreen';
 import SymptomLoggerScreen from '../screens/SymptomLoggerScreen';
+import PeriodLoggerScreen from '../screens/PeriodLoggerScreen';
 import AIInsightsScreen from '../screens/AIInsightsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 
@@ -58,6 +59,7 @@ function HomeStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
+      <Stack.Screen name="PeriodLogger" component={PeriodLoggerScreen} />
       <Stack.Screen name="SymptomLogger" component={SymptomLoggerScreen} />
       <Stack.Screen name="MoodTracker" component={MoodTrackerScreen} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />

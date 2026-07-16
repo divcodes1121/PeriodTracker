@@ -8,7 +8,13 @@ import { fontScale, scale, CONTENT_MAX_WIDTH } from '../utils/responsive';
 import { useTheme } from '../theme/useTheme';
 import type { ThemePalette } from '../theme/palette';
 import { useAppStore } from '../store/appStore';
-import { generateCycleStats, daysUntil, getPredictedNextPeriod } from '../utils/cycleCalculations';
+import {
+  generateCycleStats,
+  daysUntil,
+  getPredictedNextPeriod,
+  buildCycleLengths,
+  deriveCycleContext,
+} from '../utils/cycleCalculations';
 import GradientBackground from '../components/GradientBackground';
 import GlassCard from '../components/GlassCard';
 import EmojiChip from '../components/EmojiChip';
@@ -21,17 +27,19 @@ const AnalyticsScreen = () => {
   const chartWidth = Math.min(width, CONTENT_MAX_WIDTH) - SPACING.lg * 2 - SPACING.lg * 2;
 
   const cycleStats = useMemo(() => {
-    if (!user || periodEntries.length === 0) return null;
-    const cycleLengths = periodEntries
-      .slice(0, 6)
-      .map(
-        (e) =>
-          Math.ceil(
-            ((e.endDate?.getTime() || new Date().getTime()) - e.startDate.getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-      );
-    return generateCycleStats(user.lastPeriodStart, user.periodLength, cycleLengths);
+    if (!user) return null;
+    // Cycle length is the gap between consecutive period *starts*, so we need
+    // at least two logged periods before any statistics are meaningful.
+    const cycleLengths = buildCycleLengths(periodEntries);
+    if (cycleLengths.length === 0) return null;
+    const { lastPeriodStart } = deriveCycleContext(user, periodEntries);
+    return generateCycleStats(lastPeriodStart, user.periodLength, cycleLengths);
+  }, [user, periodEntries]);
+
+  const nextPeriodDate = useMemo(() => {
+    if (!user) return null;
+    const { lastPeriodStart, cycleLength } = deriveCycleContext(user, periodEntries);
+    return getPredictedNextPeriod(lastPeriodStart, cycleLength);
   }, [user, periodEntries]);
 
   const moodTrends = useMemo(() => {
@@ -118,19 +126,15 @@ const AnalyticsScreen = () => {
             </Animated.View>
           )}
 
-          {user && (
+          {user && nextPeriodDate && (
             <Animated.View entering={FadeInDown.delay(260).springify()}>
               <GlassCard style={styles.card}>
                 <Text style={styles.cardTitle}>Next predictions</Text>
                 <View style={styles.predRow}>
                   <EmojiChip emoji="🩸" size={scale(42)} colors={['#FFFFFF', '#FFD9E6']} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.predMain}>
-                      {getPredictedNextPeriod(user.lastPeriodStart, user.cycleLength).toLocaleDateString()}
-                    </Text>
-                    <Text style={styles.muted}>
-                      In {daysUntil(getPredictedNextPeriod(user.lastPeriodStart, user.cycleLength))} days
-                    </Text>
+                    <Text style={styles.predMain}>{nextPeriodDate.toLocaleDateString()}</Text>
+                    <Text style={styles.muted}>In {daysUntil(nextPeriodDate)} days</Text>
                   </View>
                 </View>
               </GlassCard>
