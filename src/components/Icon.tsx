@@ -1,4 +1,4 @@
-import Svg, { Path, Circle, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Line, Ellipse } from 'react-native-svg';
 import { StyleProp, ViewStyle } from 'react-native';
 
 /**
@@ -41,7 +41,11 @@ export type IconName =
   | 'flame'
   | 'leaf'
   | 'activity'
-  | 'clock';
+  | 'clock'
+  | 'wind'
+  | 'flower'
+  | 'bubble'
+  | 'crystal';
 
 interface IconProps {
   name: IconName;
@@ -222,6 +226,46 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
         <>
           <Circle cx="12" cy="12" r="8.5" {...common} />
           <Path d="M12 7v5.2l3.2 2" {...common} />
+        </>
+      )}
+
+      {name === 'wind' && (
+        <>
+          <Path d="M3.5 8h12.7a2.4 2.4 0 1 0-2.4-2.4" {...common} />
+          <Path d="M3.5 12h16a2.6 2.6 0 1 1-2.6 2.6" {...common} />
+          <Path d="M3.5 16h8.5" {...common} />
+        </>
+      )}
+
+      {name === 'flower' && (
+        <>
+          <Circle cx="12" cy="12" r="2.1" {...common} />
+          {[0, 72, 144, 216, 288].map((a) => (
+            <Ellipse
+              key={a}
+              cx="12"
+              cy="6.4"
+              rx="2.1"
+              ry="3.3"
+              transform={`rotate(${a} 12 12)`}
+              {...common}
+            />
+          ))}
+        </>
+      )}
+
+      {name === 'bubble' && (
+        <>
+          <Circle cx="10" cy="10.2" r="5.2" {...common} />
+          <Circle cx="16.8" cy="15.8" r="2.8" {...common} />
+          <Path d="M7.6 9a2.8 2.8 0 0 1 2-1.9" {...common} />
+        </>
+      )}
+
+      {name === 'crystal' && (
+        <>
+          <Path d="M12 3l6 6.2L14.6 21H9.4L6 9.2z" {...common} />
+          <Path d="M6 9.2h12M12 3l-2.2 6.2L12 21m0-18l2.2 6.2L12 21" {...common} />
         </>
       )}
     </Svg>

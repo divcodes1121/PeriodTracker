@@ -9,6 +9,7 @@ import {
   AIInsight,
   PartnerAccess,
   SymptomLog,
+  ResetSession,
 } from '../types';
 
 const isSameCalendarDay = (a: Date, b: Date) =>
@@ -38,6 +39,10 @@ interface AppStore {
   // Merges into the same calendar day's log if one exists, else creates it.
   upsertSymptomLog: (log: SymptomLog) => void;
   deleteSymptomLog: (id: string) => void;
+
+  // Tiny Escapes sessions (with post-session check-outs)
+  resetSessions: ResetSession[];
+  addResetSession: (session: ResetSession) => void;
 
   // Mood Entries
   moodEntries: MoodEntry[];
@@ -152,6 +157,11 @@ export const useAppStore = create<AppStore>()(
           symptomLogs: state.symptomLogs.filter((l) => l.id !== id),
         })),
 
+      // Tiny Escapes defaults
+      resetSessions: [],
+      addResetSession: (session) =>
+        set((state) => ({ resetSessions: [...state.resetSessions, session] })),
+
       // Mood Entries defaults
       moodEntries: [],
       setMoodEntries: (moodEntries) => set({ moodEntries }),
@@ -218,6 +228,7 @@ export const useAppStore = create<AppStore>()(
           showOnboarding: true,
           periodEntries: [],
           symptomLogs: [],
+          resetSessions: [],
           moodEntries: [],
           healthMetrics: [],
           aiInsights: [],
@@ -235,6 +246,7 @@ export const useAppStore = create<AppStore>()(
         isAuthenticated: state.isAuthenticated,
         periodEntries: state.periodEntries,
         symptomLogs: state.symptomLogs,
+        resetSessions: state.resetSessions,
         moodEntries: state.moodEntries,
         healthMetrics: state.healthMetrics,
         aiInsights: state.aiInsights,

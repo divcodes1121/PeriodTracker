@@ -14,6 +14,7 @@ import { useAppStore } from '../store/appStore';
 import { MoodEntry } from '../types';
 import { COLORS } from '../constants';
 import { SPACE, MOTION } from '../theme/tokens';
+import { recommendEscape } from '../utils/tinyEscapes';
 
 /**
  * Valence scale, 1–5. These are the labels for MoodEntry.mood, which is an
@@ -34,6 +35,7 @@ const MoodTrackerScreen = ({ navigation }: any) => {
   const [stress, setStress] = useState(3);
   const [energy, setEnergy] = useState(3);
   const [sleep, setSleep] = useState(7);
+  const [suggestion, setSuggestion] = useState<{ escapeId: string } | null>(null);
 
   const selected = MOODS.find((m) => m.value === mood);
 
@@ -55,9 +57,44 @@ const MoodTrackerScreen = ({ navigation }: any) => {
     };
     addMoodEntry(entry);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+    // Adaptive reset: a heavy check-in earns a gentle offer, not a redirect.
+    const escapeId = recommendEscape(mood, stress);
+    if (escapeId) {
+      setSuggestion({ escapeId });
+      return;
+    }
     Alert.alert('Saved', 'Your check-in has been recorded.');
     navigation.goBack();
   };
+
+  if (suggestion) {
+    return (
+      <Screen title="Saved" subtitle="Thanks for checking in">
+        <Reveal index={0}>
+          <Surface>
+            <Text variant="title3">Today sounds heavy.</Text>
+            <Text variant="callout" tone="secondary" style={{ marginTop: SPACE.sm }}>
+              Would a two-minute reset help? No goals, no score — just somewhere soft to put your
+              attention for a moment.
+            </Text>
+            <View style={{ marginTop: SPACE.xl, gap: SPACE.sm }}>
+              <Button
+                label="Take a two-minute reset"
+                onPress={() =>
+                  navigation.navigate('EscapePlayer', {
+                    escapeId: suggestion.escapeId,
+                    plannedSec: 120,
+                  })
+                }
+              />
+              <Button label="Not now" variant="plain" onPress={() => navigation.goBack()} />
+            </View>
+          </Surface>
+        </Reveal>
+      </Screen>
+    );
+  }
 
   return (
     <Screen title="How are you?" subtitle="A moment to check in with yourself">

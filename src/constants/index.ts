@@ -73,6 +73,7 @@ export const INK: Record<string, string> = {
   '#B89AD8': '#6F4E96', // accent   → accentDark
   '#8DB596': '#4F7A5A', // success  → successDark
   '#F5B17A': '#9A5B22', // warning  → warningDark
+  '#7C9BD9': '#4A6BA8', // info     → deep info
 };
 
 export const inkFor = (color: string): string => INK[color] ?? color;

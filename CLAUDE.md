@@ -32,8 +32,16 @@ Single Zustand store, **persisted** via `persist` + `createJSONStorage(AsyncStor
 - **Cycle length = gap between consecutive period *starts*** (`buildCycleLengths`), never `endDate − startDate` (that's period *duration*, ~5 days). Implausible gaps (<15 or >60 days) are filtered so a double-log or tracking break can't skew predictions.
 - **Phase boundaries scale to the user's cycle** (`getCyclePhase(day, cycleLength, periodLength)`), using a fixed ~14-day luteal phase (`getOvulationDay = cycleLength − 14`). They are NOT hardcoded to 28 days — always pass `cycleLength`/`periodLength`. `CYCLE_PHASES` in constants supplies only per-phase metadata (color/description/symptoms), not the day ranges.
 
+### Tiny Escapes — `src/escapes/` + `src/utils/tinyEscapes.ts`
+Calming micro-experiences ("Reset"), NOT a game tab — no scores, timers that judge, or streaks. Architecture:
+- **Metadata + pure logic** in `utils/tinyEscapes.ts` (RN-free, node-tested): `ESCAPES` registry, `DURATIONS`, `recommendEscape(mood, stress)` (stress 5→shatter, 4→zen, mood ≤2→bloom, else **null** — the suggestion must stay rare), `summarizeResets`.
+- **Scenes** in `src/escapes/` (`ZenGarden`, `BloomGarden`, `BubblePop`, `CrystalRelease`; id→component map in `escapes/index.ts`). Scene palettes are **fixed, not theme-bound** (a place, not a document). All particle systems are capped + age-pruned; gestures run as worklets with `runOnJS` only at spawn points; haptics throttled.
+- **`EscapePlayerScreen`** lives in the ROOT stack (covers the tab bar; `animation:'fade'`). Chrome = fading hint pill + close only; per-scene `chrome: 'light'|'dark'` picks overlay ink. After `plannedSec` a check-out card asks "Feeling a little better?" → stored as `ResetSession.response` (`better|same|no`); closing after ≥20s records `response: null`. `NavControls` returns null on this route.
+- **Adaptive loop:** heavy MoodTracker check-in → inline suggestion card (not `Alert` — RN-web Alert is a no-op) → player; `resetSessions` check-outs feed two AIInsights generators (`reset-suggest`, `reset-effect`). Hub = `ResetScreen` (Home stack), doorway card on Home.
+- No audio yet (no expo-av/expo-audio dep) — haptics carry the feedback; sound is a roadmap item.
+
 ### Navigation — `src/navigation/`
-- `RootNavigator.tsx`: root stack swaps `Onboarding` ↔ `MainTabs` on `showOnboarding || !user`. Tabs (Home/Calendar/Analytics/Settings) each wrap their own native stack; `PeriodLogger`, `SymptomLogger`, `MoodTracker`, `AIInsights` live only in the Home stack (reached from Home's primary "Log Period" CTA and the quick-action grid).
+- `RootNavigator.tsx`: root stack swaps `Onboarding` ↔ `MainTabs` on `showOnboarding || !user`; `EscapePlayer` sits alongside `MainTabs` at the root. Tabs (Home/Calendar/Analytics/Settings) each wrap their own native stack; `PeriodLogger`, `SymptomLogger`, `MoodTracker`, `AIInsights`, `Reset` live only in the Home stack (reached from Home's primary "Log Period" CTA, the quick-action grid, and the "Need a moment?" card).
 - Tab bar: frosted `BlurView` (the one place glass is still used — content scrolls under it), theme-aware; icons are stroke **`Icon`** glyphs that spring + thicken stroke on activation.
 - **Browser-style back/forward:** `navRef.ts` (nav container ref) + `useNavHistory.ts` (separate Zustand store). It snapshots the full nav state on each distinct page and keeps a pointer; back/forward restore snapshots (`goBack`/`goForward`), a new nav truncates forward entries. Wired in `App.tsx` via `onReady`/`onStateChange`. Rendered by `NavControls.tsx` (chevron `Icon`s on a soft fill, top-left).
 
@@ -67,7 +75,7 @@ Screens are functional, theme-read via `useTheme()`; static styles in a module-l
 6. `react-native-svg` is now a **direct** dependency (added via `expo install`) — the icon set, charts and cycle ring all depend on it. Previously it was only present transitively via `react-native-chart-kit`.
 
 ## Done
-Persistence + hydration · onboarding (full-screen emotional pages + validation) · symptom-log/cycle-math separation · **full "Editorial" redesign (all screens + component system, light + dark, WCAG AA)** · stroke `Icon` set · glass tab bar · browser-style back/forward · **period logging (`PeriodLoggerScreen`) + cycle context derived from logged entries** · unit tests for `cycleCalculations` + contrast audit test.
+Persistence + hydration · onboarding (full-screen emotional pages + validation) · symptom-log/cycle-math separation · **full "Editorial" redesign (all screens + component system, light + dark, WCAG AA)** · stroke `Icon` set · glass tab bar · browser-style back/forward · **period logging (`PeriodLoggerScreen`) + cycle context derived from logged entries** · **Tiny Escapes ("Reset"): 4 calming scenes + fullscreen player + adaptive mood-triggered suggestion + check-out loop into AI Insights** · unit tests for `cycleCalculations`, `tinyEscapes` + contrast audit test.
 
 ## Not done / next (roadmap order)
 1. **Notifications** — `src/services/notifications.ts` (empty `services/` folder), on-device period/log reminders via `expo-notifications`. Now unblocked: there is real logged data to remind against.

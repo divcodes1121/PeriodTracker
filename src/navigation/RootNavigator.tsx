@@ -18,6 +18,8 @@ import SymptomLoggerScreen from '../screens/SymptomLoggerScreen';
 import PeriodLoggerScreen from '../screens/PeriodLoggerScreen';
 import AIInsightsScreen from '../screens/AIInsightsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import ResetScreen from '../screens/ResetScreen';
+import EscapePlayerScreen from '../screens/EscapePlayerScreen';
 
 import { COLORS } from '../constants';
 
@@ -66,6 +68,7 @@ function HomeStack() {
       <Stack.Screen name="PeriodLogger" component={PeriodLoggerScreen} />
       <Stack.Screen name="SymptomLogger" component={SymptomLoggerScreen} />
       <Stack.Screen name="MoodTracker" component={MoodTrackerScreen} />
+      <Stack.Screen name="Reset" component={ResetScreen} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} />
       <Stack.Screen name="AIInsights" component={AIInsightsScreen} />
@@ -157,7 +160,15 @@ export function RootNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       {showOnboarding ? (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : (
-        <Stack.Screen name="MainTabs" component={MainTabs} />
+        <Stack.Group>
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          {/* Root-level so the escape covers the tab bar — full immersion. */}
+          <Stack.Screen
+            name="EscapePlayer"
+            component={EscapePlayerScreen}
+            options={{ animation: 'fade' }}
+          />
+        </Stack.Group>
       )}
     </Stack.Navigator>
   );

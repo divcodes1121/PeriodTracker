@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import Icon from './Icon';
 import { useNavHistory } from '../navigation/useNavHistory';
+import { navigationRef } from '../navigation/navRef';
 import { useTheme } from '../theme/useTheme';
 import { MOTION, SPACE, MIN_TAP } from '../theme/tokens';
 
@@ -52,6 +53,11 @@ function ArrowButton({
 const NavControls = () => {
   const insets = useSafeAreaInsets();
   const { canGoBack, canGoForward, goBack, goForward } = useNavHistory();
+
+  // The store re-renders us on every nav change, so this read stays fresh.
+  // Escapes are chromeless by design — no history arrows over the sand.
+  const activeRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : undefined;
+  if (activeRoute === 'EscapePlayer') return null;
 
   return (
     <View style={[styles.wrap, { top: insets.top + SPACE.sm }]} pointerEvents="box-none">

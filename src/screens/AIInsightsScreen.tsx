@@ -19,6 +19,7 @@ import {
   buildCycleLengths,
   deriveCycleContext,
 } from '../utils/cycleCalculations';
+import { summarizeResets } from '../utils/tinyEscapes';
 
 interface DisplayInsight {
   id: string;
@@ -50,6 +51,7 @@ const AIInsightsScreen = () => {
     symptomLogs,
     moodEntries,
     healthMetrics,
+    resetSessions,
     enableAIInsights,
   } = useAppStore();
   const { colors: c } = useTheme();
@@ -128,6 +130,20 @@ const AIInsightsScreen = () => {
       const avgEnergy = average(recentMood.map((e) => e.energy));
       const avgSleep = average(recentMood.map((e) => e.sleep));
       const avgWater = average(recentMood.map((e) => e.waterIntake));
+      const avgStress = average(recentMood.map((e) => e.stress));
+
+      if (avgStress >= 3.5 && resetSessions.length === 0) {
+        generated.push({
+          id: 'reset-suggest',
+          title: 'A reset might take the edge off',
+          description:
+            'Your stress has been running high this week. Tiny Escapes — from the Home screen — are two-minute resets built for exactly that.',
+          type: 'recommendation',
+          confidence: 0.7,
+          tag: 'Stress',
+          reasoning: `Average stress across your last ${recentMood.length} check-ins is ${avgStress.toFixed(1)}/5, and you haven't tried a reset yet.`,
+        });
+      }
 
       if (avgEnergy <= 2.8) {
         generated.push({
@@ -190,8 +206,24 @@ const AIInsightsScreen = () => {
       }
     }
 
+    const resets = summarizeResets(resetSessions);
+    if (resets.answered >= 3) {
+      generated.push({
+        id: 'reset-effect',
+        title: resets.rate >= 0.5 ? 'Resets seem to help you' : 'Resets: mixed results so far',
+        description:
+          resets.rate >= 0.5
+            ? `You felt better after ${resets.better} of your last ${resets.answered} resets. Worth reaching for one early when a day turns heavy.`
+            : `You felt better after ${resets.better} of ${resets.answered} resets. Different escapes suit different moods — try another one next time.`,
+        type: 'trend',
+        confidence: Math.min(0.9, 0.6 + resets.answered * 0.04),
+        tag: 'Resets',
+        reasoning: `Based on the ${resets.answered} check-ins you answered after Tiny Escapes sessions.`,
+      });
+    }
+
     return [...saved, ...generated].slice(0, 8);
-  }, [aiInsights, enableAIInsights, healthMetrics, moodEntries, periodEntries, symptomLogs, user]);
+  }, [aiInsights, enableAIInsights, healthMetrics, moodEntries, periodEntries, symptomLogs, resetSessions, user]);
 
   return (
     <Screen title="Insights" subtitle="Patterns found in your own logs">

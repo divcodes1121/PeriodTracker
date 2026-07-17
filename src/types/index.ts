@@ -75,6 +75,24 @@ export interface SymptomLog {
   updatedAt: Date;
 }
 
+export type ResetResponse = 'better' | 'same' | 'no';
+
+/**
+ * One Tiny Escapes session plus the post-session check-out. The check-outs are
+ * what turn the escapes from a toy into a wellness feature: AI Insights reads
+ * them to tell the user whether resets actually help them.
+ */
+export interface ResetSession {
+  id: string;
+  userId: string;
+  escapeId: string;
+  startedAt: Date;
+  plannedSec: number;
+  actualSec: number;
+  response: ResetResponse | null;
+  createdAt: Date;
+}
+
 export interface MoodEntry {
   id: string;
   userId: string;

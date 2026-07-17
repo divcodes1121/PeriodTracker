@@ -178,8 +178,31 @@ const HomeScreen = ({ navigation }: any) => {
         </View>
       </Reveal>
 
-      {/* Quick actions */}
+      {/* Reset — the quiet doorway into Tiny Escapes */}
       <Reveal index={4}>
+        <Surface
+          onPress={() => navigation.navigate('Reset')}
+          accessibilityLabel="Take a reset"
+          accessibilityHint="Opens Tiny Escapes"
+          style={styles.resetCard}
+        >
+          <View style={styles.resetRow}>
+            <View style={[styles.actionIcon, { backgroundColor: isDark ? c.fill : COLORS.accentSoft }]}>
+              <Icon name="wind" size={19} color={isDark ? COLORS.accent : COLORS.accentDark} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="headline">Need a moment?</Text>
+              <Text variant="caption" tone="secondary" style={{ marginTop: 1 }}>
+                A two-minute reset, no pressure
+              </Text>
+            </View>
+            <Icon name="chevronRight" size={17} color={c.textTertiary} />
+          </View>
+        </Surface>
+      </Reveal>
+
+      {/* Quick actions */}
+      <Reveal index={5}>
         <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
           Log today
         </Text>
@@ -254,7 +277,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  metrics: { flexDirection: 'row', gap: SPACE.md, marginBottom: SPACE.h1 },
+  metrics: { flexDirection: 'row', gap: SPACE.md, marginBottom: SPACE.lg },
+
+  resetCard: { marginBottom: SPACE.h1 },
+  resetRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md },
 
   sectionLabel: { marginBottom: SPACE.md },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.md },
