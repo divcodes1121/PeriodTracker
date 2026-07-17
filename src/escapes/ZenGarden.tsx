@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Ellipse, G, Path, Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -22,7 +23,9 @@ import Animated, {
  *  - a koi pond (two koi on opposing elliptical swims, lily pads, ambient
  *    ripples) — touching the WATER makes a ripple instead of a rake mark;
  *  - a blossom branch reaching in from the corner, feeding the petal fall;
- *  - rake furrows (4 tines) along the stroke that slowly settle away.
+ *  - rake furrows (4 grooved tines) along the stroke that slowly settle away;
+ *  - stepping stones, moss on the rocks, glints on the water, and a dragonfly
+ *    hovering by the pond with flickering wings.
  *
  * Scene palette is fixed, not theme-bound. All pools are capped + age-pruned.
  */
@@ -111,6 +114,62 @@ const WaterRipple = memo(function WaterRipple({ size }: { size: number }) {
         style,
       ]}
     />
+  );
+});
+
+/** A glint of light on the water, twinkling on its own rhythm. */
+const Glint = memo(function Glint({ delay }: { delay: number }) {
+  const o = useSharedValue(0.1);
+  useEffect(() => {
+    o.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(0.8, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.1, { duration: 1500, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, [o, delay]);
+  const style = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.View style={[styles.glint, style]} />;
+});
+
+/** A dragonfly hovering near the pond — lazy loops, wings a fast flicker. */
+const Dragonfly = memo(function Dragonfly({ cx, cy }: { cx: number; cy: number }) {
+  const t = useSharedValue(0);
+  const flick = useSharedValue(0.4);
+
+  useEffect(() => {
+    t.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.quad) }), -1, true);
+    flick.value = withRepeat(withTiming(0.95, { duration: 90 }), -1, true);
+  }, [t, flick]);
+
+  const body = useAnimatedStyle(() => {
+    const a = t.value * Math.PI * 2;
+    return {
+      transform: [
+        { translateX: cx + Math.sin(a) * 30 },
+        { translateY: cy + Math.sin(a * 2) * 14 },
+        { rotate: `${Math.cos(a) * 12}deg` },
+      ],
+    };
+  });
+  const wings = useAnimatedStyle(() => ({ opacity: flick.value }));
+
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -14, top: -8 }, body]}>
+      <Animated.View style={wings}>
+        <Svg width={28} height={16} viewBox="0 0 28 16">
+          <Ellipse cx={10} cy={5} rx={7} ry={2.6} fill="rgba(255,255,255,0.6)" transform="rotate(-24 10 5)" />
+          <Ellipse cx={18} cy={5} rx={7} ry={2.6} fill="rgba(255,255,255,0.6)" transform="rotate(24 18 5)" />
+        </Svg>
+      </Animated.View>
+      <View style={styles.dfBody} />
+      <View style={styles.dfHead} />
+    </Animated.View>
   );
 });
 
@@ -389,6 +448,10 @@ const ZenGarden = () => {
           setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
         }
       >
+        {/* Morning light falls from the top of the garden */}
+        <LinearGradient colors={['#F5EEDF', '#EFE7D8', '#E9DEC8']} style={StyleSheet.absoluteFill} />
+        <View style={styles.sunlight} />
+
         {/* Dune shading */}
         <View style={[styles.blob, { top: -120, left: -80, width: 340, height: 340 }]} />
         <View style={[styles.blob, { bottom: -140, right: -60, width: 420, height: 420 }]} />
@@ -428,6 +491,32 @@ const ZenGarden = () => {
                 <Ellipse cx={r.cx} cy={r.cy + 4} rx={r.rx} ry={r.ry} fill="rgba(60,52,42,0.18)" />
                 <Ellipse cx={r.cx} cy={r.cy} rx={r.rx} ry={r.ry} fill={ROCK} />
                 <Ellipse cx={r.cx - r.rx * 0.22} cy={r.cy - r.ry * 0.28} rx={r.rx * 0.62} ry={r.ry * 0.52} fill={ROCK_LIGHT} opacity={0.8} />
+                {/* Moss creeping up the shaded side, lichen freckles on top */}
+                {i !== 1 && (
+                  <Ellipse
+                    cx={r.cx - r.rx * 0.4}
+                    cy={r.cy + r.ry * 0.4}
+                    rx={r.rx * 0.42}
+                    ry={r.ry * 0.36}
+                    fill="#8CA06B"
+                    opacity={0.45}
+                  />
+                )}
+                <Circle cx={r.cx + r.rx * 0.3} cy={r.cy - r.ry * 0.1} r={1.6} fill="rgba(244,240,228,0.5)" />
+                <Circle cx={r.cx + r.rx * 0.12} cy={r.cy + r.ry * 0.24} r={1.2} fill="rgba(244,240,228,0.4)" />
+              </G>
+            ))}
+
+            {/* Stepping stones wandering out of the bottom corner */}
+            {[
+              { x: size.w * 0.14, y: size.h * 0.95, rx: 17, ry: 8.5 },
+              { x: size.w * 0.245, y: size.h * 0.905, rx: 14, ry: 7 },
+              { x: size.w * 0.34, y: size.h * 0.945, rx: 12, ry: 6 },
+            ].map((st, i) => (
+              <G key={i}>
+                <Ellipse cx={st.x} cy={st.y + 2} rx={st.rx} ry={st.ry} fill="rgba(60,52,42,0.14)" />
+                <Ellipse cx={st.x} cy={st.y} rx={st.rx} ry={st.ry} fill="#DACBAD" />
+                <Ellipse cx={st.x - st.rx * 0.2} cy={st.y - st.ry * 0.25} rx={st.rx * 0.6} ry={st.ry * 0.5} fill="#E5D8BC" opacity={0.9} />
               </G>
             ))}
 
@@ -464,6 +553,13 @@ const ZenGarden = () => {
             <View pointerEvents="none" style={{ position: 'absolute', left: pond.cx + pond.rx * 0.4, top: pond.cy + pond.ry * 0.35 }}>
               <AmbientRipple delay={1700} size={34} />
             </View>
+            <View pointerEvents="none" style={{ position: 'absolute', left: pond.cx + pond.rx * 0.2, top: pond.cy - pond.ry * 0.4 }}>
+              <Glint delay={0} />
+            </View>
+            <View pointerEvents="none" style={{ position: 'absolute', left: pond.cx - pond.rx * 0.25, top: pond.cy + pond.ry * 0.5 }}>
+              <Glint delay={1100} />
+            </View>
+            <Dragonfly cx={pond.cx - pond.rx - 46} cy={pond.cy + 22} />
           </>
         )}
 
@@ -490,14 +586,56 @@ const ZenGarden = () => {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: SAND, overflow: 'hidden' },
+  sunlight: {
+    position: 'absolute',
+    top: -160,
+    left: -120,
+    width: 420,
+    height: 420,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,248,226,0.35)',
+  },
   blob: { position: 'absolute', borderRadius: 999, backgroundColor: SAND_SHADE },
   stamp: { width: 40 },
-  tine: { width: 40, height: 1.5, borderRadius: 1, backgroundColor: INK, marginVertical: 2 },
+  /** Grooved furrow: a dark cut with a light lip below, so it reads as depth. */
+  tine: {
+    width: 40,
+    height: 2.5,
+    borderRadius: 1,
+    backgroundColor: 'rgba(97,83,64,0.5)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,250,238,0.6)',
+    marginVertical: 1.6,
+  },
   koi: { position: 'absolute', left: 0, top: 0 },
   waterRing: {
     position: 'absolute',
     borderWidth: 1.6,
     borderColor: 'rgba(240,248,246,0.9)',
+  },
+  glint: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  dfBody: {
+    position: 'absolute',
+    left: 8,
+    top: 7,
+    width: 13,
+    height: 1.8,
+    borderRadius: 1,
+    backgroundColor: '#4E6E75',
+  },
+  dfHead: {
+    position: 'absolute',
+    left: 19.5,
+    top: 6.2,
+    width: 3.4,
+    height: 3.4,
+    borderRadius: 2,
+    backgroundColor: '#3E5B62',
   },
 });
 

@@ -18,22 +18,30 @@ interface TextFieldProps extends TextInputProps {
  * in the card rather than another card.
  */
 const TextField = ({ label, suffix, style, ...rest }: TextFieldProps) => {
-  const { colors: c } = useTheme();
+  const { colors: c, isDark } = useTheme();
   const [focused, setFocused] = useState(false);
 
   const ring = useAnimatedStyle(() => ({
     borderColor: withTiming(focused ? COLORS.primary : 'transparent', { duration: MOTION.fast }),
   }));
 
+  // On focus the field lifts to the card surface, so attention reads as light.
+  const fieldBg = focused ? (isDark ? c.cardElevated : c.card) : c.inputBg;
+
   return (
     <View style={styles.wrap}>
       {label ? (
-        <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.sm }}>
+        <Text
+          variant="overline"
+          tone={focused ? undefined : 'secondary'}
+          color={focused ? COLORS.primaryDark : undefined}
+          style={{ marginBottom: SPACE.sm }}
+        >
           {label}
         </Text>
       ) : null}
 
-      <Animated.View style={[styles.field, { backgroundColor: c.inputBg }, ring]}>
+      <Animated.View style={[styles.field, { backgroundColor: fieldBg }, ring]}>
         <TextInput
           placeholderTextColor={c.textTertiary}
           onFocus={() => setFocused(true)}

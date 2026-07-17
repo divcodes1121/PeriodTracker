@@ -70,16 +70,18 @@ export interface ThemePalette {
 }
 
 export const lightPalette: ThemePalette = {
-  bg: '#FCFBFA',
-  bgSecondary: '#F7F4F6',
+  // Blush-cream, not paper-grey: the canvas itself should feel warm before a
+  // single accent lands on it.
+  bg: '#FBF7F5',
+  bgSecondary: '#F6EFEE',
   card: '#FFFFFF',
   cardElevated: '#FFFFFF',
-  canvasTint: 'rgba(217,124,155,0.04)',
+  canvasTint: 'rgba(217,124,155,0.05)',
 
   text: '#1E1E22',
-  textSecondary: '#70707A',
+  textSecondary: '#6C6C76',
   /**
-   * Decorative only — chevrons, dots, placeholders, disabled glyphs. At 3.45:1
+   * Decorative only — chevrons, dots, placeholders, disabled glyphs. At ~3.4:1
    * it clears WCAG 1.4.11 for UI components but NOT the 4.5:1 needed for text,
    * so meaningful labels (including small overlines) must use textSecondary.
    */
@@ -92,20 +94,21 @@ export const lightPalette: ThemePalette = {
   divider: 'rgba(30,30,34,0.07)',
   trackNeutral: 'rgba(30,30,34,0.06)',
 
-  inputBg: '#F7F4F6',
+  inputBg: '#F6EFEE',
   inputBorder: 'transparent',
   pillBg: 'rgba(30,30,34,0.04)',
   pillBorder: 'transparent',
   switchTrack: 'rgba(30,30,34,0.12)',
 
-  tabBarBg: 'rgba(252,251,250,0.82)',
+  tabBarBg: 'rgba(251,247,245,0.82)',
   tabBarBorder: 'rgba(30,30,34,0.06)',
   blurTint: 'light',
 
   scrim: 'rgba(30,30,34,0.32)',
 
-  auroraBackdrop: ['#FCFBFA', '#FBF8F9', '#F9F6F8', '#F7F4F6'],
-  auroraOrbs: ['rgba(217,124,155,0.10)', 'rgba(184,154,216,0.09)', 'rgba(141,181,150,0.06)'],
+  /** Dawn wash — the ambient gradient behind onboarding and the Home hero. */
+  auroraBackdrop: ['#FDFAF8', '#FBF5F3', '#F9EFF0', '#F7EBEE'],
+  auroraOrbs: ['rgba(217,124,155,0.14)', 'rgba(184,154,216,0.12)', 'rgba(245,177,122,0.08)'],
   waveA: 'rgba(184,154,216,0.05)',
   waveB: 'rgba(217,124,155,0.05)',
   droplet: 'rgba(255,255,255,0.5)',
@@ -116,16 +119,17 @@ export const lightPalette: ThemePalette = {
 };
 
 export const darkPalette: ThemePalette = {
-  // Warm charcoal, not blue-black — it keeps the rose/lavender accents honest.
-  bg: '#131316',
-  bgSecondary: '#1A1A1E',
-  card: '#1D1D22',
-  cardElevated: '#26262C',
-  canvasTint: 'rgba(217,124,155,0.06)',
+  // Plum-ink, not neutral black: night mode keeps a rose undertone so the
+  // brand pastels feel at home instead of floating on a server-room grey.
+  bg: '#151016',
+  bgSecondary: '#1C151E',
+  card: '#201925',
+  cardElevated: '#2A2130',
+  canvasTint: 'rgba(217,124,155,0.07)',
 
-  text: '#F4F4F6',
-  textSecondary: '#9A9AA6',
-  textTertiary: '#6E6E7A',
+  text: '#F6F3F6',
+  textSecondary: '#A59DAB',
+  textTertiary: '#786F80',
   onAccent: '#FFFFFF',
 
   fill: 'rgba(255,255,255,0.06)',
@@ -134,25 +138,26 @@ export const darkPalette: ThemePalette = {
   divider: 'rgba(255,255,255,0.08)',
   trackNeutral: 'rgba(255,255,255,0.10)',
 
-  inputBg: '#26262C',
+  inputBg: '#2A2130',
   inputBorder: 'transparent',
   pillBg: 'rgba(255,255,255,0.06)',
   pillBorder: 'transparent',
   switchTrack: 'rgba(255,255,255,0.16)',
 
-  tabBarBg: 'rgba(19,19,22,0.82)',
+  tabBarBg: 'rgba(21,16,22,0.82)',
   tabBarBorder: 'rgba(255,255,255,0.08)',
   blurTint: 'dark',
 
   scrim: 'rgba(0,0,0,0.55)',
 
-  auroraBackdrop: ['#131316', '#161618', '#18161B', '#1A181D'],
-  auroraOrbs: ['rgba(217,124,155,0.14)', 'rgba(184,154,216,0.12)', 'rgba(141,181,150,0.07)'],
+  /** Dusk wash — plum ramp used behind onboarding and the Home hero. */
+  auroraBackdrop: ['#171119', '#1A131D', '#1D1521', '#201724'],
+  auroraOrbs: ['rgba(217,124,155,0.16)', 'rgba(184,154,216,0.14)', 'rgba(245,177,122,0.07)'],
   waveA: 'rgba(184,154,216,0.07)',
   waveB: 'rgba(217,124,155,0.07)',
   droplet: 'rgba(255,255,255,0.14)',
   dropletBorder: 'rgba(255,255,255,0.2)',
-  glassTint: 'rgba(29,29,34,0.72)',
+  glassTint: 'rgba(32,25,37,0.72)',
   glassBorder: 'rgba(255,255,255,0.08)',
   glassHighlight: 'rgba(255,255,255,0.10)',
 };

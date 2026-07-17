@@ -27,6 +27,7 @@ export type IconName =
   | 'note'
   | 'water'
   | 'plus'
+  | 'minus'
   | 'chevronRight'
   | 'chevronLeft'
   | 'chevronDown'
@@ -162,6 +163,7 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
       )}
 
       {name === 'plus' && <Path d="M12 5.5v13M5.5 12h13" {...common} />}
+      {name === 'minus' && <Path d="M5.5 12h13" {...common} />}
 
       {name === 'chevronRight' && <Path d="m9.5 5.5 6.5 6.5-6.5 6.5" {...common} />}
       {name === 'chevronLeft' && <Path d="M14.5 5.5 8 12l6.5 6.5" {...common} />}

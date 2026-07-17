@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, RefreshControl } from 'react-native';
+import { View, StyleSheet, RefreshControl, Pressable } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { format } from 'date-fns';
 import Text from '../components/Text';
 import Screen from '../components/Screen';
 import Surface from '../components/Surface';
@@ -41,9 +44,53 @@ interface QuickAction {
 const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Mood', icon: 'heart', accent: COLORS.primary, route: 'MoodTracker' },
   { label: 'Symptoms', icon: 'activity', accent: COLORS.accent, route: 'SymptomLogger' },
-  { label: 'Period', icon: 'drop', accent: COLORS.menstrual, route: 'PeriodLogger' },
   { label: 'Insights', icon: 'sparkles', accent: COLORS.success, route: 'AIInsights' },
 ];
+
+/**
+ * The primary CTA — logging a period is what makes every prediction real, so
+ * it gets a deep-rose hero card rather than a slot in the quick-action grid.
+ * Deep rose (not the pastel) so the white label clears AA.
+ */
+function LogPeriodCTA({ onPress }: { onPress: () => void }) {
+  const press = useSharedValue(0);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.value * 0.015 }],
+  }));
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Log period"
+      accessibilityHint="Opens the period logger"
+      onPressIn={() => {
+        press.value = withSpring(1, { damping: 15, stiffness: 260, mass: 0.7 });
+        Haptics.selectionAsync().catch(() => {});
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, { damping: 18, stiffness: 180, mass: 0.9 });
+      }}
+      onPress={onPress}
+    >
+      <Animated.View style={[styles.cta, style]}>
+        {/* Soft decorative blooms — light on deep rose, no text over them */}
+        <View style={[styles.ctaBloom, { top: -46, right: -32, width: 130, height: 130 }]} />
+        <View style={[styles.ctaBloom, { bottom: -58, right: 66, width: 96, height: 96, opacity: 0.6 }]} />
+        <View style={styles.ctaIcon}>
+          <Icon name="drop" size={20} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="headline" color="#FFFFFF">
+            Log period
+          </Text>
+          <Text variant="caption" color="rgba(255,255,255,0.8)" style={{ marginTop: 1 }}>
+            Predictions sharpen with every log
+          </Text>
+        </View>
+        <Icon name="chevronRight" size={18} color="rgba(255,255,255,0.85)" />
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 const HomeScreen = ({ navigation }: any) => {
   const { user, periodEntries } = useAppStore();
@@ -95,11 +142,11 @@ const HomeScreen = ({ navigation }: any) => {
       <Reveal index={0}>
         <View style={styles.greetRow}>
           <View style={{ flex: 1 }}>
-            <Text variant="callout" tone="secondary">
-              {greeting()},
+            <Text variant="overline" tone="secondary">
+              {format(new Date(), 'EEEE, MMMM d')}
             </Text>
-            <Text variant="title1" style={{ marginTop: 2 }}>
-              {firstName}
+            <Text variant="title1" style={{ marginTop: 4 }}>
+              {greeting()}, {firstName}
             </Text>
           </View>
           <ThemeToggle />
@@ -109,6 +156,10 @@ const HomeScreen = ({ navigation }: any) => {
       {/* Hero — where am I in my cycle */}
       <Reveal index={1}>
         <View style={styles.hero}>
+          {/* Dawn wash behind the ring — the one place the canvas blushes */}
+          <View pointerEvents="none" style={[styles.wash, { backgroundColor: c.auroraOrbs[0], top: -30, left: '4%' }]} />
+          <View pointerEvents="none" style={[styles.wash, { backgroundColor: c.auroraOrbs[1], top: 60, right: '2%' }]} />
+
           <CycleTimeline
             dayOfCycle={cycle.dayOfCycle}
             cycleLength={cycle.cycleLength}
@@ -131,8 +182,13 @@ const HomeScreen = ({ navigation }: any) => {
         </View>
       </Reveal>
 
-      {/* Today's insight */}
+      {/* Primary CTA */}
       <Reveal index={2}>
+        <LogPeriodCTA onPress={() => navigation.navigate('PeriodLogger')} />
+      </Reveal>
+
+      {/* Today's insight */}
+      <Reveal index={3}>
         <Surface
           onPress={() => navigation.navigate('AIInsights')}
           accessibilityLabel="Today's insight"
@@ -155,7 +211,7 @@ const HomeScreen = ({ navigation }: any) => {
       </Reveal>
 
       {/* Countdown + fertility */}
-      <Reveal index={3}>
+      <Reveal index={4}>
         <View style={styles.metrics}>
           <MetricCard
             label="Next period"
@@ -179,7 +235,7 @@ const HomeScreen = ({ navigation }: any) => {
       </Reveal>
 
       {/* Reset — the quiet doorway into Tiny Escapes */}
-      <Reveal index={4}>
+      <Reveal index={5}>
         <Surface
           onPress={() => navigation.navigate('Reset')}
           accessibilityLabel="Take a reset"
@@ -202,9 +258,9 @@ const HomeScreen = ({ navigation }: any) => {
       </Reveal>
 
       {/* Quick actions */}
-      <Reveal index={5}>
+      <Reveal index={6}>
         <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
-          Log today
+          Check in
         </Text>
         <View style={styles.actions}>
           {QUICK_ACTIONS.map((a) => (
@@ -258,7 +314,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACE.xxl,
   },
 
-  hero: { alignItems: 'center', marginBottom: SPACE.h1 },
+  hero: { alignItems: 'center', marginBottom: SPACE.xl },
+  wash: {
+    position: 'absolute',
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+  },
   phaseTitle: { marginTop: SPACE.xs },
   phaseDot: { width: 6, height: 6, borderRadius: 3, marginTop: SPACE.md },
   heroCaption: {
@@ -266,6 +328,32 @@ const styles = StyleSheet.create({
     marginTop: SPACE.xl,
     paddingHorizontal: SPACE.lg,
     maxWidth: 320,
+  },
+
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.md,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: RADIUS.card,
+    paddingHorizontal: SPACE.xl,
+    paddingVertical: SPACE.lg,
+    marginBottom: SPACE.lg,
+    overflow: 'hidden',
+    minHeight: MIN_TAP + 26,
+  },
+  ctaBloom: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  ctaIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.sm,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   insightHead: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
@@ -283,15 +371,15 @@ const styles = StyleSheet.create({
   resetRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md },
 
   sectionLabel: { marginBottom: SPACE.md },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.md },
-  action: { width: '47.6%' },
+  actions: { flexDirection: 'row', gap: SPACE.md },
+  action: { flex: 1 },
   actionInner: {
-    minHeight: MIN_TAP + 32,
+    minHeight: MIN_TAP + 44,
     paddingVertical: SPACE.lg,
-    paddingHorizontal: SPACE.lg,
-    flexDirection: 'row',
+    paddingHorizontal: SPACE.md,
     alignItems: 'center',
-    gap: SPACE.md,
+    justifyContent: 'center',
+    gap: SPACE.sm,
   },
   actionIcon: {
     width: 34,
