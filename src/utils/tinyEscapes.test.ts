@@ -1,10 +1,10 @@
 import { ESCAPES, recommendEscape, summarizeResets } from './tinyEscapes';
 
 describe('escape registry', () => {
-  it('has four escapes with unique ids', () => {
+  it('has six escapes with unique ids', () => {
     const ids = ESCAPES.map((e) => e.id);
-    expect(ids).toHaveLength(4);
-    expect(new Set(ids).size).toBe(4);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
   });
 
   it('every escape declares a chrome mode for the player overlay', () => {

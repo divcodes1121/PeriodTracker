@@ -45,7 +45,9 @@ export type IconName =
   | 'wind'
   | 'flower'
   | 'bubble'
-  | 'crystal';
+  | 'crystal'
+  | 'rain'
+  | 'star';
 
 interface IconProps {
   name: IconName;
@@ -267,6 +269,23 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
           <Path d="M12 3l6 6.2L14.6 21H9.4L6 9.2z" {...common} />
           <Path d="M6 9.2h12M12 3l-2.2 6.2L12 21m0-18l2.2 6.2L12 21" {...common} />
         </>
+      )}
+
+      {name === 'rain' && (
+        <>
+          <Path
+            d="M6.4 14.5a3.9 3.9 0 0 1 .8-7.7 5.1 5.1 0 0 1 9.9 1.1 3.4 3.4 0 0 1-.5 6.6H6.4z"
+            {...common}
+          />
+          <Path d="M8.5 17.5v2.2M12 17.5v2.8M15.5 17.5v2.2" {...common} />
+        </>
+      )}
+
+      {name === 'star' && (
+        <Path
+          d="M12 3.5l2.47 5.26 5.53.7-4.1 3.94 1.06 5.6L12 16.2 7.04 19l1.06-5.6L4 9.46l5.53-.7z"
+          {...common}
+        />
       )}
     </Svg>
   );

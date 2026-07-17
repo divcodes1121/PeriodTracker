@@ -59,6 +59,24 @@ export const ESCAPES: EscapeMeta[] = [
     accent: '#B89AD8',
     chrome: 'light',
   },
+  {
+    id: 'rain',
+    title: 'Rain Window',
+    tagline: 'The storm stays outside.',
+    hint: 'Wipe the glass',
+    icon: 'rain',
+    accent: '#7C9BD9',
+    chrome: 'light',
+  },
+  {
+    id: 'cosmos',
+    title: 'Star Dust',
+    tagline: 'Scatter a little universe.',
+    hint: 'Drag to scatter stardust',
+    icon: 'star',
+    accent: '#B89AD8',
+    chrome: 'light',
+  },
 ];
 
 export const DURATIONS = [

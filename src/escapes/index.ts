@@ -3,6 +3,8 @@ import ZenGarden from './ZenGarden';
 import BloomGarden from './BloomGarden';
 import BubblePop from './BubblePop';
 import CrystalRelease from './CrystalRelease';
+import RainWindow from './RainWindow';
+import StarDust from './StarDust';
 
 /**
  * Escape id → scene component. Metadata lives in utils/tinyEscapes.ts (kept
@@ -13,4 +15,6 @@ export const ESCAPE_COMPONENTS: Record<string, ComponentType> = {
   bloom: BloomGarden,
   bubbles: BubblePop,
   shatter: CrystalRelease,
+  rain: RainWindow,
+  cosmos: StarDust,
 };
