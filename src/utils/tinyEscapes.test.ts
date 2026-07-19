@@ -1,10 +1,16 @@
-import { ESCAPES, recommendEscape, summarizeResets } from './tinyEscapes';
+import {
+  ESCAPES,
+  RAIN_ENVIRONMENTS,
+  environmentForCatches,
+  recommendEscape,
+  summarizeResets,
+} from './tinyEscapes';
 
 describe('escape registry', () => {
-  it('has six escapes with unique ids', () => {
+  it('has seven escapes with unique ids', () => {
     const ids = ESCAPES.map((e) => e.id);
-    expect(ids).toHaveLength(6);
-    expect(new Set(ids).size).toBe(6);
+    expect(ids).toHaveLength(7);
+    expect(new Set(ids).size).toBe(7);
   });
 
   it('every escape declares a chrome mode for the player overlay', () => {
@@ -45,6 +51,46 @@ describe('recommendEscape', () => {
         const rec = recommendEscape(mood, stress);
         if (rec !== null) expect(ids.has(rec)).toBe(true);
       }
+    }
+  });
+});
+
+describe('environmentForCatches', () => {
+  it('starts every session in the Fresh Meadow', () => {
+    expect(environmentForCatches(0).id).toBe('fresh');
+    expect(environmentForCatches(-5).id).toBe('fresh');
+  });
+
+  it('ends the journey in the Moonlit Garden', () => {
+    const last = RAIN_ENVIRONMENTS[RAIN_ENVIRONMENTS.length - 1];
+    expect(last.id).toBe('moonlit');
+    expect(environmentForCatches(last.at).id).toBe('moonlit');
+    expect(environmentForCatches(10000).id).toBe('moonlit');
+  });
+
+  it('advances exactly at each threshold', () => {
+    for (let i = 1; i < RAIN_ENVIRONMENTS.length; i++) {
+      const env = RAIN_ENVIRONMENTS[i];
+      expect(environmentForCatches(env.at - 1).id).toBe(RAIN_ENVIRONMENTS[i - 1].id);
+      expect(environmentForCatches(env.at).id).toBe(env.id);
+    }
+  });
+
+  it('only ever moves forward — beauty ramps, difficulty never does', () => {
+    const order = RAIN_ENVIRONMENTS.map((e) => e.id);
+    let prevIndex = 0;
+    for (let catches = 0; catches <= 200; catches++) {
+      const index = order.indexOf(environmentForCatches(catches).id);
+      expect(index).toBeGreaterThanOrEqual(prevIndex);
+      prevIndex = index;
+    }
+  });
+
+  it('keeps thresholds strictly increasing with unique ids', () => {
+    const ids = RAIN_ENVIRONMENTS.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (let i = 1; i < RAIN_ENVIRONMENTS.length; i++) {
+      expect(RAIN_ENVIRONMENTS[i].at).toBeGreaterThan(RAIN_ENVIRONMENTS[i - 1].at);
     }
   });
 });

@@ -48,7 +48,14 @@ export type IconName =
   | 'bubble'
   | 'crystal'
   | 'rain'
-  | 'star';
+  | 'star'
+  | 'rake'
+  | 'stone'
+  | 'shell'
+  | 'sound'
+  | 'soundOff'
+  | 'umbrella'
+  | 'breathe';
 
 interface IconProps {
   name: IconName;
@@ -164,6 +171,37 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
 
       {name === 'plus' && <Path d="M12 5.5v13M5.5 12h13" {...common} />}
       {name === 'minus' && <Path d="M5.5 12h13" {...common} />}
+
+      {name === 'rake' && (
+        <>
+          <Path d="M6.5 4.5v5M12 4.5v5M17.5 4.5v5M4.5 9.5h15" {...common} />
+          <Path d="M12 9.5v10" {...common} />
+        </>
+      )}
+      {name === 'stone' && (
+        <>
+          <Path d="M5 14.5a7 5 0 1 0 14 0a7 5 0 1 0 -14 0" {...common} />
+          <Path d="M8.5 12.5c1-1 2.4-1.5 3.8-1.4" {...common} />
+        </>
+      )}
+      {name === 'shell' && (
+        <>
+          <Path d="M12 19.5 6.8 13.6a6.4 6.4 0 1 1 10.4 0Z" {...common} />
+          <Path d="M12 19.5V7.5M8.6 16.2l1.7-7.9M15.4 16.2l-1.7-7.9" {...common} />
+        </>
+      )}
+      {name === 'sound' && (
+        <>
+          <Path d="M4.5 10v4h3l4.5 3.5v-11L7.5 10h-3z" {...common} />
+          <Path d="M15 9.5a4.2 4.2 0 0 1 0 5M17.5 7.5a7 7 0 0 1 0 9" {...common} />
+        </>
+      )}
+      {name === 'soundOff' && (
+        <>
+          <Path d="M4.5 10v4h3l4.5 3.5v-11L7.5 10h-3z" {...common} />
+          <Path d="m15.5 9.5 4.5 5M20 9.5l-4.5 5" {...common} />
+        </>
+      )}
 
       {name === 'chevronRight' && <Path d="m9.5 5.5 6.5 6.5-6.5 6.5" {...common} />}
       {name === 'chevronLeft' && <Path d="M14.5 5.5 8 12l6.5 6.5" {...common} />}
@@ -288,6 +326,20 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
           d="M12 3.5l2.47 5.26 5.53.7-4.1 3.94 1.06 5.6L12 16.2 7.04 19l1.06-5.6L4 9.46l5.53-.7z"
           {...common}
         />
+      )}
+
+      {name === 'umbrella' && (
+        <>
+          <Path d="M3.5 12a8.5 8.5 0 0 1 17 0Z" {...common} />
+          <Path d="M12 2.5v1M12 12v6.5a2 2 0 0 0 4 0" {...common} />
+        </>
+      )}
+
+      {name === 'breathe' && (
+        <>
+          <Circle cx="12" cy="12" r="3" {...common} />
+          <Circle cx="12" cy="12" r="8.5" {...common} opacity={0.55} />
+        </>
       )}
     </Svg>
   );

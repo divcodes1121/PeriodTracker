@@ -43,8 +43,8 @@ export const ESCAPES: EscapeMeta[] = [
   },
   {
     id: 'bubbles',
-    title: 'Bubbles',
-    tagline: 'Pop. Breathe. Repeat.',
+    title: 'Bubble Therapy',
+    tagline: 'Breathe. Pop. Relax.',
     hint: 'Pop the bubbles',
     icon: 'bubble',
     accent: '#7C9BD9',
@@ -77,6 +77,15 @@ export const ESCAPES: EscapeMeta[] = [
     accent: '#B89AD8',
     chrome: 'light',
   },
+  {
+    id: 'catcher',
+    title: 'Rain Catcher',
+    tagline: 'Catch what falls. Watch it bloom.',
+    hint: 'Drag to guide the umbrella',
+    icon: 'umbrella',
+    accent: '#D9857A',
+    chrome: 'light',
+  },
 ];
 
 export const DURATIONS = [
@@ -97,6 +106,41 @@ export function recommendEscape(mood: number, stress: number): string | null {
   if (stress >= 4) return 'zen';
   if (mood <= 2) return 'bloom';
   return null;
+}
+
+/* ----------------------------- Rain Catcher ------------------------------ */
+
+export interface RainEnvironment {
+  id: string;
+  name: string;
+  /** Total catches (this session) at which this environment takes over. */
+  at: number;
+}
+
+/**
+ * The meadow's journey — Rain Catcher's answer to difficulty. As the garden
+ * is watered the world gets *more beautiful*, never harder: each caught drop
+ * counts toward the next palette, and the scene crossfades so slowly the
+ * change should be felt rather than noticed. Thresholds assume a relaxed
+ * ~30–45 catches/min: a half-minute session sees one transition, five
+ * minutes completes the walk into the Moonlit Garden.
+ */
+export const RAIN_ENVIRONMENTS: RainEnvironment[] = [
+  { id: 'fresh', name: 'Fresh Meadow', at: 0 },
+  { id: 'spring', name: 'Spring Garden', at: 12 },
+  { id: 'cherry', name: 'Cherry Blossom', at: 32 },
+  { id: 'lavender', name: 'Lavender Field', at: 58 },
+  { id: 'golden', name: 'Golden Sunset', at: 90 },
+  { id: 'moonlit', name: 'Moonlit Garden', at: 128 },
+];
+
+/** Which environment a session with `catches` caught drops lives in. */
+export function environmentForCatches(catches: number): RainEnvironment {
+  let current = RAIN_ENVIRONMENTS[0];
+  for (const env of RAIN_ENVIRONMENTS) {
+    if (catches >= env.at) current = env;
+  }
+  return current;
 }
 
 export interface ResetSummary {
