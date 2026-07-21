@@ -89,11 +89,6 @@
           "defaultChannel": "cycle"
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "period-tracker-app"
-      }
-    }
+    ]
   }
 }
