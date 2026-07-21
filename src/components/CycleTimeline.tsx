@@ -24,6 +24,18 @@ interface CycleTimelineProps {
   /** Capitalized phase name, e.g. "Luteal" — keys PHASE_GRADIENTS. */
   phaseName: string;
   size?: number;
+  /**
+   * Ambient glow colour, normally atmosphere.glow. When given, the breathing
+   * halo adopts the app's current atmosphere instead of the phase ramp, so the
+   * hero agrees with the canvas behind it at every hour of the day.
+   */
+  glow?: string;
+  /**
+   * Where the light is coming from, in degrees (atmosphere.lightAngle). Rotates
+   * the gradient sweep so the ring is lit from the same direction as every
+   * other surface in the app rather than picking its own angle.
+   */
+  lightAngle?: number;
   children?: ReactNode;
 }
 
@@ -48,6 +60,8 @@ const CycleTimeline = ({
   periodLength,
   phaseName,
   size = 260,
+  glow,
+  lightAngle = 15,
   children,
 }: CycleTimelineProps) => {
   const { colors: c } = useTheme();
@@ -130,7 +144,7 @@ const CycleTimeline = ({
           StyleSheet.absoluteFill,
           {
             borderRadius: size / 2,
-            backgroundColor: ramp[1],
+            backgroundColor: glow ?? ramp[1],
           },
           haloStyle,
         ]}
@@ -138,7 +152,14 @@ const CycleTimeline = ({
 
       <Svg width={size} height={size}>
         <Defs>
-          <LinearGradient id="sweep" x1="0" y1="0" x2="1" y2="1">
+          {/* Sweep aligned to the app's light direction (0° = from the top). */}
+          <LinearGradient
+            id="sweep"
+            x1={0.5 - Math.sin((lightAngle * Math.PI) / 180) * 0.5}
+            y1={0.5 - Math.cos((lightAngle * Math.PI) / 180) * 0.5}
+            x2={0.5 + Math.sin((lightAngle * Math.PI) / 180) * 0.5}
+            y2={0.5 + Math.cos((lightAngle * Math.PI) / 180) * 0.5}
+          >
             <Stop offset="0" stopColor={ramp[0]} />
             <Stop offset="0.6" stopColor={ramp[1]} />
             <Stop offset="1" stopColor={ramp[2]} />

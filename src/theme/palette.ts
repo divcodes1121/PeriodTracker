@@ -19,6 +19,14 @@ export interface ThemePalette {
   card: string;
   /** A card sitting on top of another card. */
   cardElevated: string;
+  /**
+   * Semi-transparent card. Lets the live atmosphere read through, so secondary
+   * cards sit *in* the canvas rather than punching an opaque hole in it. Not a
+   * blur — real blur on scrolling content is expensive; this is a tinted veil.
+   */
+  cardQuiet: string;
+  /** Hairline highlight along a card's lit edge, aligned to atmosphere.lightAngle. */
+  cardRim: string;
   /** Very subtle wash tinted toward the current phase, used behind the hero. */
   canvasTint: string;
 
@@ -76,6 +84,8 @@ export const lightPalette: ThemePalette = {
   bgSecondary: '#F6EFEE',
   card: '#FFFFFF',
   cardElevated: '#FFFFFF',
+  cardQuiet: 'rgba(255,255,255,0.62)',
+  cardRim: 'rgba(255,255,255,0.9)',
   canvasTint: 'rgba(217,124,155,0.05)',
 
   text: '#1E1E22',
@@ -125,6 +135,8 @@ export const darkPalette: ThemePalette = {
   bgSecondary: '#1C151E',
   card: '#201925',
   cardElevated: '#2A2130',
+  cardQuiet: 'rgba(42,33,48,0.58)',
+  cardRim: 'rgba(255,255,255,0.07)',
   canvasTint: 'rgba(217,124,155,0.07)',
 
   text: '#F6F3F6',
