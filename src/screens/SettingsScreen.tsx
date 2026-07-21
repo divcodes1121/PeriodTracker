@@ -11,6 +11,8 @@ import Toggle from '../components/Toggle';
 import Reveal from '../components/Reveal';
 import Notice from '../components/Notice';
 import { useTheme } from '../theme/useTheme';
+import { requestPermission, syncReminders, cancelAll } from '../services/notifications';
+import { deriveCycleContext, getPredictedNextPeriod } from '../utils/cycleCalculations';
 import { useAtmosphere } from '../theme/useAtmosphere';
 import { useAppStore } from '../store/appStore';
 import { COLORS } from '../constants';
@@ -30,6 +32,7 @@ const SettingsScreen = ({ navigation }: any) => {
     setEnableNotifications,
     enableAIInsights,
     setEnableAIInsights,
+    periodEntries,
     clearStore,
   } = useAppStore();
   const { colors: c, isDark, toggle } = useTheme();
@@ -49,11 +52,54 @@ const SettingsScreen = ({ navigation }: any) => {
 
   const handleErase = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    // Queued reminders live with the OS, not in our store — erasing the account
+    // without cancelling them would leave the phone announcing the cycle of a
+    // user who just deleted their data.
+    cancelAll().catch(() => {});
     clearStore();
     navigation.replace?.('Onboarding');
   };
 
   const soon = (what: string) => setNotice(`${what} is not available yet — it is on the roadmap.`);
+
+  /**
+   * Turning reminders on is where we ask the OS for permission — not at launch.
+   * A permission dialog before the user knows what the app does gets denied,
+   * and iOS only lets you ask once.
+   *
+   * If they decline, the toggle goes back off rather than sitting on while
+   * nothing arrives: a switch that claims to be on and does nothing is worse
+   * than one that is honestly off.
+   */
+  const handleNotifications = async (next: boolean) => {
+    if (!next) {
+      setEnableNotifications(false);
+      await cancelAll();
+      setNotice(null);
+      return;
+    }
+
+    const granted = await requestPermission();
+    if (!granted) {
+      setEnableNotifications(false);
+      setNotice('Reminders need notification permission, which is switched off for this app in your device settings.');
+      return;
+    }
+
+    setEnableNotifications(true);
+    setNotice(null);
+
+    if (!user) return;
+    const { lastPeriodStart, cycleLength } = deriveCycleContext(user, periodEntries);
+    const newest = periodEntries.length
+      ? periodEntries.reduce((a, b) => (a.startDate > b.startDate ? a : b)).startDate
+      : null;
+    await syncReminders({
+      nextPeriod: getPredictedNextPeriod(lastPeriodStart, cycleLength),
+      lastLogged: newest,
+      enabled: true,
+    });
+  };
 
   const initial = (user?.name ?? 'Y').trim().charAt(0).toUpperCase();
 
@@ -91,7 +137,12 @@ const SettingsScreen = ({ navigation }: any) => {
             accessory={
               <Toggle
                 value={enableNotifications}
-                onValueChange={setEnableNotifications}
+                onValueChange={(v) => {
+                  handleNotifications(v).catch(() => {
+                    setEnableNotifications(false);
+                    setNotice('Could not set up reminders on this device.');
+                  });
+                }}
                 accessibilityLabel="Notifications"
               />
             }
