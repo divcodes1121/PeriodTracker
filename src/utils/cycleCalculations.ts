@@ -1,5 +1,5 @@
 import { startOfDay, endOfDay, addDays, differenceInDays, format } from 'date-fns';
-import { CyclePhase, CycleStats, PeriodEntry, User } from '../types';
+import { CyclePhase, CycleStats, PeriodEntry, User, Symptom } from '../types';
 import { CYCLE_PHASES } from '../constants';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -372,4 +372,24 @@ export function getPhaseRecommendations(phase: string | null): string[] {
   };
 
   return recommendations[phase || 'luteal'] || [];
+}
+
+/**
+ * Merges a day's incoming symptoms into what is already logged for that day.
+ *
+ * The store previously did `[...existing.symptoms, ...incoming.symptoms]`, so
+ * logging cramps twice on one day stored cramps twice. That is not cosmetic:
+ * AIInsightsScreen and the Analytics frequency panel both count occurrences, so
+ * a duplicate silently inflates how often a symptom appears to happen — the app
+ * would tell you cramps are worsening because you tapped save twice.
+ *
+ * Merge is by `type`, newest wins. Re-logging a day is a correction, not an
+ * addition: if you said "cramps, 2" this morning and "cramps, 4" this evening,
+ * 4 is what you meant.
+ */
+export function mergeSymptoms(existing: Symptom[], incoming: Symptom[]): Symptom[] {
+  const byType = new Map<string, Symptom>();
+  for (const s of existing) byType.set(s.type, s);
+  for (const s of incoming) byType.set(s.type, s);
+  return Array.from(byType.values());
 }

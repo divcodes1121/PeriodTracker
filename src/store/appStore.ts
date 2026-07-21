@@ -1,3 +1,4 @@
+import { mergeSymptoms } from '../utils/cycleCalculations';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -141,7 +142,10 @@ export const useAppStore = create<AppStore>()(
                 l.id === existing.id
                   ? {
                       ...l,
-                      symptoms: [...l.symptoms, ...log.symptoms],
+                      // Merge by type — see mergeSymptoms. Concatenating meant
+                      // re-logging a day double-counted every symptom, which
+                      // silently inflated the frequency stats built on top.
+                      symptoms: mergeSymptoms(l.symptoms, log.symptoms),
                       flowIntensity: log.flowIntensity,
                       notes: log.notes || l.notes,
                       updatedAt: new Date(),

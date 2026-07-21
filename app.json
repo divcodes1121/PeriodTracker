@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "periodtracker",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "owner": "periodtracker",
     "description": "An AI-powered menstrual health companion that combines cycle tracking, wellness insights, mood prediction, and beautifully crafted interactions.",
     "platforms": [
@@ -27,7 +27,7 @@
       "splash": {
         "image": "./assets/images/splash.png",
         "resizeMode": "contain",
-        "backgroundColor": "#FF6B9D"
+        "backgroundColor": "#FBF7F5"
       },
       "privacyManifests": [
         {
@@ -38,16 +38,18 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FF6B9D",
+        "backgroundColor": "#FBF7F5",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "package": "com.periodtracker.app",
-      "permissions": [
-        "READ_CALENDAR",
-        "WRITE_CALENDAR",
-        "READ_PHONE_STATE"
-      ],
-      "softwareKeyboardLayoutMode": "pan"
+      "permissions": [],
+      "softwareKeyboardLayoutMode": "pan",
+      "blockedPermissions": [
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -59,7 +61,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FF6B9D",
+          "backgroundColor": "#FBF7F5",
           "image": "./assets/images/splash.png",
           "imageWidth": 200
         }

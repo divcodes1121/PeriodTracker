@@ -1,5 +1,5 @@
 import { addDays } from 'date-fns';
-import { PeriodEntry } from '../types';
+import { PeriodEntry, Symptom } from '../types';
 import {
   getOvulationDay,
   getCyclePhase,
@@ -11,6 +11,7 @@ import {
   calculateCycleVariability,
   detectIrregularity,
   getPredictedNextPeriod,
+  mergeSymptoms,
 } from './cycleCalculations';
 
 /** Minimal period entry; only startDate/endDate drive the math under test. */
@@ -166,5 +167,42 @@ describe('statistics helpers', () => {
   it('predicts the next period one cycle out', () => {
     const s = new Date(2026, 0, 1);
     expect(getPredictedNextPeriod(s, 30).getTime()).toBe(addDays(s, 30).getTime());
+  });
+});
+
+describe('mergeSymptoms', () => {
+  const sym = (type: string, severity: number): Symptom =>
+    ({ id: `${type}-${severity}`, type, severity, timestamp: new Date() }) as Symptom;
+
+  it('does not duplicate a symptom logged twice in one day', () => {
+    // The bug this fixes: re-logging cramps stored cramps twice, which inflated
+    // every frequency stat built on top of symptomLogs.
+    const out = mergeSymptoms([sym('cramps', 2)], [sym('cramps', 4)]);
+    expect(out).toHaveLength(1);
+  });
+
+  it('treats a re-log as a correction — newest severity wins', () => {
+    const out = mergeSymptoms([sym('cramps', 2)], [sym('cramps', 4)]);
+    expect(out[0].severity).toBe(4);
+  });
+
+  it('keeps symptoms of different types', () => {
+    const out = mergeSymptoms([sym('cramps', 2)], [sym('headache', 3)]);
+    expect(out.map((s) => s.type).sort()).toEqual(['cramps', 'headache']);
+  });
+
+  it('handles empty sides', () => {
+    expect(mergeSymptoms([], [])).toEqual([]);
+    expect(mergeSymptoms([], [sym('acne', 1)])).toHaveLength(1);
+    expect(mergeSymptoms([sym('acne', 1)], [])).toHaveLength(1);
+  });
+
+  it('never grows beyond the number of distinct types', () => {
+    const existing = [sym('cramps', 1), sym('acne', 2)];
+    const incoming = [sym('cramps', 5), sym('acne', 5), sym('nausea', 3)];
+    // Repeated merging must stay stable, not accumulate.
+    let out = mergeSymptoms(existing, incoming);
+    for (let i = 0; i < 10; i++) out = mergeSymptoms(out, incoming);
+    expect(out).toHaveLength(3);
   });
 });
