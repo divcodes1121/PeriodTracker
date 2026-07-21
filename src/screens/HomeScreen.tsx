@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, RefreshControl, Pressable } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
 import Text from '../components/Text';
@@ -11,10 +17,13 @@ import Icon, { IconName } from '../components/Icon';
 import MetricCard from '../components/MetricCard';
 import CycleTimeline from '../components/CycleTimeline';
 import ThemeToggle from '../components/ThemeToggle';
+import { useScrollY } from '../components/ScrollContext';
 import { COLORS, inkFor } from '../constants';
 import { SPACE, RADIUS, MIN_TAP } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 import { usePhaseColor } from '../theme/usePhaseColor';
+import { useAtmosphere } from '../theme/useAtmosphere';
+import { greetingFor } from '../theme/atmosphere';
 import { useAppStore } from '../store/appStore';
 import {
   getDayOfCycle,
@@ -26,13 +35,25 @@ import {
   deriveCycleContext,
 } from '../utils/cycleCalculations';
 
-/** Time-aware greeting — small touch, but it's what makes a dashboard feel present. */
-function greeting(d = new Date()): string {
-  const h = d.getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
-}
+/**
+ * Home.
+ *
+ * The composition rule that replaced the old ten-block column: **proximity
+ * carries grouping**. Related things sit SPACE.sm apart and read as one object;
+ * unrelated clusters sit SPACE.h2 apart. Previously every gap was SPACE.lg, so
+ * ten equally-spaced identical cards produced a list with no structure — the
+ * "everything feels disconnected" symptom, which was a spacing problem wearing
+ * a styling costume.
+ *
+ * Three clusters, in descending importance:
+ *   1. The ring — floats directly on the live canvas, in no card at all. That
+ *      is what makes it read as hero; wrapping it in the same Surface as
+ *      everything else was flattening it.
+ *   2. Act — the log CTA welded to its two outcome metrics, because logging is
+ *      what makes those two numbers real.
+ *   3. Tend — insight, reset, check-ins. Quiet variants, so they recede into
+ *      the atmosphere rather than competing with the hero.
+ */
 
 interface QuickAction {
   label: string;
@@ -48,15 +69,24 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 /**
- * The primary CTA — logging a period is what makes every prediction real, so
- * it gets a deep-rose hero card rather than a slot in the quick-action grid.
+ * The primary CTA — logging a period is what makes every prediction real, so it
+ * gets a deep-rose filled card rather than a slot in the quick-action grid.
  * Deep rose (not the pastel) so the white label clears AA.
  */
 function LogPeriodCTA({ onPress }: { onPress: () => void }) {
   const press = useSharedValue(0);
+
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - press.value * 0.015 }],
   }));
+
+  // The blooms drift apart very slightly under the press, so the card feels
+  // like it has something alive inside rather than being a painted rectangle.
+  const bloom = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + press.value * 0.08 }],
+    opacity: 1 - press.value * 0.15,
+  }));
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -73,8 +103,16 @@ function LogPeriodCTA({ onPress }: { onPress: () => void }) {
     >
       <Animated.View style={[styles.cta, style]}>
         {/* Soft decorative blooms — light on deep rose, no text over them */}
-        <View style={[styles.ctaBloom, { top: -46, right: -32, width: 130, height: 130 }]} />
-        <View style={[styles.ctaBloom, { bottom: -58, right: 66, width: 96, height: 96, opacity: 0.6 }]} />
+        <Animated.View
+          style={[styles.ctaBloom, { top: -46, right: -32, width: 130, height: 130 }, bloom]}
+        />
+        <Animated.View
+          style={[
+            styles.ctaBloom,
+            { bottom: -58, right: 66, width: 96, height: 96, opacity: 0.6 },
+            bloom,
+          ]}
+        />
         <View style={styles.ctaIcon}>
           <Icon name="drop" size={20} color="#FFFFFF" />
         </View>
@@ -92,10 +130,33 @@ function LogPeriodCTA({ onPress }: { onPress: () => void }) {
   );
 }
 
+/**
+ * The hero, wrapped so it responds to scroll: as the page moves the ring drifts
+ * up at half speed and softens, letting the content below feel like it is
+ * rising over the ring rather than the whole page sliding as one sheet.
+ */
+function Hero({ children }: { children: React.ReactNode }) {
+  const scrollY = useScrollY();
+
+  const style = useAnimatedStyle(() => {
+    if (!scrollY) return {};
+    return {
+      opacity: interpolate(scrollY.value, [0, 260], [1, 0.55], Extrapolation.CLAMP),
+      transform: [
+        { translateY: interpolate(scrollY.value, [0, 300], [0, -46], Extrapolation.CLAMP) },
+        { scale: interpolate(scrollY.value, [0, 300], [1, 0.94], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+
+  return <Animated.View style={[styles.hero, style]}>{children}</Animated.View>;
+}
+
 const HomeScreen = ({ navigation }: any) => {
   const { user, periodEntries } = useAppStore();
   const { colors: c, isDark } = useTheme();
   const phaseColorFor = usePhaseColor();
+  const atmos = useAtmosphere();
   const [refreshing, setRefreshing] = useState(false);
 
   const cycle = useMemo(() => {
@@ -138,34 +199,34 @@ const HomeScreen = ({ navigation }: any) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
       }
     >
-      {/* Greeting */}
+      {/* ---- Greeting ------------------------------------------------------
+          Deliberately quiet. It used to be title1, competing with the phase
+          name below it for the same job; the hero owns the headline now. */}
       <Reveal index={0}>
         <View style={styles.greetRow}>
           <View style={{ flex: 1 }}>
             <Text variant="overline" tone="secondary">
               {format(new Date(), 'EEEE, MMMM d')}
             </Text>
-            <Text variant="title1" style={{ marginTop: 4 }}>
-              {greeting()}, {firstName}
+            <Text variant="title3" style={{ marginTop: 4 }}>
+              {greetingFor(atmos.band)}, {firstName}
             </Text>
           </View>
           <ThemeToggle />
         </View>
       </Reveal>
 
-      {/* Hero — where am I in my cycle */}
+      {/* ---- 1. The ring. No card. ---------------------------------------- */}
       <Reveal index={1}>
-        <View style={styles.hero}>
-          {/* Dawn wash behind the ring — the one place the canvas blushes */}
-          <View pointerEvents="none" style={[styles.wash, { backgroundColor: c.auroraOrbs[0], top: -30, left: '4%' }]} />
-          <View pointerEvents="none" style={[styles.wash, { backgroundColor: c.auroraOrbs[1], top: 60, right: '2%' }]} />
-
+        <Hero>
           <CycleTimeline
             dayOfCycle={cycle.dayOfCycle}
             cycleLength={cycle.cycleLength}
             periodLength={cycle.periodLength}
             phaseName={phaseName}
-            size={268}
+            glow={atmos.glow}
+            lightAngle={atmos.lightAngle}
+            size={296}
           >
             <Text variant="overline" tone="secondary">
               Day {cycle.dayOfCycle} of {cycle.cycleLength}
@@ -179,28 +240,64 @@ const HomeScreen = ({ navigation }: any) => {
           <Text variant="callout" tone="secondary" style={styles.heroCaption}>
             {cycle.phase?.description}
           </Text>
+        </Hero>
+      </Reveal>
+
+      {/* ---- 2. Act: the CTA welded to the numbers it changes -------------- */}
+      <Reveal index={2}>
+        <View style={styles.cluster}>
+          <LogPeriodCTA onPress={() => navigation.navigate('PeriodLogger')} />
+          {/* Asymmetric on purpose — two equal tiles read as a table, an
+              uneven pair reads as a composition. */}
+          <View style={styles.metrics}>
+            <View style={{ flex: 1.25 }}>
+              <MetricCard
+                label="Next period"
+                value={formatCountdown(cycle.daysUntilPeriod)}
+                icon="drop"
+                accent={COLORS.menstrual}
+                onPress={() => navigation.navigate('Calendar')}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <MetricCard
+                label="Fertile window"
+                value={
+                  cycle.fertility.daysFromNow < 0
+                    ? 'Open now'
+                    : formatCountdown(cycle.fertility.daysFromNow)
+                }
+                icon="leaf"
+                accent={COLORS.success}
+                onPress={() => navigation.navigate('Calendar')}
+              />
+            </View>
+          </View>
         </View>
       </Reveal>
 
-      {/* Primary CTA */}
-      <Reveal index={2}>
-        <LogPeriodCTA onPress={() => navigation.navigate('PeriodLogger')} />
-      </Reveal>
+      {/* ---- 3. Tend: quiet surfaces that sit in the atmosphere ------------ */}
+      <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
+        Today
+      </Text>
 
-      {/* Today's insight */}
       <Reveal index={3}>
         <Surface
+          variant="quiet"
+          lift
           onPress={() => navigation.navigate('AIInsights')}
           accessibilityLabel="Today's insight"
           accessibilityHint="Opens AI insights"
-          style={{ marginBottom: SPACE.lg }}
+          style={styles.tendCard}
         >
           <View style={styles.insightHead}>
-            <View style={[styles.insightIcon, { backgroundColor: isDark ? c.fill : COLORS.primarySoft }]}>
+            <View
+              style={[styles.insightIcon, { backgroundColor: isDark ? c.fill : COLORS.primarySoft }]}
+            >
               <Icon name="sparkles" size={15} color={COLORS.primaryDark} />
             </View>
             <Text variant="overline" tone="secondary" style={{ flex: 1 }}>
-              Today
+              Insight
             </Text>
             <Icon name="chevronRight" size={17} color={c.textTertiary} />
           </View>
@@ -210,37 +307,14 @@ const HomeScreen = ({ navigation }: any) => {
         </Surface>
       </Reveal>
 
-      {/* Countdown + fertility */}
       <Reveal index={4}>
-        <View style={styles.metrics}>
-          <MetricCard
-            label="Next period"
-            value={formatCountdown(cycle.daysUntilPeriod)}
-            icon="drop"
-            accent={COLORS.menstrual}
-            onPress={() => navigation.navigate('Calendar')}
-          />
-          <MetricCard
-            label="Fertile window"
-            value={
-              cycle.fertility.daysFromNow < 0
-                ? 'Open now'
-                : formatCountdown(cycle.fertility.daysFromNow)
-            }
-            icon="leaf"
-            accent={COLORS.success}
-            onPress={() => navigation.navigate('Calendar')}
-          />
-        </View>
-      </Reveal>
-
-      {/* Reset — the quiet doorway into Tiny Escapes */}
-      <Reveal index={5}>
         <Surface
+          variant="quiet"
+          lift
           onPress={() => navigation.navigate('Reset')}
           accessibilityLabel="Take a reset"
           accessibilityHint="Opens Tiny Escapes"
-          style={styles.resetCard}
+          style={styles.tendCard}
         >
           <View style={styles.resetRow}>
             <View style={[styles.actionIcon, { backgroundColor: isDark ? c.fill : COLORS.accentSoft }]}>
@@ -257,15 +331,12 @@ const HomeScreen = ({ navigation }: any) => {
         </Surface>
       </Reveal>
 
-      {/* Quick actions */}
-      <Reveal index={6}>
-        <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
-          Check in
-        </Text>
+      <Reveal index={5}>
         <View style={styles.actions}>
           {QUICK_ACTIONS.map((a) => (
             <Surface
               key={a.label}
+              variant="quiet"
               onPress={() => navigation.navigate(a.route)}
               accessibilityLabel={`Log ${a.label}`}
               padded={false}
@@ -273,10 +344,7 @@ const HomeScreen = ({ navigation }: any) => {
             >
               <View style={styles.actionInner}>
                 <View
-                  style={[
-                    styles.actionIcon,
-                    { backgroundColor: isDark ? c.fill : `${a.accent}1F` },
-                  ]}
+                  style={[styles.actionIcon, { backgroundColor: isDark ? c.fill : `${a.accent}1F` }]}
                 >
                   <Icon name={a.icon} size={19} color={isDark ? a.accent : inkFor(a.accent)} />
                 </View>
@@ -310,17 +378,11 @@ const styles = StyleSheet.create({
   greetRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: SPACE.h2,
-    marginBottom: SPACE.xxl,
+    marginTop: SPACE.h1,
+    marginBottom: SPACE.lg,
   },
 
-  hero: { alignItems: 'center', marginBottom: SPACE.xl },
-  wash: {
-    position: 'absolute',
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-  },
+  hero: { alignItems: 'center', marginBottom: SPACE.h2 },
   phaseTitle: { marginTop: SPACE.xs },
   phaseDot: { width: 6, height: 6, borderRadius: 3, marginTop: SPACE.md },
   heroCaption: {
@@ -330,6 +392,9 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
 
+  // Tight internal gap — the CTA and its metrics are one object.
+  cluster: { gap: SPACE.sm, marginBottom: SPACE.h2 },
+
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,7 +403,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.card,
     paddingHorizontal: SPACE.xl,
     paddingVertical: SPACE.lg,
-    marginBottom: SPACE.lg,
     overflow: 'hidden',
     minHeight: MIN_TAP + 26,
   },
@@ -356,6 +420,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  metrics: { flexDirection: 'row', gap: SPACE.sm },
+
+  sectionLabel: { marginBottom: SPACE.md },
+  tendCard: { marginBottom: SPACE.sm },
+
   insightHead: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
   insightIcon: {
     width: 26,
@@ -365,13 +434,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  metrics: { flexDirection: 'row', gap: SPACE.md, marginBottom: SPACE.lg },
-
-  resetCard: { marginBottom: SPACE.h1 },
   resetRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md },
 
-  sectionLabel: { marginBottom: SPACE.md },
-  actions: { flexDirection: 'row', gap: SPACE.md },
+  actions: { flexDirection: 'row', gap: SPACE.sm },
   action: { flex: 1 },
   actionInner: {
     minHeight: MIN_TAP + 44,
