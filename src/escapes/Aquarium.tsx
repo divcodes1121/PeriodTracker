@@ -37,6 +37,7 @@ import {
   seedFrom,
   type FishSpec,
   type Lighting,
+  type Species,
 } from '../utils/aquarium';
 
 /**
@@ -81,7 +82,7 @@ import {
  * trade and are the better for it.
  */
 
-const FISH_COUNT = 22;
+const FISH_COUNT = 34;
 const FOOD_COUNT = 14;
 const MOTE_COUNT = 30;
 const BUBBLE_COUNT = 16;
@@ -204,12 +205,157 @@ function Fish({
     };
   });
 
+  return <FishBody species={s} index={index} style={style} />;
+}
+
+/**
+ * Draws a fish by body plan.
+ *
+ * Silhouette does the recognition work. The first pass gave every species the
+ * same ellipse and varied only colour, which reads as one fish in eight paint
+ * jobs — a disc and a ribbon look like different animals across the tank even
+ * at the same size and hue. All plans share the same top-lit gradient, so the
+ * population still reads as one aquarium rather than a sticker sheet.
+ */
+function FishBody({
+  species: s,
+  index,
+  style,
+}: {
+  species: Species;
+  index: number;
+  style: ReturnType<typeof useAnimatedStyle>;
+}) {
   const L = s.size;
-  const H = L * 0.52;
+  const g = `url(#fb-${index})`;
+  const band = s.palette[1];
+  const fin = s.palette[2];
+
+  // Canvas is generous so trailing fins are never clipped.
+  const W = L * 2.2;
+  const HT = L * 2;
+  const cx = W * 0.5;
+  const cy = HT * 0.5;
+
+  let art: React.ReactNode;
+
+  if (s.shape === 'disc') {
+    // Tall coin. Fins are short; the body is the whole statement.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.46} ${cy} l${-L * 0.34} ${-L * 0.3} l0 ${L * 0.6} Z`} fill={fin} opacity={0.9} />
+        <Ellipse cx={cx} cy={cy} rx={L * 0.48} ry={L * 0.62} fill={g} />
+        <Path d={`M${cx - L * 0.1} ${cy - L * 0.6} q${L * 0.3} ${-L * 0.16}, ${L * 0.42} ${L * 0.1} Z`} fill={fin} opacity={0.75} />
+        <Path d={`M${cx - L * 0.1} ${cy + L * 0.6} q${L * 0.3} ${L * 0.16}, ${L * 0.42} ${-L * 0.1} Z`} fill={fin} opacity={0.75} />
+        {/* Vertical bar — the marking that makes tangs and butterflyfish read. */}
+        <Ellipse cx={cx - L * 0.06} cy={cy} rx={L * 0.07} ry={L * 0.55} fill={band} opacity={0.42} />
+        <Circle cx={cx + L * 0.3} cy={cy - L * 0.16} r={L * 0.075} fill="#14202C" />
+      </>
+    );
+  } else if (s.shape === 'sail') {
+    // Tall body drawn out into long dorsal and ventral streamers.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.42} ${cy} l${-L * 0.4} ${-L * 0.26} l0 ${L * 0.52} Z`} fill={fin} opacity={0.85} />
+        {/* Broad triangular sails swept BACK from the body. The first pass drew
+            these as near-vertical slivers, which read as antennae rather than
+            finnage — an angelfish's fins are wide where they meet the body and
+            trail behind it, not straight up. */}
+        <Path
+          d={`M${cx + L * 0.24} ${cy - L * 0.34} L${cx - L * 0.3} ${cy - L * 0.38} L${cx - L * 0.62} ${cy - L * 1.0} Z`}
+          fill={fin}
+          opacity={0.6}
+        />
+        <Path
+          d={`M${cx + L * 0.24} ${cy + L * 0.34} L${cx - L * 0.3} ${cy + L * 0.38} L${cx - L * 0.62} ${cy + L * 1.0} Z`}
+          fill={fin}
+          opacity={0.6}
+        />
+        <Ellipse cx={cx} cy={cy} rx={L * 0.42} ry={L * 0.5} fill={g} />
+        <Ellipse cx={cx - L * 0.12} cy={cy} rx={L * 0.06} ry={L * 0.46} fill={band} opacity={0.4} />
+        <Circle cx={cx + L * 0.26} cy={cy - L * 0.12} r={L * 0.07} fill="#14202C" />
+      </>
+    );
+  } else if (s.shape === 'veil') {
+    // Compact body behind large flowing finnage.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.3} ${cy} q${-L * 0.55} ${-L * 0.55}, ${-L * 0.75} ${-L * 0.12} q${L * 0.12} ${L * 0.2}, ${L * 0.04} ${L * 0.34} q${L * 0.2} ${L * 0.3}, ${L * 0.71} ${-L * 0.22} Z`} fill={fin} opacity={0.72} />
+        <Path d={`M${cx - L * 0.08} ${cy - L * 0.24} q${L * 0.3} ${-L * 0.5}, ${L * 0.44} ${-L * 0.16} q${-L * 0.2} ${L * 0.16}, ${-L * 0.3} ${L * 0.3} Z`} fill={fin} opacity={0.65} />
+        <Path d={`M${cx - L * 0.06} ${cy + L * 0.22} q${L * 0.24} ${L * 0.48}, ${L * 0.4} ${L * 0.2} q${-L * 0.2} ${-L * 0.14}, ${-L * 0.28} ${-L * 0.28} Z`} fill={fin} opacity={0.6} />
+        <Ellipse cx={cx + L * 0.02} cy={cy} rx={L * 0.36} ry={L * 0.27} fill={g} />
+        <Circle cx={cx + L * 0.26} cy={cy - L * 0.06} r={L * 0.065} fill="#14202C" />
+      </>
+    );
+  } else if (s.shape === 'ribbon') {
+    // Long and slim, with a forked tail.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.6} ${cy} l${-L * 0.28} ${-L * 0.2} l${L * 0.1} ${L * 0.2} l${-L * 0.1} ${L * 0.2} Z`} fill={fin} opacity={0.9} />
+        <Ellipse cx={cx} cy={cy} rx={L * 0.62} ry={L * 0.15} fill={g} />
+        <Path d={`M${cx - L * 0.5} ${cy} h${L * 0.95}`} stroke={band} strokeWidth={L * 0.07} opacity={0.55} strokeLinecap="round" />
+        <Path d={`M${cx - L * 0.1} ${cy - L * 0.14} q${L * 0.2} ${-L * 0.2}, ${L * 0.34} ${-L * 0.02} Z`} fill={fin} opacity={0.7} />
+        <Circle cx={cx + L * 0.44} cy={cy - L * 0.03} r={L * 0.055} fill="#14202C" />
+      </>
+    );
+  } else if (s.shape === 'round') {
+    // Nearly spherical, with small busy fins.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.42} ${cy} l${-L * 0.24} ${-L * 0.2} l0 ${L * 0.4} Z`} fill={fin} opacity={0.85} />
+        <Circle cx={cx} cy={cy} r={L * 0.44} fill={g} />
+        <Ellipse cx={cx} cy={cy + L * 0.24} rx={L * 0.3} ry={L * 0.12} fill="#FFFFFF" opacity={0.16} />
+        <Ellipse cx={cx - L * 0.05} cy={cy - L * 0.1} rx={L * 0.4} ry={L * 0.08} fill={band} opacity={0.35} />
+        <Path d={`M${cx + L * 0.06} ${cy - L * 0.42} q${L * 0.14} ${-L * 0.18}, ${L * 0.24} ${L * 0.02} Z`} fill={fin} opacity={0.8} />
+        <Circle cx={cx + L * 0.26} cy={cy - L * 0.1} r={L * 0.08} fill="#14202C" />
+        <Circle cx={cx + L * 0.29} cy={cy - L * 0.13} r={L * 0.028} fill="#FFFFFF" opacity={0.85} />
+      </>
+    );
+  } else if (s.shape === 'seahorse') {
+    // Vertical, snouted, with a curled prehensile tail.
+    art = (
+      <>
+        <Path
+          d={`M${cx + L * 0.1} ${cy - L * 0.55} q${L * 0.26} ${L * 0.06}, ${L * 0.24} ${L * 0.2} q${-L * 0.02} ${L * 0.16}, ${-L * 0.24} ${L * 0.2} q${-L * 0.3} ${L * 0.1}, ${-L * 0.26} ${L * 0.44} q${L * 0.04} ${L * 0.3}, ${L * 0.26} ${L * 0.3}`}
+          stroke={g}
+          strokeWidth={L * 0.3}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Path d={`M${cx + L * 0.34} ${cy - L * 0.5} l${L * 0.22} ${L * 0.05}`} stroke={band} strokeWidth={L * 0.1} strokeLinecap="round" />
+        <Path d={`M${cx - L * 0.02} ${cy - L * 0.2} q${-L * 0.24} ${L * 0.16}, ${-L * 0.02} ${L * 0.3}`} stroke={fin} strokeWidth={L * 0.07} fill="none" opacity={0.8} />
+        <Circle cx={cx + L * 0.2} cy={cy - L * 0.44} r={L * 0.06} fill="#14202C" />
+      </>
+    );
+  } else if (s.shape === 'carp') {
+    // Heavy body, broad flowing tail, koi patterning.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.42} ${cy} q${-L * 0.4} ${-L * 0.4}, ${-L * 0.6} ${-L * 0.1} q${L * 0.1} ${L * 0.16}, ${L * 0.04} ${L * 0.24} q${L * 0.16} ${L * 0.3}, ${L * 0.56} ${-L * 0.14} Z`} fill={fin} opacity={0.8} />
+        <Ellipse cx={cx} cy={cy} rx={L * 0.46} ry={L * 0.24} fill={g} />
+        <Ellipse cx={cx - L * 0.1} cy={cy - L * 0.08} rx={L * 0.16} ry={L * 0.1} fill={band} opacity={0.9} />
+        <Ellipse cx={cx + L * 0.2} cy={cy + L * 0.05} rx={L * 0.1} ry={L * 0.07} fill={band} opacity={0.75} />
+        <Path d={`M${cx - L * 0.06} ${cy - L * 0.23} q${L * 0.2} ${-L * 0.2}, ${L * 0.34} ${-L * 0.02} Z`} fill={fin} opacity={0.7} />
+        <Circle cx={cx + L * 0.34} cy={cy - L * 0.04} r={L * 0.06} fill="#14202C" />
+      </>
+    );
+  } else {
+    // torpedo — the classic dart.
+    art = (
+      <>
+        <Path d={`M${cx - L * 0.44} ${cy} l${-L * 0.32} ${-L * 0.24} l${L * 0.08} ${L * 0.24} l${-L * 0.08} ${L * 0.24} Z`} fill={fin} opacity={0.9} />
+        <Ellipse cx={cx} cy={cy} rx={L * 0.48} ry={L * 0.2} fill={g} />
+        <Path d={`M${cx - L * 0.32} ${cy + L * 0.02} h${L * 0.68}`} stroke={band} strokeWidth={L * 0.09} opacity={0.6} strokeLinecap="round" />
+        <Path d={`M${cx - L * 0.02} ${cy - L * 0.19} q${L * 0.16} ${-L * 0.18}, ${L * 0.28} ${-L * 0.02} Z`} fill={fin} opacity={0.7} />
+        <Ellipse cx={cx + L * 0.06} cy={cy + L * 0.12} rx={L * 0.24} ry={L * 0.06} fill="#FFFFFF" opacity={0.18} />
+        <Circle cx={cx + L * 0.33} cy={cy - L * 0.04} r={L * 0.06} fill="#14202C" />
+      </>
+    );
+  }
 
   return (
     <Animated.View pointerEvents="none" style={[styles.fish, style]}>
-      <Svg width={L * 1.6} height={H * 2.2}>
+      <Svg width={W} height={HT}>
         <Defs>
           <SvgLinearGradient id={`fb-${index}`} x1="0" y1="0" x2="0" y2="1">
             {/* Lit from above — the single cue that sells depth underwater. */}
@@ -218,26 +364,7 @@ function Fish({
             <Stop offset="1" stopColor={s.palette[1]} />
           </SvgLinearGradient>
         </Defs>
-
-        {/* Tail */}
-        <Path
-          d={`M${L * 0.12} ${H * 1.1} L${-L * 0.02} ${H * 0.6} L${-L * 0.02} ${H * 1.6} Z`}
-          fill={s.palette[1]}
-          opacity={0.85}
-        />
-        {/* Dorsal fin */}
-        <Path
-          d={`M${L * 0.42} ${H * 0.72} Q ${L * 0.5} ${H * 0.3}, ${L * 0.74} ${H * 0.74} Z`}
-          fill={s.palette[2]}
-          opacity={0.7}
-        />
-        {/* Body */}
-        <Ellipse cx={L * 0.6} cy={H * 1.1} rx={L * 0.52} ry={H * 0.5} fill={`url(#fb-${index})`} />
-        {/* Belly highlight */}
-        <Ellipse cx={L * 0.62} cy={H * 1.26} rx={L * 0.34} ry={H * 0.16} fill="#FFFFFF" opacity={0.16} />
-        {/* Eye */}
-        <Circle cx={L * 0.94} cy={H * 1.02} r={L * 0.07} fill="#14202C" />
-        <Circle cx={L * 0.96} cy={H * 0.99} r={L * 0.025} fill="#FFFFFF" opacity={0.8} />
+        {art}
       </Svg>
     </Animated.View>
   );

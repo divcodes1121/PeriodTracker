@@ -63,6 +63,13 @@ describe('rosterFor', () => {
     }
   });
 
+  it('renders a good spread of body shapes in one tank', () => {
+    // Variety is the point: a tank of 34 fish that is all one silhouette reads
+    // as one fish repeated, however many colours it comes in.
+    const shapes = new Set(rosterFor(seedFrom('variety'), 34).map((f) => f.species.shape));
+    expect(shapes.size).toBeGreaterThanOrEqual(4);
+  });
+
   it('only ever draws real species', () => {
     const ids = new Set(SPECIES.map((s) => s.id));
     for (const f of rosterFor(seedFrom('valid'), 80)) {
@@ -84,6 +91,42 @@ describe('rosterFor', () => {
     // Present often enough to be real, rare enough to feel like luck.
     expect(share).toBeGreaterThan(0.1);
     expect(share).toBeLessThan(0.95);
+  });
+});
+
+describe('species catalogue', () => {
+  it('gives every species a body shape', () => {
+    for (const sp of SPECIES) {
+      expect(sp.shape).toBeTruthy();
+    }
+  });
+
+  it('has unique ids and three palette colours each', () => {
+    const ids = SPECIES.map((sp) => sp.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const sp of SPECIES) {
+      expect(sp.palette).toHaveLength(3);
+      for (const c of sp.palette) expect(c).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    }
+  });
+
+  it('covers every declared body shape at least once', () => {
+    // A shape with no species is a renderer branch nothing can reach.
+    const used = new Set(SPECIES.map((sp) => sp.shape));
+    for (const shape of ['torpedo', 'disc', 'sail', 'veil', 'ribbon', 'round', 'seahorse', 'carp']) {
+      expect(used).toContain(shape);
+    }
+  });
+
+  it('keeps every trait in range', () => {
+    for (const sp of SPECIES) {
+      for (const k of ['social', 'curiosity', 'speed', 'depth'] as const) {
+        expect(sp[k]).toBeGreaterThanOrEqual(0);
+        expect(sp[k]).toBeLessThanOrEqual(1);
+      }
+      expect(sp.size).toBeGreaterThan(0);
+      expect(sp.weight).toBeGreaterThan(0);
+    }
   });
 });
 
