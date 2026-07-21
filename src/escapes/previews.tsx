@@ -389,6 +389,102 @@ const ShatterPreview = () => {
   );
 };
 
+/* -------------------------------- Aquarium -------------------------------- */
+
+const AQ_FISH = [
+  { x: 0.28, y: 0.4, s: 1.1, a: '#4FB4C8', b: '#E4574F' },
+  { x: 0.56, y: 0.3, s: 0.85, a: '#E08A4A', b: '#F4EDE2' },
+  { x: 0.7, y: 0.52, s: 1.25, a: '#D8D2C4', b: '#5C5A52' },
+  { x: 0.42, y: 0.6, s: 0.75, a: '#7FBFA8', b: '#E8B36A' },
+];
+
+const AquariumPreview = () => {
+  const { w, h, onLayout } = useSize();
+  const sand = h * 0.78;
+  return (
+    <View style={styles.fill} onLayout={onLayout}>
+      <LinearGradient colors={['#6FC2D4', '#3E8FB0', '#1F5670']} style={StyleSheet.absoluteFill} />
+      {w > 0 && (
+        <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <SvgLinearGradient id="aq-ray" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#E2F4FF" stopOpacity={0.5} />
+              <Stop offset="1" stopColor="#E2F4FF" stopOpacity={0} />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="aq-sand" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#C9B594" />
+              <Stop offset="1" stopColor="#8A7A61" />
+            </SvgLinearGradient>
+          </Defs>
+
+          {/* Light shafts — the signature of a lit tank. */}
+          {[0.16, 0.46, 0.74].map((f, i) => (
+            <Path
+              key={i}
+              d={`M${w * f} 0 L${w * f + 18} 0 L${w * f + 52} ${sand} L${w * f - 14} ${sand} Z`}
+              fill="url(#aq-ray)"
+              opacity={0.55 + (i % 2) * 0.2}
+            />
+          ))}
+
+          {/* Sand and rocks */}
+          <Path d={`M0 ${h} L0 ${sand} Q ${w * 0.4} ${sand - 8}, ${w} ${sand + 4} L${w} ${h} Z`} fill="url(#aq-sand)" />
+          <Ellipse cx={w * 0.2} cy={sand + 8} rx={26} ry={11} fill="#46525A" />
+          <Ellipse cx={w * 0.78} cy={sand + 12} rx={20} ry={9} fill="#3E4A52" />
+
+          {/* Planting */}
+          {[0.1, 0.16, 0.86, 0.92, 0.5].map((f, i) => (
+            <Path
+              key={i}
+              d={`M${w * f} ${sand + 6} q${i % 2 ? 8 : -8} ${-14}, ${i % 2 ? 3 : -3} ${-30 - (i % 3) * 12}`}
+              stroke={['#4E8A63', '#3F7A57', '#5C9B6E'][i % 3]}
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill="none"
+            />
+          ))}
+
+          {/* Coral */}
+          {[0, 1, 2].map((b) => (
+            <Path
+              key={b}
+              d={`M${w * 0.68} ${sand + 4} q${(b - 1) * 9} -10, ${(b - 1) * 13} -19`}
+              stroke="#C77A6B"
+              strokeWidth={4}
+              strokeLinecap="round"
+              fill="none"
+            />
+          ))}
+
+          {/* Fish */}
+          {AQ_FISH.map((f, i) => {
+            const L = 16 * f.s;
+            const cx = w * f.x;
+            const cy = h * f.y;
+            return (
+              <G key={i}>
+                <Path d={`M${cx - L * 0.5} ${cy} l${-L * 0.4} ${-L * 0.28} l0 ${L * 0.56} Z`} fill={f.b} opacity={0.85} />
+                <Ellipse cx={cx} cy={cy} rx={L * 0.55} ry={L * 0.3} fill={f.a} />
+                <Circle cx={cx + L * 0.34} cy={cy - L * 0.06} r={L * 0.07} fill="#14202C" />
+              </G>
+            );
+          })}
+        </Svg>
+      )}
+      {h > 0 && (
+        <>
+          <RiseUp x={w * 0.24} h={h} dur={4200} delay={0}>
+            <View style={styles.aqBubble} />
+          </RiseUp>
+          <RiseUp x={w * 0.82} h={h} dur={5400} delay={1600}>
+            <View style={styles.aqBubble} />
+          </RiseUp>
+        </>
+      )}
+    </View>
+  );
+};
+
 /* --------------------------------- Aurora --------------------------------- */
 
 const AURORA_STARS = Array.from({ length: 18 }, (_, i) => ({
@@ -612,6 +708,7 @@ const CatcherPreview = () => {
 export const ESCAPE_PREVIEWS: Record<string, ComponentType> = {
   zen: ZenPreview,
   dandelion: DandelionPreview,
+  aquarium: AquariumPreview,
   bubbles: BubblesPreview,
   shatter: ShatterPreview,
   aurora: AuroraPreview,
@@ -625,6 +722,12 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 2,
     backgroundColor: 'rgba(205,228,244,0.5)',
+  },
+  aqBubble: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
   pollen: {
     width: 3,

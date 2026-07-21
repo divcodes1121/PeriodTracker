@@ -42,6 +42,15 @@ export const ESCAPES: EscapeMeta[] = [
     chrome: 'dark',
   },
   {
+    id: 'aquarium',
+    title: 'Aquarium',
+    tagline: 'Watch life swim by.',
+    hint: 'Touch the glass · hold to feed',
+    icon: 'fish',
+    accent: '#3E8FB0',
+    chrome: 'light',
+  },
+  {
     id: 'bubbles',
     title: 'Bubble Therapy',
     tagline: 'Breathe. Pop. Relax.',

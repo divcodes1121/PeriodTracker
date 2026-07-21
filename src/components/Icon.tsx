@@ -56,6 +56,7 @@ export type IconName =
   | 'soundOff'
   | 'umbrella'
   | 'aurora'
+  | 'fish'
   | 'dandelion'
   | 'breathe';
 
@@ -328,6 +329,15 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
           d="M12 3.5l2.47 5.26 5.53.7-4.1 3.94 1.06 5.6L12 16.2 7.04 19l1.06-5.6L4 9.46l5.53-.7z"
           {...common}
         />
+      )}
+
+      {/* Fish — a body, a tail and an eye, at icon weight. */}
+      {name === 'fish' && (
+        <>
+          <Path d="M14.5 12c0 2.5-3 5-6.5 5s-5.5-2.5-5.5-5 2-5 5.5-5 6.5 2.5 6.5 5z" {...common} />
+          <Path d="m14.5 12 4-3.5v7L14.5 12z" {...common} />
+          <Path d="M6 10.5h.01" {...common} strokeWidth={2.4} />
+        </>
       )}
 
       {/* Aurora — layered curtains of light over a horizon. */}
