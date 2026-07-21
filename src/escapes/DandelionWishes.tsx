@@ -68,6 +68,15 @@ import { MEADOW_STAGES, stageForSeeds } from '../utils/tinyEscapes';
 const SEED_COUNT = 96;
 const MAX_GROWN = 26;
 
+/** Fixed cloud layout — the sky should feel composed, not randomly re-seeded. */
+const CLOUDS = [
+  { x: 0.2, y: 0.11, r: 38, o: 0.9 },
+  { x: 0.68, y: 0.07, r: 30, o: 0.7 },
+  { x: 0.44, y: 0.22, r: 46, o: 0.55 },
+  { x: 0.86, y: 0.18, r: 26, o: 0.6 },
+  { x: 0.1, y: 0.3, r: 24, o: 0.45 },
+];
+
 /* -------------------------------- Palettes -------------------------------- */
 
 interface Stage {
@@ -106,13 +115,13 @@ const STAGES: Record<string, Stage> = {
   },
   sunset: {
     sky: ['#F0B79A', '#F2C7A8', '#EFD6BC'],
-    far: '#A08A78', mid: '#87735F', near: '#5F5344',
+    far: '#9E9C6B', mid: '#7C8156', near: '#576043',
     seed: '#FFF0DC', glow: 'rgba(255,180,130,0.6)',
     disc: '#FFB98A', discY: 0.32, stars: false, fireflies: false,
   },
   twilight: {
     sky: ['#8E7FA8', '#B490A2', '#D3A99C'],
-    far: '#6B6076', mid: '#544C60', near: '#3A3545',
+    far: '#6A7068', mid: '#4E5850', near: '#353E39',
     seed: '#F6ECEC', glow: 'rgba(214,168,190,0.5)',
     disc: '#F0C7B0', discY: 0.42, stars: false, fireflies: true,
   },
@@ -511,7 +520,7 @@ const DandelionWishes = () => {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <LinearGradient colors={p.sky} style={StyleSheet.absoluteFill} />
       {p.stars && (
-        <Svg style={StyleSheet.absoluteFill}>
+        <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
           {Array.from({ length: 40 }, (_, i) => {
             const r = seeded(i * 977);
             return (
@@ -528,7 +537,7 @@ const DandelionWishes = () => {
         </Svg>
       )}
       {p.disc && (
-        <Svg style={StyleSheet.absoluteFill}>
+        <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id={`disc-${p.discY}`} cx="50%" cy="50%" r="50%">
               <Stop offset="0.35" stopColor={p.disc} stopOpacity={0.4} />
@@ -539,8 +548,27 @@ const DandelionWishes = () => {
           <Circle cx={w * 0.74} cy={h * p.discY} r={24} fill={p.disc} opacity={0.9} />
         </Svg>
       )}
+      {/* Clouds. The upper half of the sky was empty, which made a "the sky is
+          one of the main characters" brief read as a flat wash. Soft stacked
+          ellipses, tinted from the stage's own light so they belong to it. */}
+      <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id={`cloud-${p.discY}`} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={p.disc ?? '#FFFFFF'} stopOpacity={0.42} />
+            <Stop offset="1" stopColor={p.disc ?? '#FFFFFF'} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        {CLOUDS.map((cl, i) => (
+          <G key={i} opacity={cl.o}>
+            <Ellipse cx={cl.x * w} cy={cl.y * h} rx={cl.r * 1.9} ry={cl.r * 0.62} fill={`url(#cloud-${p.discY})`} />
+            <Ellipse cx={cl.x * w - cl.r * 0.5} cy={cl.y * h + cl.r * 0.16} rx={cl.r} ry={cl.r * 0.42} fill={`url(#cloud-${p.discY})`} />
+            <Ellipse cx={cl.x * w + cl.r * 0.6} cy={cl.y * h + cl.r * 0.1} rx={cl.r * 0.8} ry={cl.r * 0.38} fill={`url(#cloud-${p.discY})`} />
+          </G>
+        ))}
+      </Svg>
+
       {/* Hills */}
-      <Svg style={StyleSheet.absoluteFill}>
+      <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
         <Path d={`M0 ${h} L0 ${h * 0.66} Q ${w * 0.3} ${h * 0.58}, ${w * 0.62} ${h * 0.66} T ${w} ${h * 0.62} L${w} ${h} Z`} fill={p.far} />
         <Path d={`M0 ${h} L0 ${h * 0.76} Q ${w * 0.45} ${h * 0.69}, ${w} ${h * 0.77} L${w} ${h} Z`} fill={p.mid} />
         <Path d={`M0 ${h} L0 ${h * 0.88} Q ${w * 0.5} ${h * 0.82}, ${w} ${h * 0.88} L${w} ${h} Z`} fill={p.near} />
@@ -564,12 +592,16 @@ const DandelionWishes = () => {
 
         {/* Grass, breathing */}
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, grassStyle]}>
-          <Svg style={StyleSheet.absoluteFill}>
-            {Array.from({ length: 34 }, (_, i) => {
-              const r = seeded(i * 5171);
-              const gx = r() * w;
-              const gh = 16 + r() * 26;
-              const gy = h * (0.86 + r() * 0.12);
+          <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
+            {Array.from({ length: 90 }, (_, i) => {
+              // One seeded() per blade restarts the same sequence each time, so
+              // 34 blades all landed in the same clump. Advancing a single
+              // stream per blade spreads them across the whole foreground.
+              const r = seeded(i * 5171 + 991);
+              r();
+              const gx = ((i * 37) % 100) / 100 * w + (r() - 0.5) * 18;
+              const gh = 14 + r() * 30;
+              const gy = h * (0.84 + r() * 0.14);
               return (
                 <Path
                   key={i}
@@ -598,7 +630,7 @@ const DandelionWishes = () => {
 
         {/* Stem + head */}
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, headStyle]}>
-          <Svg style={StyleSheet.absoluteFill}>
+          <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
             <Defs>
               <SvgLinearGradient id="stem" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor="#7FA070" />

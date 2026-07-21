@@ -167,34 +167,76 @@ function Ribbon({
   const gid = `rb-${index}`;
   const c = RIBBON_COLORS[index % RIBBON_COLORS.length];
 
-  const Band = ({ style, opacity }: { style: any; opacity: number }) => (
-    <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: bandW, height: bandH }, style]}>
-      <Svg width={bandW} height={bandH}>
-        <Defs>
-          <SvgLinearGradient id={`${gid}-${opacity}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={c.core} stopOpacity={0} />
-            <Stop offset="0.35" stopColor={c.core} stopOpacity={0.9} />
-            <Stop offset="0.7" stopColor={c.edge} stopOpacity={0.5} />
-            <Stop offset="1" stopColor={c.edge} stopOpacity={0} />
-          </SvgLinearGradient>
-        </Defs>
-        {/* A soft S-curve band — auroras hang in sheets, not straight lines. */}
-        <Path
-          d={`M0 ${bandH * 0.55}
-              C ${bandW * 0.22} ${bandH * 0.2}, ${bandW * 0.42} ${bandH * 0.78}, ${bandW * 0.62} ${bandH * 0.42}
-              S ${bandW * 0.88} ${bandH * 0.16}, ${bandW} ${bandH * 0.34}
-              L ${bandW} ${bandH} L 0 ${bandH} Z`}
-          fill={`url(#${gid}-${opacity})`}
-        />
-      </Svg>
-    </Animated.View>
-  );
+  /**
+   * A curtain, not a blob.
+   *
+   * The first pass filled an S-curve with a flat gradient, which read as opaque
+   * coloured paint covering the sky. Real aurora is a *curtain*: a wavy upper
+   * edge from which near-vertical rays hang down and fade out, each ray a
+   * slightly different length and brightness. That vertical striation is the
+   * entire visual signature, and it is cheap — a set of tapered quads sharing
+   * one gradient.
+   *
+   * `layer` scales ray count and width so the three stacked copies read as
+   * depth rather than as the same shape three times.
+   */
+  const Curtain = ({ style, layer }: { style: any; layer: number }) => {
+    // Many thin rays beat few wide ones: at this density the quads overlap into
+    // a continuous sheet and stop reading as individual polygons.
+    const rays = 64 - layer * 10;
+    const topOf = (f: number) =>
+      bandH * (0.16 + Math.sin(f * Math.PI * 2.4 + index) * 0.09 + Math.sin(f * Math.PI * 5.1) * 0.04);
+
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[{ position: 'absolute', width: bandW, height: bandH }, style]}
+      >
+        <Svg width={bandW} height={bandH}>
+          <Defs>
+            <SvgLinearGradient id={`${gid}-${layer}`} x1="0" y1="0" x2="0" y2="1">
+              {/* Bright along the top edge, dissolving downward — the light
+                  source is above, in the magnetosphere. */}
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.55} />
+              <Stop offset="0.12" stopColor={c.core} stopOpacity={0.95} />
+              <Stop offset="0.55" stopColor={c.core} stopOpacity={0.4} />
+              <Stop offset="0.85" stopColor={c.edge} stopOpacity={0.12} />
+              <Stop offset="1" stopColor={c.edge} stopOpacity={0} />
+            </SvgLinearGradient>
+          </Defs>
+
+          {Array.from({ length: rays }, (_, r) => {
+            const f = r / rays;
+            // Rays overlap by ~2.4x their slot, which is what dissolves the
+            // individual quad silhouettes into a sheet.
+            const rw = (bandW / rays) * 2.4;
+            const x = f * bandW - rw * 0.3;
+            // Each ray starts at its own height, so the upper edge feathers
+            // instead of tracing one clean curve.
+            const top = topOf(f) - ((r * 41) % 10) * bandH * 0.012;
+            // Length varies so the lower edge is ragged, never a straight cut.
+            const len = bandH * (0.46 + ((r * 53) % 10) / 16);
+            return (
+              <Path
+                key={r}
+                d={`M${x} ${top} L${x + rw} ${top + bandH * 0.015} L${x + rw * 0.62} ${top + len} L${x + rw * 0.3} ${top + len * 0.88} Z`}
+                fill={`url(#${gid}-${layer})`}
+                // Low per-ray alpha: brightness comes from accumulation, which
+                // is how the real thing builds up too.
+                opacity={0.16 + ((r * 29) % 10) / 42}
+              />
+            );
+          })}
+        </Svg>
+      </Animated.View>
+    );
+  };
 
   return (
     <>
-      <Band style={outer} opacity={1} />
-      <Band style={mid} opacity={2} />
-      <Band style={core} opacity={3} />
+      <Curtain style={outer} layer={0} />
+      <Curtain style={mid} layer={1} />
+      <Curtain style={core} layer={2} />
     </>
   );
 }
@@ -342,11 +384,15 @@ function Constellation({
   threshold,
   energy,
   reduced,
+  w,
+  h,
 }: {
   points: string;
   threshold: number;
   energy: SharedValue<number>;
   reduced: boolean;
+  w: number;
+  h: number;
 }) {
   const breathe = useSharedValue(0);
 
@@ -373,7 +419,7 @@ function Constellation({
 
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
-      <Svg style={StyleSheet.absoluteFill}>
+      <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
         <Polyline
           points={points}
           fill="none"
@@ -452,17 +498,64 @@ const AuroraSky = () => {
     return d + ` L${w} ${h} Z`;
   }, [sky.ridge, w, h]);
 
-  /** Constellations drawn over stars the sky already has. */
+  /**
+   * A ragged conifer treeline on the near shore. Uneven heights and spacing —
+   * evenly spaced triangles read instantly as a pattern rather than a forest.
+   */
+  const treeline = useMemo(() => {
+    const r = seeded(seed ^ 0x5eed);
+    const n = Math.round(w / 26);
+    return Array.from({ length: n }, (_, i) => {
+      const jitter = (r() - 0.5) * 22;
+      return {
+        x: (i / n) * (w + 40) - 20 + jitter,
+        base: h * (0.935 + r() * 0.03),
+        hgt: 18 + r() * 42,
+        w: 5 + r() * 6,
+      };
+    });
+  }, [seed, w, h]);
+
+  /**
+   * Constellations, found rather than drawn.
+   *
+   * The first pass joined stars by array index, which produced huge triangles
+   * spanning the whole sky — the one thing a constellation never looks like.
+   * This walks a nearest-neighbour chain from a seed star instead, so the
+   * figure stays local and compact, the way a real asterism reads.
+   */
   const constellations = useMemo(() => {
-    const pick = (n: number, from: number) =>
-      sky.stars
-        .slice(from, from + n)
-        .map((s) => `${s.cx.toFixed(1)},${s.cy.toFixed(1)}`)
-        .join(' ');
+    const used = new Set<number>();
+
+    const chain = (startIdx: number, n: number) => {
+      const pts: string[] = [];
+      let cur = startIdx;
+      for (let k = 0; k < n; k++) {
+        used.add(cur);
+        const s = sky.stars[cur];
+        pts.push(`${s.cx.toFixed(1)},${s.cy.toFixed(1)}`);
+
+        let best = -1;
+        let bestD = Infinity;
+        sky.stars.forEach((o, i) => {
+          if (used.has(i)) return;
+          const d = Math.hypot(o.cx - s.cx, o.cy - s.cy);
+          // Near, but not touching — adjacent dots make a smudge, not a figure.
+          if (d > 26 && d < bestD) {
+            bestD = d;
+            best = i;
+          }
+        });
+        if (best < 0) break;
+        cur = best;
+      }
+      return pts.join(' ');
+    };
+
     return [
-      { points: pick(5, 4), threshold: 0.3 },
-      { points: pick(6, 16), threshold: 0.55 },
-      { points: pick(4, 30), threshold: 0.78 },
+      { points: chain(6, 5), threshold: 0.3 },
+      { points: chain(21, 6), threshold: 0.55 },
+      { points: chain(38, 4), threshold: 0.78 },
     ];
   }, [sky.stars]);
 
@@ -535,7 +628,7 @@ const AuroraSky = () => {
         ))}
 
         {constellations.map((c, i) => (
-          <Constellation key={i} points={c.points} threshold={c.threshold} energy={energy} reduced={reduced} />
+          <Constellation key={i} points={c.points} threshold={c.threshold} energy={energy} reduced={reduced} w={w} h={h} />
         ))}
 
         {/* Moon — a lit disc with an offset shadow disc for the phase */}
@@ -595,19 +688,52 @@ const AuroraSky = () => {
           />
         </Animated.View>
 
-        <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width={w} height={h} style={StyleSheet.absoluteFill} pointerEvents="none">
           <Defs>
             <SvgLinearGradient id="ridge-far" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#141A38" />
               <Stop offset="1" stopColor="#0A0E22" />
             </SvgLinearGradient>
+            {/* Snowline: light only clings to the top few percent of the ridge. */}
+            <SvgLinearGradient id="ridge-snow" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#9FC4D8" stopOpacity={0.6} />
+              <Stop offset="0.08" stopColor="#6E8CB0" stopOpacity={0.18} />
+              <Stop offset="0.2" stopColor="#6E8CB0" stopOpacity={0} />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="lake-sheen" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#5FD3B4" stopOpacity={0.3} />
+              <Stop offset="0.5" stopColor="#9B8FE0" stopOpacity={0.16} />
+              <Stop offset="1" stopColor="#59C8D8" stopOpacity={0.05} />
+            </SvgLinearGradient>
           </Defs>
           <Path d={ridgePath} fill="url(#ridge-far)" />
-          {/* Nearer ridge, darker and lower, for depth */}
+
+          {/* Snow catching the aurora on the high ridge — the detail that makes
+              the mountains read as mountains rather than a dark shape. */}
+          <Path d={ridgePath} fill="url(#ridge-snow)" opacity={0.5} />
+
+          {/* Still water between the ridges. The reflection is the cheapest way
+              to double the amount of aurora on screen, and it is what the eye
+              expects from every real photograph of this. */}
+          <Path d={`M0 ${h * 0.855} L${w} ${h * 0.835} L${w} ${h * 0.93} L0 ${h * 0.95} Z`} fill="#080C22" />
           <Path
-            d={`M0 ${h} L0 ${h * 0.88} Q ${w * 0.34} ${h * 0.8}, ${w * 0.6} ${h * 0.87} T ${w} ${h * 0.84} L${w} ${h} Z`}
-            fill="#05070F"
+            d={`M0 ${h * 0.855} L${w} ${h * 0.835} L${w} ${h * 0.93} L0 ${h * 0.95} Z`}
+            fill="url(#lake-sheen)"
+            opacity={0.55}
           />
+
+          {/* Near shore, and a treeline that gives the scene a human vantage */}
+          <Path
+            d={`M0 ${h} L0 ${h * 0.93} Q ${w * 0.34} ${h * 0.9}, ${w * 0.6} ${h * 0.94} T ${w} ${h * 0.92} L${w} ${h} Z`}
+            fill="#03050C"
+          />
+          {treeline.map((t, i) => (
+            <Path
+              key={i}
+              d={`M${t.x} ${t.base} L${t.x - t.w} ${t.base} L${t.x} ${t.base - t.hgt} L${t.x + t.w} ${t.base} Z`}
+              fill="#03050C"
+            />
+          ))}
         </Svg>
       </View>
     </GestureDetector>
