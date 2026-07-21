@@ -87,6 +87,13 @@ import {
  * trade and are the better for it.
  */
 
+/**
+ * How many taps stay alive at once. Four is enough that a burst of tapping
+ * splits the shoal several ways, and few enough that the per-fish loop over
+ * them stays trivial (34 fish x 4 slots is 136 cheap comparisons per frame,
+ * still with zero React re-renders).
+ */
+const POI_COUNT = 4;
 const FISH_COUNT = 34;
 const FOOD_COUNT = 14;
 const MOTE_COUNT = 30;
@@ -101,9 +108,9 @@ function Fish({
   h,
   schoolX,
   schoolY,
-  touchX,
-  touchY,
-  touchT,
+  poiX,
+  poiY,
+  poiT,
   foodX,
   foodY,
   foodT,
@@ -118,9 +125,10 @@ function Fish({
   h: number;
   schoolX: SharedValue<number>;
   schoolY: SharedValue<number>;
-  touchX: SharedValue<number>;
-  touchY: SharedValue<number>;
-  touchT: SharedValue<number>;
+  /** Ring buffer of live points of interest — see the centroid note below. */
+  poiX: SharedValue<number>[];
+  poiY: SharedValue<number>[];
+  poiT: SharedValue<number>[];
   foodX: SharedValue<number>;
   foodY: SharedValue<number>;
   foodT: SharedValue<number>;
@@ -168,15 +176,55 @@ function Fish({
     }
 
     // Curiosity. Freshness is measured against `clock` — the one shared
-    // timebase — because it is what stamped touchT in the first place.
+    // timebase — because it is what stamped the point of interest.
     const now = clock.value;
-    const elapsed = now - touchT.value;
-
-    // Interest decays over ~7s, so they gather, mill around, then drift off.
-    const touchAge = Math.max(0, Math.min(1, 1 - elapsed / 7));
     let engage = 0;
 
-    if (touchAge > 0 && touchT.value > 0) {
+    /**
+     * MULTIPLE POINTS OF INTEREST.
+     *
+     * With a single touch slot, every new tap overwrote the last one: the whole
+     * tank abandoned the first spot and re-targeted as one body, which is the
+     * "it just resets" you saw. Taps are now a small ring buffer of POIs that
+     * live and fade independently, so several can be active at once.
+     *
+     * Crucially the fish blends a **weighted centroid** of every live POI
+     * rather than picking one. Picking would mean a fish 88% of the way to A
+     * snapping back to its base path the instant B appeared, because a fresh
+     * POI starts at arrive=0. With a centroid, A's weight decays as B's grows
+     * and the target simply drifts between them — no discontinuity, ever.
+     *
+     * The split comes from `pref`: each fish weights one slot far more heavily
+     * than the others, chosen from its own index. So tapping two places sends
+     * some fish to each, and a few in between, instead of the shoal moving as
+     * one lump.
+     */
+    let tx = 0;
+    let ty = 0;
+    let wsum = 0;
+
+    for (let i = 0; i < POI_COUNT; i++) {
+      const stamp = poiT[i].value;
+      if (stamp <= 0) continue;
+
+      const el = now - stamp;
+      const age = Math.max(0, Math.min(1, 1 - el / 7));
+      if (age <= 0) continue;
+
+      const arriveSec = 0.8 + (1 - s.curiosity) * 1.8;
+      const arrive = Math.min(1, el / arriveSec);
+
+      // Each fish strongly favours one slot, so a crowd divides between taps.
+      const pref = (index + i) % POI_COUNT === 0 ? 1.9 : 0.45;
+      const d = Math.hypot(poiX[i].value - x, poiY[i].value - y);
+      const wt = (age * arrive * pref) / (1 + d / 500);
+
+      tx += poiX[i].value * wt;
+      ty += poiY[i].value * wt;
+      wsum += wt;
+    }
+
+    if (wsum > 0) {
       /**
        * EVERY fish comes when you touch the glass.
        *
@@ -205,16 +253,18 @@ function Fish({
        * an unresponsive control — a fish ignoring you looks identical to a fish
        * that never received the event.
        */
-      const eagerness = 0.45 + s.curiosity * 0.55;
-      const arriveSec = 0.8 + (1 - s.curiosity) * 1.8;
-      const arrive = Math.min(1, elapsed / arriveSec);
+      // Weighted centroid of every live POI.
+      tx /= wsum;
+      ty /= wsum;
 
-      // Capped below 1 so they crowd around the finger rather than onto it.
-      const blend = arrive * eagerness * touchAge * 0.88;
+      const eagerness = 0.45 + s.curiosity * 0.55;
+      // wsum already carries freshness and arrival ramp; clamp so the crowd
+      // gathers *around* the point rather than collapsing onto it.
+      const blend = Math.min(0.88, wsum * eagerness);
       engage = blend;
 
-      x += (touchX.value - x) * blend;
-      y += (touchY.value - y) * blend;
+      x += (tx - x) * blend;
+      y += (ty - y) * blend;
 
       // The stunt, once they have arrived: they stop bearing down on your
       // finger and orbit it, banking into the turn. Swimming straight at a
@@ -222,8 +272,8 @@ function Fish({
       // Shy fish orbit wider, so the crowd has depth instead of one tight ring.
       const ring = 30 + (1 - s.curiosity) * 34;
       const orbit = now * 1.5 + index * 1.3;
-      x += Math.cos(orbit) * ring * arrive * touchAge;
-      y += Math.sin(orbit) * (ring * 0.7) * arrive * touchAge;
+      x += Math.cos(orbit) * ring * blend;
+      y += Math.sin(orbit) * (ring * 0.7) * blend;
     }
 
     // Food: same ramped blend as the touch, so a scatter actually draws a
@@ -655,9 +705,14 @@ const Aquarium = () => {
 
   const schoolX = useSharedValue(w * 0.5);
   const schoolY = useSharedValue(h * 0.45);
-  const touchX = useSharedValue(-999);
-  const touchY = useSharedValue(-999);
-  const touchT = useSharedValue(0);
+  // Hooks in an Array.from callback are safe because POI_COUNT is a module
+  // constant, so call order never changes between renders.
+  const poiX = Array.from({ length: POI_COUNT }, () => useSharedValue(0));
+  const poiY = Array.from({ length: POI_COUNT }, () => useSharedValue(0));
+  const poiT = Array.from({ length: POI_COUNT }, () => useSharedValue(0));
+  const poiNext = useSharedValue(0);
+  /** Which slot the in-flight drag owns. */
+  const poiSlot = useSharedValue(0);
   const foodX = useSharedValue(-999);
   const foodY = useSharedValue(-999);
   const foodT = useSharedValue(0);
@@ -730,9 +785,14 @@ const Aquarium = () => {
     .minDistance(0)
     .onBegin((e) => {
       'worklet';
-      touchX.value = e.x;
-      touchY.value = e.y;
-      touchT.value = clock.value;
+      // Claim the next slot rather than overwriting the last, so an earlier tap
+      // keeps its crowd while this one gathers its own.
+      const i = poiNext.value % POI_COUNT;
+      poiNext.value = (i + 1) % POI_COUNT;
+      poiSlot.value = i;
+      poiX[i].value = e.x;
+      poiY[i].value = e.y;
+      poiT[i].value = clock.value;
       rippleX.value = e.x;
       rippleY.value = e.y;
       ripple.value = 0;
@@ -741,9 +801,11 @@ const Aquarium = () => {
     })
     .onUpdate((e) => {
       'worklet';
-      touchX.value = e.x;
-      touchY.value = e.y;
-      touchT.value = clock.value;
+      // A drag moves the slot it started, so dragging never spawns new points.
+      const i = poiSlot.value;
+      poiX[i].value = e.x;
+      poiY[i].value = e.y;
+      poiT[i].value = clock.value;
     });
 
   /** A long press scatters food. */
@@ -895,9 +957,9 @@ const Aquarium = () => {
             h={h}
             schoolX={schoolX}
             schoolY={schoolY}
-            touchX={touchX}
-            touchY={touchY}
-            touchT={touchT}
+            poiX={poiX}
+            poiY={poiY}
+            poiT={poiT}
             foodX={foodX}
             foodY={foodY}
             foodT={foodT}
