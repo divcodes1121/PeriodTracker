@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "periodtracker",
     "userInterfaceStyle": "automatic",
-    "owner": "periodtracker",
     "description": "An AI-powered menstrual health companion that combines cycle tracking, wellness insights, mood prediction, and beautifully crafted interactions.",
     "platforms": [
       "ios",
@@ -45,10 +44,13 @@
       "permissions": [],
       "softwareKeyboardLayoutMode": "pan",
       "blockedPermissions": [
-        "android.permission.READ_PHONE_STATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -89,6 +91,12 @@
           "defaultChannel": "cycle"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d0a4e7ae-8c98-4c4c-9b99-506bc530b7b8"
+      }
+    },
+    "owner": "div_codes1121"
   }
 }
