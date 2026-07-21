@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, Alert, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isSameDay, differenceInDays } from 'date-fns';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -11,6 +11,7 @@ import Button from '../components/Button';
 import Pill from '../components/Pill';
 import Icon from '../components/Icon';
 import Reveal from '../components/Reveal';
+import Notice from '../components/Notice';
 import DateField from '../components/DateField';
 import { useTheme } from '../theme/useTheme';
 import { useAppStore } from '../store/appStore';
@@ -28,6 +29,18 @@ const PeriodLoggerScreen = ({ navigation }: any) => {
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [flow, setFlow] = useState<Flow>('medium');
+  /**
+   * Delete confirmation is inline rather than an Alert.
+   *
+   * RN-web's Alert.alert is a no-op, so the previous modal confirm meant the
+   * Delete button simply did not exist on web and entries could never be
+   * removed at all. Inline confirmation works identically on every platform,
+   * and it keeps the entry you are about to delete visible while you decide —
+   * which a modal covering the list does not.
+   */
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  /** Validation feedback, for the same reason. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const recent = useMemo(
     () =>
@@ -41,14 +54,15 @@ const PeriodLoggerScreen = ({ navigation }: any) => {
     if (!user) return;
     if (endDate && endDate < startDate) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      Alert.alert('Check the dates', 'The end date must be on or after the start date.');
+      setNotice('The end date must be on or after the start date.');
       return;
     }
     if (periodEntries.some((e) => isSameDay(e.startDate, startDate))) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      Alert.alert('Already logged', 'A period is already logged with that start date.');
+      setNotice('A period is already logged with that start date.');
       return;
     }
+    setNotice(null);
 
     const now = new Date();
     const entry: PeriodEntry = {
@@ -65,22 +79,13 @@ const PeriodLoggerScreen = ({ navigation }: any) => {
     };
     addPeriodEntry(entry);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Period logged', 'Your predictions now use your logged periods.');
     navigation.goBack();
   };
 
-  const confirmDelete = (id: string) => {
-    Alert.alert('Delete this period?', 'It will be removed from your history and predictions.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-          deletePeriodEntry(id);
-        },
-      },
-    ]);
+  const handleDelete = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    deletePeriodEntry(id);
+    setPendingDelete(null);
   };
 
   return (
@@ -127,6 +132,7 @@ const PeriodLoggerScreen = ({ navigation }: any) => {
       </Reveal>
 
       <Reveal index={2}>
+        <Notice message={notice} />
         <Button label="Save period" onPress={handleSave} accent={COLORS.menstrual} />
       </Reveal>
 
@@ -167,14 +173,50 @@ const PeriodLoggerScreen = ({ navigation }: any) => {
                         : ' · ongoing'}
                     </Text>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete period from ${format(p.startDate, 'MMMM d')}`}
-                    hitSlop={10}
-                    onPress={() => confirmDelete(p.id)}
-                  >
-                    <Icon name="trash" size={17} color={c.textTertiary} />
-                  </Pressable>
+                  {pendingDelete === p.id ? (
+                    <Animated.View
+                      entering={FadeIn.duration(MOTION.instant)}
+                      style={styles.confirmRow}
+                    >
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel delete"
+                        hitSlop={8}
+                        onPress={() => setPendingDelete(null)}
+                        style={[styles.confirmBtn, { backgroundColor: c.fill }]}
+                      >
+                        <Text variant="caption" tone="secondary">
+                          Cancel
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Confirm delete period from ${format(
+                          p.startDate,
+                          'MMMM d'
+                        )}`}
+                        hitSlop={8}
+                        onPress={() => handleDelete(p.id)}
+                        style={[styles.confirmBtn, { backgroundColor: COLORS.error }]}
+                      >
+                        <Text variant="caption" color="#FFFFFF">
+                          Delete
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete period from ${format(p.startDate, 'MMMM d')}`}
+                      hitSlop={10}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        setPendingDelete(p.id);
+                      }}
+                    >
+                      <Icon name="trash" size={17} color={c.textTertiary} />
+                    </Pressable>
+                  )}
                 </View>
               </Animated.View>
             ))
@@ -198,6 +240,13 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md, paddingVertical: SPACE.md },
   dot: { width: 6, height: 6, borderRadius: 3 },
+
+  confirmRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs },
+  confirmBtn: {
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
+    borderRadius: RADIUS.pill,
+  },
 });
 
 export default PeriodLoggerScreen;

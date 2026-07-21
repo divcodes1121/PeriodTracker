@@ -1,4 +1,7 @@
-import { View, StyleSheet, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import Screen from '../components/Screen';
 import Surface from '../components/Surface';
 import Text from '../components/Text';
@@ -6,10 +9,11 @@ import Icon from '../components/Icon';
 import Row from '../components/Row';
 import Toggle from '../components/Toggle';
 import Reveal from '../components/Reveal';
+import Notice from '../components/Notice';
 import { useTheme } from '../theme/useTheme';
 import { useAppStore } from '../store/appStore';
 import { COLORS } from '../constants';
-import { SPACE, RADIUS } from '../theme/tokens';
+import { SPACE, RADIUS, MOTION, MIN_TAP } from '../theme/tokens';
 
 /** Section heading sitting above a grouped card. */
 const GroupLabel = ({ children }: { children: string }) => (
@@ -29,22 +33,25 @@ const SettingsScreen = ({ navigation }: any) => {
   } = useAppStore();
   const { colors: c, isDark, toggle } = useTheme();
 
-  const handleLogout = () => {
-    Alert.alert('Log out', 'This will clear your data on this device. Continue?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => {
-          clearStore();
-          navigation.replace?.('Onboarding');
-        },
-      },
-    ]);
+  /**
+   * Erasing is confirmed inline rather than through Alert.alert, which is a
+   * no-op on RN-web — the button-array confirm meant this action simply could
+   * not be completed on web at all.
+   *
+   * It is also the most destructive thing in the app (irreversible, and the
+   * data is local-only so there is no server copy to restore from), so the
+   * confirmation states the consequence plainly instead of asking "Continue?".
+   */
+  const [confirmErase, setConfirmErase] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const handleErase = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    clearStore();
+    navigation.replace?.('Onboarding');
   };
 
-  const soon = (what: string) =>
-    Alert.alert(what, 'This is not available yet — it is on the roadmap.');
+  const soon = (what: string) => setNotice(`${what} is not available yet — it is on the roadmap.`);
 
   const initial = (user?.name ?? 'Y').trim().charAt(0).toUpperCase();
 
@@ -135,6 +142,8 @@ const SettingsScreen = ({ navigation }: any) => {
           />
         </Surface>
 
+        <Notice message={notice} tone="info" />
+
         {/* The privacy promise is the product's spine — state it plainly. */}
         <View style={styles.promise}>
           <Icon name="lock" size={15} color={c.textTertiary} />
@@ -149,7 +158,49 @@ const SettingsScreen = ({ navigation }: any) => {
       <Reveal index={3}>
         <GroupLabel>Account</GroupLabel>
         <Surface style={{ marginBottom: SPACE.xxl }}>
-          <Row label="Log out and erase" icon="trash" iconTint="#C4566E" destructive onPress={handleLogout} last />
+          {confirmErase ? (
+            <Animated.View entering={FadeIn.duration(MOTION.fast)}>
+              <Text variant="headline">Erase everything?</Text>
+              <Text variant="callout" tone="secondary" style={{ marginTop: SPACE.sm }}>
+                This deletes every period, symptom and mood you have logged on this device. Because
+                nothing is uploaded, there is no copy to restore from. This cannot be undone.
+              </Text>
+              <View style={styles.confirmActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel erase"
+                  onPress={() => setConfirmErase(false)}
+                  style={[styles.confirmBtn, { backgroundColor: c.fill }]}
+                >
+                  <Text variant="button" tone="secondary">
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm erase all data"
+                  onPress={handleErase}
+                  style={[styles.confirmBtn, { backgroundColor: COLORS.error }]}
+                >
+                  <Text variant="button" color="#FFFFFF">
+                    Erase
+                  </Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          ) : (
+            <Row
+              label="Log out and erase"
+              icon="trash"
+              iconTint="#C4566E"
+              destructive
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setConfirmErase(true);
+              }}
+              last
+            />
+          )}
         </Surface>
       </Reveal>
 
@@ -177,6 +228,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACE.xxl,
   },
   version: { textAlign: 'center', marginTop: SPACE.sm },
+
+  confirmActions: { flexDirection: 'row', gap: SPACE.sm, marginTop: SPACE.xl },
+  confirmBtn: {
+    flex: 1,
+    minHeight: MIN_TAP,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.pill,
+  },
 });
 
 export default SettingsScreen;

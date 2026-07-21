@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,6 +9,7 @@ import Text from '../components/Text';
 import Button from '../components/Button';
 import Pill from '../components/Pill';
 import Reveal from '../components/Reveal';
+import Notice from '../components/Notice';
 import Severity from '../components/Severity';
 import { IconName } from '../components/Icon';
 import { useAppStore } from '../store/appStore';
@@ -37,6 +38,8 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
   const { user, upsertSymptomLog } = useAppStore();
   const [selected, setSelected] = useState<Map<SymptomType, number>>(new Map());
   const [flow, setFlow] = useState<'light' | 'medium' | 'heavy'>('medium');
+  /** Inline, because Alert.alert is a no-op on web — see components/Notice. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const keys = Object.keys(SYMPTOMS) as SymptomType[];
 
@@ -56,9 +59,10 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
   const handleSave = () => {
     if (!user || selected.size === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      Alert.alert('Nothing selected', 'Choose at least one symptom to log.');
+      setNotice('Choose at least one symptom to log.');
       return;
     }
+    setNotice(null);
     const now = new Date();
     const symptoms: Symptom[] = Array.from(selected.entries()).map(([type, severity]) => ({
       id: uuidv4(),
@@ -78,7 +82,6 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
     };
     upsertSymptomLog(log);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Saved', 'Your symptoms have been logged.');
     navigation.goBack();
   };
 
@@ -147,6 +150,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
         </Surface>
       </Reveal>
 
+      <Notice message={notice} />
       <Button label="Save symptoms" onPress={handleSave} />
     </Screen>
   );
