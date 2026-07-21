@@ -102,6 +102,7 @@ function Fish({
   foodX,
   foodY,
   foodT,
+  clock,
   breath,
   restful,
   reduced,
@@ -118,6 +119,8 @@ function Fish({
   foodX: SharedValue<number>;
   foodY: SharedValue<number>;
   foodT: SharedValue<number>;
+  /** Shared seconds counter. The ONE timebase all freshness is measured against. */
+  clock: SharedValue<number>;
   breath: SharedValue<number>;
   restful: boolean;
   reduced: boolean;
@@ -159,25 +162,52 @@ function Fish({
       y += (schoolY.value - y) * k;
     }
 
-    // Curiosity: a fresh touch pulls nearby, curious fish toward it — slowly,
-    // and only some of them. An aquarium where every fish follows your finger
-    // is a toy, not an ecosystem.
-    const touchAge = 1 - Math.min(1, (t.value - touchT.value) * 6);
+    /**
+     * Curiosity.
+     *
+     * Freshness MUST be measured against the same clock the touch was stamped
+     * with. The first version compared each fish's own 0→1 swim loop against
+     * `clock` (which counts seconds), so the difference was ~-300 instead of
+     * ~0.5, `touchAge` came out around 1800 rather than 0–1, and the steering
+     * multiplier landed in the hundreds — the fish crossed the whole tank in a
+     * single frame and appeared to vanish.
+     *
+     * Two defences now: one shared timebase, and a hard cap on how much a fish
+     * may be steered per frame. Even if a timing bug returns, `STEER_MAX` means
+     * the worst case is a fish that leans, never one that teleports.
+     */
+    const STEER_MAX = 0.06;
+    const now = clock.value;
+
+    // Interest decays over ~5s, so they drift over and gradually lose interest.
+    const touchAge = Math.max(0, Math.min(1, 1 - (now - touchT.value) / 5));
+    let engage = 0;
+
     if (touchAge > 0 && s.curiosity > 0.3) {
       const d = Math.hypot(touchX.value - x, touchY.value - y);
-      if (d < 190) {
-        const pull = s.curiosity * touchAge * (1 - d / 190) * 0.42;
+      if (d < 230) {
+        const near = 1 - d / 230;
+        engage = s.curiosity * touchAge * near;
+        const pull = Math.min(STEER_MAX, engage * 0.06);
         x += (touchX.value - x) * pull;
         y += (touchY.value - y) * pull;
+
+        // The stunt: once a fish is genuinely interested it stops swimming
+        // straight at your finger and starts circling it, tipping as it banks.
+        // Fish investigating something in real water orbit it — swimming
+        // directly into the glass is what a cursor does, not a fish.
+        const orbit = now * 1.6 + index * 1.3;
+        x += Math.cos(orbit) * 30 * engage;
+        y += Math.sin(orbit) * 22 * engage;
       }
     }
 
     // Food: everyone is interested, briefly, and the big slow ones arrive last.
-    const foodAge = 1 - Math.min(1, (t.value - foodT.value) * 2.2);
+    const foodAge = Math.max(0, Math.min(1, 1 - (now - foodT.value) / 9));
     if (foodAge > 0 && !asleep) {
       const d = Math.hypot(foodX.value - x, foodY.value - y);
-      if (d < 300) {
-        const pull = foodAge * (1 - d / 300) * 0.5 * s.speed;
+      if (d < 340) {
+        const pull = Math.min(STEER_MAX, foodAge * (1 - d / 340) * 0.07 * (0.4 + s.speed));
         x += (foodX.value - x) * pull;
         y += (foodY.value - y) * pull;
       }
@@ -190,8 +220,10 @@ function Fish({
     if (asleep) y += 26;
 
     // Facing follows travel direction; the body tilts into vertical movement.
+    // An engaged fish banks harder into its orbit, which is what makes the
+    // circling read as a manoeuvre rather than a drift.
     const dir = Math.cos(a) >= 0 ? 1 : -1;
-    const tilt = Math.sin(a * 0.6 + index * 2.1) * 8;
+    const tilt = Math.sin(a * 0.6 + index * 2.1) * 8 + Math.cos(clock.value * 1.6 + index * 1.3) * 22 * engage;
 
     return {
       opacity: asleep ? 0.55 : 1,
@@ -199,8 +231,9 @@ function Fish({
         { translateX: x },
         { translateY: y },
         { rotateZ: `${tilt}deg` },
-        { scaleX: dir * spec.scale },
-        { scaleY: spec.scale },
+        // A small eager lean forward when investigating.
+        { scaleX: dir * spec.scale * (1 + engage * 0.06) },
+        { scaleY: spec.scale * (1 + engage * 0.06) },
       ],
     };
   });
@@ -614,7 +647,8 @@ const Aquarium = () => {
   /** A master clock so touch/food freshness can be compared against fish time. */
   useEffect(() => {
     if (reduced) return;
-    clock.value = withRepeat(withTiming(1000, { duration: 1000000, easing: Easing.linear }), -1, false);
+    // Counts seconds. Everything time-based in this scene measures against it.
+    clock.value = withTiming(86400, { duration: 86400000, easing: Easing.linear });
     return () => cancelAnimation(clock);
   }, [clock, reduced]);
 
@@ -842,6 +876,7 @@ const Aquarium = () => {
             foodX={foodX}
             foodY={foodY}
             foodT={foodT}
+            clock={clock}
             breath={breath}
             restful={light.restful}
             reduced={reduced}
