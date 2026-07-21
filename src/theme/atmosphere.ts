@@ -29,8 +29,13 @@ export type MoteKind = 'none' | 'dust' | 'pollen' | 'spark' | 'star';
 export interface Atmosphere {
   /** 4-stop vertical canvas wash, top → bottom. */
   canvas: [string, string, string, string];
-  /** Two large blurred orbs that drift. Colours already carry their alpha. */
-  orbs: [string, string];
+  /**
+   * Three large blurred blooms that drift on unrelated periods. Colours already
+   * carry their alpha. Three rather than two because two blobs read as two
+   * blobs — a third breaks the symmetry into something that looks like flowing
+   * light instead.
+   */
+  orbs: [string, string, string];
   /** Colour of the ambient glow behind hero elements. */
   glow: string;
   /** Particle character for this atmosphere. */
@@ -146,9 +151,11 @@ export function atmosphere({
   // Light mode needs more alpha than intuition suggests: the same tint that
   // reads clearly against near-black almost vanishes against warm paper, so
   // matching the two by eye rather than by number keeps the themes at parity.
+  // Light now runs *hotter* than dark on the blooms specifically — a rose wash
+  // on white has far less contrast to work with than the same wash on plum.
   const a = isDark
-    ? { wash: 0.1, orbA: 0.2, orbB: 0.14, glow: 0.26 }
-    : { wash: 0.075, orbA: 0.2, orbB: 0.14, glow: 0.22 };
+    ? { wash: 0.1, orbA: 0.2, orbB: 0.14, orbC: 0.11, glow: 0.26 }
+    : { wash: 0.1, orbA: 0.3, orbB: 0.22, orbC: 0.16, glow: 0.24 };
 
   const lift = b.lift;
   const tint = (alpha: number) => `${p.hue}${(alpha * lift).toFixed(3)})`;
@@ -160,7 +167,13 @@ export function atmosphere({
 
   return {
     canvas: [base.top, base.top, tint(a.wash), base.bottom],
-    orbs: [tint(a.orbA), `${p.glow}${(a.orbB * lift).toFixed(3)})`],
+    orbs: [
+      tint(a.orbA),
+      `${p.glow}${(a.orbB * lift).toFixed(3)})`,
+      // The third bloom is the phase's own hue again but weakest and slowest;
+      // it is what turns two drifting circles into a moving gradient field.
+      tint(a.orbC),
+    ],
     glow: `${p.glow}${(a.glow * lift).toFixed(3)})`,
     mote: reducedMotion ? 'none' : mote,
     moteCount: reducedMotion ? 0 : MOTE_COUNT[mote],

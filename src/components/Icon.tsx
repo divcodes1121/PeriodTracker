@@ -55,7 +55,8 @@ export type IconName =
   | 'sound'
   | 'soundOff'
   | 'umbrella'
-  | 'kintsugi'
+  | 'aurora'
+  | 'dandelion'
   | 'breathe';
 
 interface IconProps {
@@ -329,11 +330,21 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
         />
       )}
 
-      {name === 'kintsugi' && (
+      {/* Aurora — layered curtains of light over a horizon. */}
+      {name === 'aurora' && (
         <>
-          <Path d="M3.5 9.5h17a8.5 8.5 0 0 1-17 0z" {...common} />
-          <Path d="M12.5 9.5 10.8 13l2.4 2.2" {...common} />
-          <Path d="M7 9.5 6.2 5.5M17 9.5l.8-4" {...common} />
+          <Path d="M3 14c3-5 6-2 9-6s6-1 9-4" {...common} />
+          <Path d="M3 18c3-5 6-2 9-6s6-1 9-4" {...common} opacity={0.55} />
+          <Path d="M3 21h18" {...common} />
+        </>
+      )}
+
+      {/* Dandelion — a bare stem, a pappus head, and two seeds on the wind. */}
+      {name === 'dandelion' && (
+        <>
+          <Path d="M11 21c0-4 0-6 0-8" {...common} />
+          <Path d="M11 13 8 10M11 13l3-3M11 13v-4M11 13 8.5 14M11 13l2.5 1" {...common} />
+          <Path d="M18 5.5 20 4M18.5 8 21 7.5" {...common} opacity={0.6} />
         </>
       )}
 

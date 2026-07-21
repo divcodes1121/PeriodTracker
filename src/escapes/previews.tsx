@@ -228,56 +228,6 @@ const ZenPreview = () => {
   );
 };
 
-/* --------------------------------- Bloom --------------------------------- */
-
-const BloomPreview = () => {
-  const { w, h, onLayout } = useSize();
-  return (
-    <View style={styles.fill} onLayout={onLayout}>
-      <LinearGradient colors={['#2E2440', '#221B33', '#151022']} style={StyleSheet.absoluteFill} />
-      {w > 0 && (
-        <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-          {/* Moon */}
-          <Circle cx={w * 0.84} cy={h * 0.24} r={16} fill="rgba(255,240,214,0.12)" />
-          <Circle cx={w * 0.84} cy={h * 0.24} r={10} fill="#F4E8CE" opacity={0.9} />
-          <Circle cx={w * 0.84 - 3} cy={h * 0.24 - 2} r={2} fill="rgba(0,0,0,0.06)" />
-          {/* Hills */}
-          <Path d={`M0 ${h} L0 ${h * 0.78} Q ${w * 0.3} ${h * 0.6}, ${w * 0.62} ${h * 0.8} T ${w} ${h * 0.74} L${w} ${h} Z`} fill="rgba(16,11,26,0.85)" />
-          <Path d={`M0 ${h} L0 ${h * 0.9} Q ${w * 0.44} ${h * 0.74}, ${w} ${h * 0.92} L${w} ${h} Z`} fill="#0D0918" />
-          {/* Flowers */}
-          {[
-            { cx: w * 0.2, cy: h * 0.52, r: 17, c: '#E8A9BD' },
-            { cx: w * 0.47, cy: h * 0.68, r: 12, c: '#CDB6E4' },
-            { cx: w * 0.64, cy: h * 0.45, r: 9, c: '#F2C9A2' },
-          ].map((f, i) => (
-            <G key={i}>
-              {[0, 60, 120, 180, 240, 300].map((a) => (
-                <Ellipse
-                  key={a}
-                  cx={f.cx}
-                  cy={f.cy - f.r * 0.42}
-                  rx={f.r * 0.3}
-                  ry={f.r * 0.47}
-                  transform={`rotate(${a} ${f.cx} ${f.cy})`}
-                  fill={f.c}
-                  opacity={0.92}
-                />
-              ))}
-              <Circle cx={f.cx} cy={f.cy} r={f.r * 0.22} fill="#FFE9BE" />
-            </G>
-          ))}
-        </Svg>
-      )}
-      {h > 0 && (
-        <>
-          <Breathe x={w * 0.34} y={h * 0.3} size={5} color="#FFE7A3" dur={1700} lo={0.1} hi={0.85} />
-          <Breathe x={w * 0.55} y={h * 0.58} size={4} color="#FFE7A3" dur={2300} delay={700} lo={0.1} hi={0.7} />
-        </>
-      )}
-    </View>
-  );
-};
-
 /* -------------------------------- Bubbles -------------------------------- */
 
 const MiniBubble = ({ s }: { s: number }) => (
@@ -439,122 +389,156 @@ const ShatterPreview = () => {
   );
 };
 
-/* ------------------------------- Kintsugi -------------------------------- */
+/* --------------------------------- Aurora --------------------------------- */
 
-const KintsugiPreview = () => {
+const AURORA_STARS = Array.from({ length: 18 }, (_, i) => ({
+  x: ((i * 7919) % 97) / 97,
+  y: ((i * 104729) % 71) / 71,
+  r: 0.7 + ((i * 31) % 10) / 12,
+  o: 0.35 + ((i * 17) % 10) / 20,
+}));
+
+const AuroraPreview = () => {
   const { w, h, onLayout } = useSize();
-  // The bowl, sized to the card and already half-mended — the gold seam is
-  // the whole promise of the escape, so it reads even at thumbnail size.
-  const cx = w * 0.5;
-  const cy = h * 0.46;
-  const r = Math.min(w, h) * 0.36;
   return (
     <View style={styles.fill} onLayout={onLayout}>
-      <LinearGradient colors={['#EFE3CE', '#E7D8BE', '#DBC8A9']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#070B1E', '#0F1533', '#1B1B42']} style={StyleSheet.absoluteFill} />
       {w > 0 && (
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
           <Defs>
-            <SvgLinearGradient id="kp-ray" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#FFF3D2" stopOpacity="0.55" />
-              <Stop offset="1" stopColor="#FFF3D2" stopOpacity="0" />
+            {/* Two ribbons, layered — the card has to read as *light*, not paint */}
+            <SvgLinearGradient id="ap-r1" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#5FD3B4" stopOpacity={0} />
+              <Stop offset="0.4" stopColor="#5FD3B4" stopOpacity={0.75} />
+              <Stop offset="1" stopColor="#2E7F72" stopOpacity={0} />
             </SvgLinearGradient>
-            <SvgLinearGradient id="kp-body" x1="0" y1="0" x2="0.4" y2="1">
-              <Stop offset="0" stopColor="#FBF5EA" />
-              <Stop offset="0.55" stopColor="#F1E7D6" />
-              <Stop offset="1" stopColor="#DFD0B8" />
+            <SvgLinearGradient id="ap-r2" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#9B8FE0" stopOpacity={0} />
+              <Stop offset="0.45" stopColor="#9B8FE0" stopOpacity={0.6} />
+              <Stop offset="1" stopColor="#4A3F86" stopOpacity={0} />
             </SvgLinearGradient>
           </Defs>
-          {/* Window light */}
-          <Path d={`M0 0 L${w * 0.5} 0 L${w * 0.14} ${h} L0 ${h * 0.7} Z`} fill="url(#kp-ray)" />
-          {/* Contact shadow + bowl */}
-          <Ellipse cx={cx} cy={cy + r * 0.92} rx={r * 0.8} ry={r * 0.12} fill="rgba(104,84,58,0.16)" />
+
+          {AURORA_STARS.map((s, i) => (
+            <Circle key={i} cx={s.x * w} cy={s.y * h * 0.7} r={s.r} fill="#F4EFE7" opacity={s.o} />
+          ))}
+
+          {/* Moon */}
+          <Circle cx={w * 0.8} cy={h * 0.2} r={14} fill="rgba(246,241,228,0.14)" />
+          <Circle cx={w * 0.8} cy={h * 0.2} r={8} fill="#F6F1E4" opacity={0.92} />
+          <Circle cx={w * 0.8 - 4} cy={h * 0.2} r={8} fill="#0F1533" opacity={0.95} />
+
+          {/* The aurora */}
           <Path
-            d={`M${cx - r} ${cy - r * 0.25} Q${cx - r * 0.96} ${cy + r * 0.82} ${cx} ${cy + r * 0.86} Q${cx + r * 0.96} ${cy + r * 0.82} ${cx + r} ${cy - r * 0.25} Z`}
-            fill="url(#kp-body)"
-          />
-          <Ellipse cx={cx} cy={cy - r * 0.25} rx={r} ry={r * 0.2} fill="#FBF5EA" />
-          <Ellipse
-            cx={cx}
-            cy={cy - r * 0.25}
-            rx={r}
-            ry={r * 0.2}
-            fill="none"
-            stroke="rgba(122,101,74,0.28)"
-            strokeWidth={1}
-          />
-          {/* One mended seam, one still waiting */}
-          <Path
-            d={`M${cx - r * 0.06} ${cy - r * 0.18} L${cx - r * 0.2} ${cy + r * 0.14} L${cx - r * 0.04} ${cy + r * 0.44} L${cx - r * 0.16} ${cy + r * 0.76}`}
-            stroke="#C9A227"
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
+            d={`M${-w * 0.1} ${h * 0.52} C ${w * 0.2} ${h * 0.26}, ${w * 0.5} ${h * 0.62}, ${w * 0.78} ${h * 0.34} S ${w * 1.0} ${h * 0.2}, ${w * 1.1} ${h * 0.3} L${w * 1.1} ${h * 0.72} L${-w * 0.1} ${h * 0.72} Z`}
+            fill="url(#ap-r1)"
           />
           <Path
-            d={`M${cx - r * 0.06} ${cy - r * 0.18} L${cx - r * 0.2} ${cy + r * 0.14} L${cx - r * 0.04} ${cy + r * 0.44} L${cx - r * 0.16} ${cy + r * 0.76}`}
-            stroke="#FBEFC4"
-            strokeWidth={1}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
+            d={`M${-w * 0.1} ${h * 0.42} C ${w * 0.26} ${h * 0.6}, ${w * 0.54} ${h * 0.22}, ${w * 1.1} ${h * 0.46} L${w * 1.1} ${h * 0.7} L${-w * 0.1} ${h * 0.7} Z`}
+            fill="url(#ap-r2)"
+            opacity={0.8}
           />
+
+          {/* Mountains occlude the light, which is what sells the distance */}
           <Path
-            d={`M${cx + r * 0.62} ${cy - r * 0.1} L${cx + r * 0.4} ${cy + r * 0.2} L${cx + r * 0.3} ${cy + r * 0.56}`}
-            stroke="rgba(112,92,66,0.42)"
-            strokeWidth={1.4}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
+            d={`M0 ${h} L0 ${h * 0.74} Q ${w * 0.22} ${h * 0.6}, ${w * 0.44} ${h * 0.76} T ${w} ${h * 0.68} L${w} ${h} Z`}
+            fill="#101636"
           />
+          <Path d={`M0 ${h} L0 ${h * 0.88} Q ${w * 0.5} ${h * 0.8}, ${w} ${h * 0.87} L${w} ${h} Z`} fill="#05070F" />
         </Svg>
       )}
       {h > 0 && (
         <>
-          <Breathe x={cx - r * 0.2} y={cy + r * 0.1} size={5} color="rgba(242,217,138,0.95)" dur={2400} lo={0.2} hi={0.95} />
-          <Breathe x={w * 0.2} y={h * 0.24} size={3} color="rgba(255,246,222,0.9)" dur={3100} delay={700} lo={0.15} hi={0.7} />
+          <Breathe x={w * 0.28} y={h * 0.24} size={4} color="#FFFFFF" dur={1900} lo={0.2} hi={1} />
+          <Breathe x={w * 0.56} y={h * 0.14} size={3} color="#EAF2FF" dur={2500} delay={700} lo={0.15} hi={0.85} />
         </>
       )}
     </View>
   );
 };
 
-/* -------------------------------- Cosmos --------------------------------- */
+/* ------------------------------- Dandelion -------------------------------- */
 
-const COSMOS_STARS = Array.from({ length: 16 }, (_, i) => ({
-  x: ((i * 7919) % 97) / 97,
-  y: ((i * 104729) % 89) / 89,
-  r: 0.8 + ((i * 31) % 10) / 10,
-  o: 0.3 + ((i * 17) % 10) / 20,
-}));
-
-const CosmosPreview = () => {
+const DandelionPreview = () => {
   const { w, h, onLayout } = useSize();
+  const sx = w * 0.36;
+  const sy = h * 0.52;
   return (
     <View style={styles.fill} onLayout={onLayout}>
-      <LinearGradient colors={['#0B0E2A', '#141033', '#0A0716']} style={StyleSheet.absoluteFill} />
-      {/* Milky-way band */}
-      <View style={{ position: 'absolute', left: -w * 0.2, top: h * 0.16, width: w * 1.4, height: h * 0.5, transform: [{ rotate: '-16deg' }] }}>
-        <LinearGradient colors={['rgba(226,222,255,0)', 'rgba(226,222,255,0.09)', 'rgba(226,222,255,0)']} style={StyleSheet.absoluteFill} />
-      </View>
+      <LinearGradient colors={['#E9D9B8', '#F2E2C0', '#F8ECCE']} style={StyleSheet.absoluteFill} />
       {w > 0 && (
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-          {COSMOS_STARS.map((s, i) => (
-            <Circle key={i} cx={s.x * w} cy={s.y * h} r={s.r} fill="#F4EFE7" opacity={s.o} />
+          {/* Low golden sun */}
+          <Circle cx={w * 0.78} cy={h * 0.22} r={22} fill="rgba(255,225,160,0.35)" />
+          <Circle cx={w * 0.78} cy={h * 0.22} r={11} fill="#FFE1A0" opacity={0.95} />
+
+          {/* Meadow */}
+          <Path d={`M0 ${h} L0 ${h * 0.68} Q ${w * 0.3} ${h * 0.6}, ${w * 0.64} ${h * 0.68} T ${w} ${h * 0.64} L${w} ${h} Z`} fill="#B2B884" />
+          <Path d={`M0 ${h} L0 ${h * 0.8} Q ${w * 0.45} ${h * 0.73}, ${w} ${h * 0.81} L${w} ${h} Z`} fill="#96A46F" />
+          <Path d={`M0 ${h} L0 ${h * 0.92} Q ${w * 0.5} ${h * 0.86}, ${w} ${h * 0.92} L${w} ${h} Z`} fill="#6E8459" />
+
+          {/* Stem + half-bare head */}
+          <Path d={`M${sx} ${h * 0.93} Q ${sx - 4} ${sy + 30}, ${sx} ${sy + 5}`} stroke="#5E7A50" strokeWidth={2} strokeLinecap="round" fill="none" />
+          <G opacity={0.95}>
+            {Array.from({ length: 14 }, (_, i) => {
+              const a = (i / 14) * Math.PI * 2;
+              const rr = 13;
+              return (
+                <G key={i}>
+                  <Path
+                    d={`M${sx} ${sy} L${sx + Math.cos(a) * rr} ${sy + Math.sin(a) * rr * 0.9}`}
+                    stroke="rgba(255,253,246,0.75)"
+                    strokeWidth={0.8}
+                  />
+                  <Circle cx={sx + Math.cos(a) * rr} cy={sy + Math.sin(a) * rr * 0.9} r={1.3} fill="#FFFDF6" />
+                </G>
+              );
+            })}
+          </G>
+
+          {/* Seeds already on the wind, drifting up-right */}
+          {[
+            { x: w * 0.56, y: h * 0.36, s: 1 },
+            { x: w * 0.68, y: h * 0.26, s: 0.85 },
+            { x: w * 0.5, y: h * 0.2, s: 0.7 },
+          ].map((p, i) => (
+            <G key={i} opacity={0.9}>
+              {[0, 45, 90, 135].map((a) => (
+                <Path
+                  key={a}
+                  d={`M${p.x} ${p.y} L${p.x + Math.cos(((a - 90) * Math.PI) / 180) * 5 * p.s} ${
+                    p.y + Math.sin(((a - 90) * Math.PI) / 180) * 5 * p.s
+                  }`}
+                  stroke="#FFFDF6"
+                  strokeWidth={0.8}
+                  strokeLinecap="round"
+                />
+              ))}
+              <Circle cx={p.x} cy={p.y} r={1.1 * p.s} fill="#FFFDF6" />
+            </G>
           ))}
-          {/* Ringed planet */}
-          <Ellipse cx={w * 0.78} cy={h * 0.62} rx={26} ry={8} stroke="rgba(214,196,255,0.45)" strokeWidth={2} fill="none" transform={`rotate(-18 ${w * 0.78} ${h * 0.62})`} />
-          <Circle cx={w * 0.78} cy={h * 0.62} r={13} fill="#6D5BA8" />
-          <Ellipse cx={w * 0.78 - 4} cy={h * 0.62 - 4} rx={6} ry={4} fill="rgba(255,255,255,0.16)" />
-          {/* Meteor */}
-          <Rect x={w * 0.16} y={h * 0.22} width={54} height={1.6} rx={1} fill="rgba(255,246,224,0.4)" transform={`rotate(24 ${w * 0.16} ${h * 0.22})`} />
-          <Circle cx={w * 0.16 + 50} cy={h * 0.22 + 22} r={2.2} fill="#FFF6E0" opacity={0.9} />
+
+          {/* Blooms the released seeds have already grown */}
+          {[
+            { x: w * 0.2, y: h * 0.86, c: '#E8A9BD' },
+            { x: w * 0.74, y: h * 0.88, c: '#CDB6E4' },
+          ].map((f, i) => (
+            <G key={i}>
+              <Path d={`M${f.x} ${f.y + 7} L${f.x} ${f.y + 1}`} stroke="#5C7A54" strokeWidth={1.2} strokeLinecap="round" />
+              <Circle cx={f.x} cy={f.y} r={4} fill={f.c} />
+              <Circle cx={f.x} cy={f.y} r={1.3} fill="#F7E3A8" />
+            </G>
+          ))}
         </Svg>
       )}
       {h > 0 && (
         <>
-          <Breathe x={w * 0.3} y={h * 0.4} size={4} color="#FFFFFF" dur={1500} lo={0.2} hi={1} />
-          <Breathe x={w * 0.52} y={h * 0.7} size={3} color="#FFEFD6" dur={2100} delay={600} lo={0.15} hi={0.85} />
+          <RiseUp x={w * 0.6} h={h} dur={5200} delay={0}>
+            <View style={styles.pollen} />
+          </RiseUp>
+          <RiseUp x={w * 0.44} h={h} dur={6400} delay={1800}>
+            <View style={styles.pollen} />
+          </RiseUp>
         </>
       )}
     </View>
@@ -627,11 +611,10 @@ const CatcherPreview = () => {
 
 export const ESCAPE_PREVIEWS: Record<string, ComponentType> = {
   zen: ZenPreview,
-  bloom: BloomPreview,
+  dandelion: DandelionPreview,
   bubbles: BubblesPreview,
   shatter: ShatterPreview,
-  kintsugi: KintsugiPreview,
-  cosmos: CosmosPreview,
+  aurora: AuroraPreview,
   catcher: CatcherPreview,
 };
 
@@ -642,5 +625,11 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 2,
     backgroundColor: 'rgba(205,228,244,0.5)',
+  },
+  pollen: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,253,246,0.85)',
   },
 });

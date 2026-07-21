@@ -106,13 +106,13 @@ describe('atmosphere', () => {
     });
   });
 
-  it('always emits four canvas stops and two orbs', () => {
+  it('always emits four canvas stops and three orbs', () => {
     for (const phase of PHASES) {
       for (let hour = 0; hour < 24; hour += 3) {
         for (const isDark of [false, true]) {
           const a = atmosphere({ phase, hour, isDark });
           expect(a.canvas).toHaveLength(4);
-          expect(a.orbs).toHaveLength(2);
+          expect(a.orbs).toHaveLength(3);
           expect(a.lightAngle).toBeGreaterThanOrEqual(0);
           expect(a.lightAngle).toBeLessThan(360);
           expect(a.warmth).toBeGreaterThanOrEqual(0);

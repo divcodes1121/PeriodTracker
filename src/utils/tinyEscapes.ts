@@ -33,13 +33,13 @@ export const ESCAPES: EscapeMeta[] = [
     chrome: 'dark',
   },
   {
-    id: 'bloom',
-    title: 'Bloom Garden',
-    tagline: 'Grow something soft.',
-    hint: 'Touch anywhere to bloom',
-    icon: 'flower',
-    accent: '#D97C9B',
-    chrome: 'light',
+    id: 'dandelion',
+    title: 'Dandelion Wishes',
+    tagline: 'Take a breath. Let go.',
+    hint: 'Swipe upward to lift the seeds',
+    icon: 'dandelion',
+    accent: '#E8C97A',
+    chrome: 'dark',
   },
   {
     id: 'bubbles',
@@ -60,21 +60,12 @@ export const ESCAPES: EscapeMeta[] = [
     chrome: 'light',
   },
   {
-    id: 'kintsugi',
-    title: 'Kintsugi',
-    tagline: 'Every crack becomes something beautiful.',
-    hint: 'Trace the cracks',
-    icon: 'kintsugi',
-    accent: '#C9A227',
-    chrome: 'dark',
-  },
-  {
-    id: 'cosmos',
-    title: 'Star Dust',
-    tagline: 'Scatter a little universe.',
-    hint: 'Drag to scatter stardust',
-    icon: 'star',
-    accent: '#B89AD8',
+    id: 'aurora',
+    title: 'Aurora Sky',
+    tagline: 'Paint the night.',
+    hint: 'Sweep across the sky',
+    icon: 'aurora',
+    accent: '#5FD3B4',
     chrome: 'light',
   },
   {
@@ -97,14 +88,15 @@ export const DURATIONS = [
 /**
  * Which escape to suggest after a mood check-in. Emotional mapping, not
  * engagement optimisation: peak stress wants a physical release (Shatter),
- * elevated stress wants slowing down (Zen), low mood wants gentle growth
- * (Bloom). Returns null when nothing should be suggested — the suggestion must
+ * elevated stress wants slowing down (Zen), low mood wants something to let go
+ * of (Dandelion — it is a breathing ritual, and the meadow answers every
+ * breath). Returns null when nothing should be suggested — the suggestion must
  * stay rare enough to mean something.
  */
 export function recommendEscape(mood: number, stress: number): string | null {
   if (stress >= 5) return 'shatter';
   if (stress >= 4) return 'zen';
-  if (mood <= 2) return 'bloom';
+  if (mood <= 2) return 'dandelion';
   return null;
 }
 
@@ -139,6 +131,43 @@ export function environmentForCatches(catches: number): RainEnvironment {
   let current = RAIN_ENVIRONMENTS[0];
   for (const env of RAIN_ENVIRONMENTS) {
     if (catches >= env.at) current = env;
+  }
+  return current;
+}
+
+/* --------------------------- Dandelion Wishes ---------------------------- */
+
+export interface MeadowStage {
+  id: string;
+  name: string;
+  /** Total seeds released (this session) at which this stage takes over. */
+  at: number;
+}
+
+/**
+ * The meadow's day. Dandelion's answer to progression: releasing seeds does not
+ * score anything, it just carries the light forward. Thresholds assume a calm
+ * ~20–30 seeds per swipe-set, so a half-minute session sees one or two turns of
+ * the light and a five-minute session walks all the way to a starry night.
+ *
+ * Same shape as RAIN_ENVIRONMENTS on purpose — two scenes, one idea, one tested
+ * helper each.
+ */
+export const MEADOW_STAGES: MeadowStage[] = [
+  { id: 'morning', name: 'Morning', at: 0 },
+  { id: 'late', name: 'Late Morning', at: 30 },
+  { id: 'golden', name: 'Golden Afternoon', at: 80 },
+  { id: 'sunset', name: 'Warm Sunset', at: 150 },
+  { id: 'twilight', name: 'Twilight', at: 240 },
+  { id: 'blue', name: 'Blue Hour', at: 350 },
+  { id: 'starry', name: 'Starry Night', at: 480 },
+];
+
+/** Which stage a session that has released `seeds` seeds lives in. */
+export function stageForSeeds(seeds: number): MeadowStage {
+  let current = MEADOW_STAGES[0];
+  for (const stage of MEADOW_STAGES) {
+    if (seeds >= stage.at) current = stage;
   }
   return current;
 }

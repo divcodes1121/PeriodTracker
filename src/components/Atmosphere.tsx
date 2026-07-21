@@ -304,6 +304,17 @@ const Atmosphere = ({ atmos, isDark }: AtmosphereProps) => {
         driftSec={driftSec * 1.31}
         phase={0.41}
       />
+      {/* Third bloom, low and slow. Three periods with no common factor keep
+          the field from ever visibly repeating. */}
+      <Orb
+        id="atmos-orb-c"
+        color={atmos.orbs[2]}
+        size={w * 1.2}
+        x={-w * 0.1}
+        y={h * 0.66}
+        driftSec={driftSec * 1.73}
+        phase={0.77}
+      />
 
       {layers.map((layer, i) => (
         <MoteLayer

@@ -1,16 +1,31 @@
 import {
   ESCAPES,
   RAIN_ENVIRONMENTS,
+  MEADOW_STAGES,
   environmentForCatches,
+  stageForSeeds,
   recommendEscape,
   summarizeResets,
 } from './tinyEscapes';
 
 describe('escape registry', () => {
-  it('has seven escapes with unique ids', () => {
+  it('has unique ids', () => {
+    // Deliberately not asserting a count: the collection is curated and scenes
+    // come and go. Uniqueness is the invariant that actually matters, since ids
+    // key both ESCAPE_COMPONENTS and ESCAPE_PREVIEWS.
     const ids = ESCAPES.map((e) => e.id);
-    expect(ids).toHaveLength(7);
-    expect(new Set(ids).size).toBe(7);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('can recommend only escapes that exist', () => {
+    // recommendEscape returning a retired id would navigate to a blank player.
+    const ids = new Set(ESCAPES.map((e) => e.id));
+    for (let mood = 1; mood <= 5; mood++) {
+      for (let stress = 1; stress <= 5; stress++) {
+        const rec = recommendEscape(mood, stress);
+        if (rec !== null) expect(ids).toContain(rec);
+      }
+    }
   });
 
   it('every escape declares a chrome mode for the player overlay', () => {
@@ -31,8 +46,8 @@ describe('recommendEscape', () => {
   });
 
   it('suggests gentle growth for low mood', () => {
-    expect(recommendEscape(2, 3)).toBe('bloom');
-    expect(recommendEscape(1, 1)).toBe('bloom');
+    expect(recommendEscape(2, 3)).toBe('dandelion');
+    expect(recommendEscape(1, 1)).toBe('dandelion');
   });
 
   it('peak stress outranks low mood', () => {
@@ -111,5 +126,38 @@ describe('summarizeResets', () => {
     expect(out.answered).toBe(4);
     expect(out.better).toBe(2);
     expect(out.rate).toBeCloseTo(0.5);
+  });
+});
+
+describe('stageForSeeds', () => {
+  it('starts in the morning', () => {
+    expect(stageForSeeds(0).id).toBe('morning');
+  });
+
+  it('walks forward through every stage and never skips backwards', () => {
+    // The light must only ever move forward within a session.
+    let lastIndex = -1;
+    for (let n = 0; n <= 600; n += 5) {
+      const i = MEADOW_STAGES.findIndex((s) => s.id === stageForSeeds(n).id);
+      expect(i).toBeGreaterThanOrEqual(lastIndex);
+      lastIndex = i;
+    }
+  });
+
+  it('reaches every stage at its own threshold', () => {
+    for (const stage of MEADOW_STAGES) {
+      expect(stageForSeeds(stage.at).id).toBe(stage.id);
+    }
+  });
+
+  it('holds at the last stage rather than wrapping', () => {
+    const last = MEADOW_STAGES[MEADOW_STAGES.length - 1];
+    expect(stageForSeeds(last.at + 5000).id).toBe(last.id);
+  });
+
+  it('has strictly increasing thresholds', () => {
+    for (let i = 1; i < MEADOW_STAGES.length; i++) {
+      expect(MEADOW_STAGES[i].at).toBeGreaterThan(MEADOW_STAGES[i - 1].at);
+    }
   });
 });

@@ -1,11 +1,10 @@
 import { ComponentType } from 'react';
 import ZenGarden from './ZenGarden';
-import BloomGarden from './BloomGarden';
 import BubbleTherapy from './BubbleTherapy';
 import CrystalRelease from './CrystalRelease';
-import StarDust from './StarDust';
 import RainCatcher from './RainCatcher';
-import Kintsugi from './Kintsugi';
+import AuroraSky from './AuroraSky';
+import DandelionWishes from './DandelionWishes';
 
 /**
  * Escape id → scene component. Metadata lives in utils/tinyEscapes.ts (kept
@@ -13,10 +12,9 @@ import Kintsugi from './Kintsugi';
  */
 export const ESCAPE_COMPONENTS: Record<string, ComponentType> = {
   zen: ZenGarden,
-  bloom: BloomGarden,
+  dandelion: DandelionWishes,
   bubbles: BubbleTherapy,
   shatter: CrystalRelease,
-  cosmos: StarDust,
+  aurora: AuroraSky,
   catcher: RainCatcher,
-  kintsugi: Kintsugi,
 };

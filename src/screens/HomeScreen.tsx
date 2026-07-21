@@ -16,6 +16,7 @@ import Reveal from '../components/Reveal';
 import Icon, { IconName } from '../components/Icon';
 import MetricCard from '../components/MetricCard';
 import CycleTimeline from '../components/CycleTimeline';
+import LivePhaseTitle from '../components/LivePhaseTitle';
 import ThemeToggle from '../components/ThemeToggle';
 import { useScrollY } from '../components/ScrollContext';
 import { COLORS, inkFor } from '../constants';
@@ -231,9 +232,7 @@ const HomeScreen = ({ navigation }: any) => {
             <Text variant="overline" tone="secondary">
               Day {cycle.dayOfCycle} of {cycle.cycleLength}
             </Text>
-            <Text variant="display" style={styles.phaseTitle}>
-              {phaseName}
-            </Text>
+            <LivePhaseTitle name={phaseName} glow={atmos.glow} style={styles.phaseTitle} />
             <View style={[styles.phaseDot, { backgroundColor: phaseColor }]} />
           </CycleTimeline>
 
