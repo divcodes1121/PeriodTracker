@@ -29,9 +29,13 @@ import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../store/appStore';
 import { useAtmosphere } from '../theme/useAtmosphere';
 import {
+  chooseSlot,
   daysSince,
   growthFor,
   lightingFor,
+  poiBlend,
+  poiLife,
+  poiWeight,
   rng,
   rosterFor,
   seedFrom,
@@ -88,12 +92,19 @@ import {
  */
 
 /**
- * How many taps stay alive at once. Four is enough that a burst of tapping
- * splits the shoal several ways, and few enough that the per-fish loop over
- * them stays trivial (34 fish x 4 slots is 136 cheap comparisons per frame,
- * still with zero React re-renders).
+ * How many taps stay alive at once.
+ *
+ * Twelve rather than four: with a 30s point lifetime you would have to tap
+ * twelve distinct places inside half a minute to exhaust the pool, and even
+ * then `chooseSlot` evicts the *oldest* point rather than the next in sequence,
+ * so the one that gets replaced is the one with the least pull left. The old
+ * round-robin stamped over whichever slot came next — frequently a lively one,
+ * which teleported its crowd.
+ *
+ * The per-frame cost is a flat arithmetic loop: 34 fish x 12 slots is ~400
+ * cheap comparisons, still with zero React re-renders.
  */
-const POI_COUNT = 4;
+const POI_COUNT = 12;
 const FISH_COUNT = 34;
 const FOOD_COUNT = 14;
 const MOTE_COUNT = 30;
@@ -203,24 +214,43 @@ function Fish({
     let ty = 0;
     let wsum = 0;
 
+    const arriveSec = 0.8 + (1 - s.curiosity) * 1.8;
+
+    /**
+     * Preference is assigned across the *live* points, not across the slot
+     * pool. Keying it to slot index meant a fish's allegiance was spread over
+     * all twelve slots even when only six were in use, so each tap drew barely
+     * three dedicated fish and half the taps gathered nobody at all — six taps
+     * produced three crowds.
+     *
+     * Counting live points first and dividing the population across those
+     * gives every active tap an equal share of the shoal, whether there is one
+     * point or twelve.
+     */
+    let liveN = 0;
+    for (let i = 0; i < POI_COUNT; i++) {
+      if (poiT[i].value > 0 && poiLife(now - poiT[i].value) > 0) liveN++;
+    }
+
+    let ord = 0;
     for (let i = 0; i < POI_COUNT; i++) {
       const stamp = poiT[i].value;
       if (stamp <= 0) continue;
-
       const el = now - stamp;
-      const age = Math.max(0, Math.min(1, 1 - el / 7));
-      if (age <= 0) continue;
+      if (poiLife(el) <= 0) continue;
 
-      const arriveSec = 0.8 + (1 - s.curiosity) * 1.8;
-      const arrive = Math.min(1, el / arriveSec);
+      // One point is "this fish's", the rest pull weakly — that split is what
+      // divides a shoal between taps instead of moving it as one lump.
+      const pref = index % liveN === ord ? 2.4 : 0.35;
+      ord++;
 
-      // Each fish strongly favours one slot, so a crowd divides between taps.
-      const pref = (index + i) % POI_COUNT === 0 ? 1.9 : 0.45;
-      const d = Math.hypot(poiX[i].value - x, poiY[i].value - y);
-      const wt = (age * arrive * pref) / (1 + d / 500);
+      const px = poiX[i].value;
+      const py = poiY[i].value;
+      const wt = poiWeight(el, arriveSec, pref, Math.hypot(px - x, py - y));
+      if (wt <= 0) continue;
 
-      tx += poiX[i].value * wt;
-      ty += poiY[i].value * wt;
+      tx += px * wt;
+      ty += py * wt;
       wsum += wt;
     }
 
@@ -258,9 +288,9 @@ function Fish({
       ty /= wsum;
 
       const eagerness = 0.45 + s.curiosity * 0.55;
-      // wsum already carries freshness and arrival ramp; clamp so the crowd
-      // gathers *around* the point rather than collapsing onto it.
-      const blend = Math.min(0.88, wsum * eagerness);
+      // wsum already carries life and arrival ramp; poiBlend caps it below 1 so
+      // the crowd gathers *around* the point and can never overshoot it.
+      const blend = poiBlend(wsum, eagerness);
       engage = blend;
 
       x += (tx - x) * blend;
@@ -710,7 +740,6 @@ const Aquarium = () => {
   const poiX = Array.from({ length: POI_COUNT }, () => useSharedValue(0));
   const poiY = Array.from({ length: POI_COUNT }, () => useSharedValue(0));
   const poiT = Array.from({ length: POI_COUNT }, () => useSharedValue(0));
-  const poiNext = useSharedValue(0);
   /** Which slot the in-flight drag owns. */
   const poiSlot = useSharedValue(0);
   const foodX = useSharedValue(-999);
@@ -785,10 +814,10 @@ const Aquarium = () => {
     .minDistance(0)
     .onBegin((e) => {
       'worklet';
-      // Claim the next slot rather than overwriting the last, so an earlier tap
-      // keeps its crowd while this one gathers its own.
-      const i = poiNext.value % POI_COUNT;
-      poiNext.value = (i + 1) % POI_COUNT;
+      // Claim an empty slot, or evict the oldest — never a lively one.
+      const stamps: number[] = [];
+      for (let k = 0; k < POI_COUNT; k++) stamps.push(poiT[k].value);
+      const i = chooseSlot(stamps);
       poiSlot.value = i;
       poiX[i].value = e.x;
       poiY[i].value = e.y;

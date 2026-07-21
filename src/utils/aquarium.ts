@@ -340,6 +340,99 @@ export function lightingFor(band: TimeBand): Lighting {
   }
 }
 
+/* --------------------------- Points of interest --------------------------- */
+
+/**
+ * Steering maths for the fish.
+ *
+ * These live here, tested, rather than inline in the scene because every bug in
+ * this feature so far has been arithmetic — a unit mismatch that sent fish
+ * off-screen, and a per-frame nudge that never accumulated. Both were invisible
+ * to typecheck and to every existing test.
+ *
+ * Each function carries `'worklet'`, so the *same tested code* runs on the UI
+ * thread — the pattern already used for the Kintsugi geometry.
+ */
+
+/** How long a tap holds full attention before interest starts to fade, seconds. */
+export const POI_HOLD = 12;
+/** How long the fade itself takes after the hold, seconds. */
+export const POI_FADE = 18;
+
+/**
+ * Remaining interest in a point of interest, 1 → 0.
+ *
+ * A long plateau then a slow fade, rather than a straight decay from the moment
+ * of the tap: a crowd should stay gathered long enough to actually watch, and
+ * then disperse gently. It does still reach zero — a tank permanently disturbed
+ * by a tap five minutes ago is not a calm place to sit.
+ */
+export function poiLife(elapsedSec: number): number {
+  'worklet';
+  if (elapsedSec < 0) return 0;
+  if (elapsedSec <= POI_HOLD) return 1;
+  const fade = 1 - (elapsedSec - POI_HOLD) / POI_FADE;
+  return fade > 0 ? fade : 0;
+}
+
+/**
+ * How much one point pulls on one fish.
+ *
+ * `arrive` ramps with elapsed time, which is what actually carries a fish
+ * across the tank: the scene recomputes each position from scratch every frame,
+ * so a constant per-frame nudge would never accumulate — it would just park the
+ * fish a fixed fraction of the way there.
+ */
+export function poiWeight(
+  elapsedSec: number,
+  arriveSec: number,
+  pref: number,
+  distance: number
+): number {
+  'worklet';
+  const life = poiLife(elapsedSec);
+  if (life <= 0) return 0;
+  const arrive = Math.min(1, Math.max(0, elapsedSec) / arriveSec);
+  return (life * arrive * pref) / (1 + distance / 500);
+}
+
+/**
+ * Total pull → blend factor, hard-capped below 1.
+ *
+ * The cap is a structural guarantee rather than a tuning value: a blend under 1
+ * can only ever move a fish *toward* the target, never past it. That is what
+ * makes a future arithmetic mistake produce a fish that arrives early instead
+ * of one that leaves the building.
+ */
+export function poiBlend(totalWeight: number, eagerness: number): number {
+  'worklet';
+  if (totalWeight <= 0) return 0;
+  const b = totalWeight * eagerness;
+  return b > 0.88 ? 0.88 : b;
+}
+
+/**
+ * Which slot a new tap should claim.
+ *
+ * Round-robin reuse made the Nth+1 tap stamp over a still-lively point, which
+ * teleported that crowd. This evicts an empty slot if there is one, otherwise
+ * the *oldest* — the point with the least pull left, so the eviction is the
+ * least visible one available.
+ */
+export function chooseSlot(stamps: number[]): number {
+  'worklet';
+  let oldest = 0;
+  let oldestT = Infinity;
+  for (let i = 0; i < stamps.length; i++) {
+    if (stamps[i] <= 0) return i;
+    if (stamps[i] < oldestT) {
+      oldestT = stamps[i];
+      oldest = i;
+    }
+  }
+  return oldest;
+}
+
 /** Days between two dates, floored at 0. */
 export function daysSince(created: Date, now: Date = new Date()): number {
   return Math.max(0, Math.floor((now.getTime() - created.getTime()) / 86400000));
