@@ -55,6 +55,7 @@ export type IconName =
   | 'sound'
   | 'soundOff'
   | 'umbrella'
+  | 'kintsugi'
   | 'breathe';
 
 interface IconProps {
@@ -326,6 +327,14 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
           d="M12 3.5l2.47 5.26 5.53.7-4.1 3.94 1.06 5.6L12 16.2 7.04 19l1.06-5.6L4 9.46l5.53-.7z"
           {...common}
         />
+      )}
+
+      {name === 'kintsugi' && (
+        <>
+          <Path d="M3.5 9.5h17a8.5 8.5 0 0 1-17 0z" {...common} />
+          <Path d="M12.5 9.5 10.8 13l2.4 2.2" {...common} />
+          <Path d="M7 9.5 6.2 5.5M17 9.5l.8-4" {...common} />
+        </>
       )}
 
       {name === 'umbrella' && (

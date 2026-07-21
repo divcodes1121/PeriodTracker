@@ -11,6 +11,7 @@ import Svg, {
   RadialGradient,
   Rect,
   Stop,
+  LinearGradient as SvgLinearGradient,
 } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -438,45 +439,81 @@ const ShatterPreview = () => {
   );
 };
 
-/* --------------------------------- Rain ---------------------------------- */
+/* ------------------------------- Kintsugi -------------------------------- */
 
-const RainPreview = () => {
+const KintsugiPreview = () => {
   const { w, h, onLayout } = useSize();
+  // The bowl, sized to the card and already half-mended — the gold seam is
+  // the whole promise of the escape, so it reads even at thumbnail size.
+  const cx = w * 0.5;
+  const cy = h * 0.46;
+  const r = Math.min(w, h) * 0.36;
   return (
     <View style={styles.fill} onLayout={onLayout}>
-      <LinearGradient colors={['#1E2936', '#141B26', '#0D1219']} style={StyleSheet.absoluteFill} />
-      {/* Bokeh */}
-      <View style={[styles.bokeh, { left: w * 0.16, top: h * 0.2, backgroundColor: 'rgba(217,160,92,0.14)' }]} />
-      <Breathe x={w * 0.66} y={h * 0.14} size={40} color="rgba(124,155,217,0.13)" dur={2800} lo={0.5} hi={1} />
-      {/* Skyline */}
+      <LinearGradient colors={['#EFE3CE', '#E7D8BE', '#DBC8A9']} style={StyleSheet.absoluteFill} />
       {w > 0 && (
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
-          {[
-            { x: 0.04, bw: 0.13, bh: 0.34 },
-            { x: 0.19, bw: 0.1, bh: 0.5 },
-            { x: 0.31, bw: 0.15, bh: 0.28 },
-            { x: 0.48, bw: 0.11, bh: 0.42 },
-            { x: 0.61, bw: 0.14, bh: 0.3 },
-            { x: 0.77, bw: 0.12, bh: 0.46 },
-            { x: 0.9, bw: 0.1, bh: 0.26 },
-          ].map((b, i) => (
-            <Rect key={i} x={w * b.x} y={h * (1 - b.bh)} width={w * b.bw} height={h * b.bh} fill={i % 2 ? '#0B1017' : 'rgba(16,22,32,0.9)'} />
-          ))}
-          {/* Lit windows */}
-          {[
-            [0.22, 0.58], [0.24, 0.66], [0.5, 0.64], [0.79, 0.6], [0.81, 0.7], [0.07, 0.72],
-          ].map(([x, y], i) => (
-            <Rect key={i} x={w * x} y={h * y} width={3} height={4.4} fill={i % 3 ? 'rgba(232,200,122,0.8)' : 'rgba(180,205,230,0.6)'} />
-          ))}
+          <Defs>
+            <SvgLinearGradient id="kp-ray" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#FFF3D2" stopOpacity="0.55" />
+              <Stop offset="1" stopColor="#FFF3D2" stopOpacity="0" />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="kp-body" x1="0" y1="0" x2="0.4" y2="1">
+              <Stop offset="0" stopColor="#FBF5EA" />
+              <Stop offset="0.55" stopColor="#F1E7D6" />
+              <Stop offset="1" stopColor="#DFD0B8" />
+            </SvgLinearGradient>
+          </Defs>
+          {/* Window light */}
+          <Path d={`M0 0 L${w * 0.5} 0 L${w * 0.14} ${h} L0 ${h * 0.7} Z`} fill="url(#kp-ray)" />
+          {/* Contact shadow + bowl */}
+          <Ellipse cx={cx} cy={cy + r * 0.92} rx={r * 0.8} ry={r * 0.12} fill="rgba(104,84,58,0.16)" />
+          <Path
+            d={`M${cx - r} ${cy - r * 0.25} Q${cx - r * 0.96} ${cy + r * 0.82} ${cx} ${cy + r * 0.86} Q${cx + r * 0.96} ${cy + r * 0.82} ${cx + r} ${cy - r * 0.25} Z`}
+            fill="url(#kp-body)"
+          />
+          <Ellipse cx={cx} cy={cy - r * 0.25} rx={r} ry={r * 0.2} fill="#FBF5EA" />
+          <Ellipse
+            cx={cx}
+            cy={cy - r * 0.25}
+            rx={r}
+            ry={r * 0.2}
+            fill="none"
+            stroke="rgba(122,101,74,0.28)"
+            strokeWidth={1}
+          />
+          {/* One mended seam, one still waiting */}
+          <Path
+            d={`M${cx - r * 0.06} ${cy - r * 0.18} L${cx - r * 0.2} ${cy + r * 0.14} L${cx - r * 0.04} ${cy + r * 0.44} L${cx - r * 0.16} ${cy + r * 0.76}`}
+            stroke="#C9A227"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <Path
+            d={`M${cx - r * 0.06} ${cy - r * 0.18} L${cx - r * 0.2} ${cy + r * 0.14} L${cx - r * 0.04} ${cy + r * 0.44} L${cx - r * 0.16} ${cy + r * 0.76}`}
+            stroke="#FBEFC4"
+            strokeWidth={1}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <Path
+            d={`M${cx + r * 0.62} ${cy - r * 0.1} L${cx + r * 0.4} ${cy + r * 0.2} L${cx + r * 0.3} ${cy + r * 0.56}`}
+            stroke="rgba(112,92,66,0.42)"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
         </Svg>
       )}
-      {/* Clinging drops */}
-      <View style={[styles.cling, { left: w * 0.4, top: h * 0.24 }]} />
-      <View style={[styles.cling, { left: w * 0.55, top: h * 0.4, width: 4, height: 5 }]} />
       {h > 0 && (
-        <DriftDown x={w * 0.32} h={h} dur={2400} delay={200} sway={0}>
-          <View style={styles.fallDrop} />
-        </DriftDown>
+        <>
+          <Breathe x={cx - r * 0.2} y={cy + r * 0.1} size={5} color="rgba(242,217,138,0.95)" dur={2400} lo={0.2} hi={0.95} />
+          <Breathe x={w * 0.2} y={h * 0.24} size={3} color="rgba(255,246,222,0.9)" dur={3100} delay={700} lo={0.15} hi={0.7} />
+        </>
       )}
     </View>
   );
@@ -593,21 +630,13 @@ export const ESCAPE_PREVIEWS: Record<string, ComponentType> = {
   bloom: BloomPreview,
   bubbles: BubblesPreview,
   shatter: ShatterPreview,
-  rain: RainPreview,
+  kintsugi: KintsugiPreview,
   cosmos: CosmosPreview,
   catcher: CatcherPreview,
 };
 
 const styles = StyleSheet.create({
   fill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, overflow: 'hidden' },
-  bokeh: { position: 'absolute', width: 54, height: 54, borderRadius: 27 },
-  cling: {
-    position: 'absolute',
-    width: 5,
-    height: 6.5,
-    borderRadius: 4,
-    backgroundColor: 'rgba(205,228,244,0.45)',
-  },
   fallDrop: {
     width: 3,
     height: 12,

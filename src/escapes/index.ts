@@ -3,9 +3,9 @@ import ZenGarden from './ZenGarden';
 import BloomGarden from './BloomGarden';
 import BubbleTherapy from './BubbleTherapy';
 import CrystalRelease from './CrystalRelease';
-import RainWindow from './RainWindow';
 import StarDust from './StarDust';
 import RainCatcher from './RainCatcher';
+import Kintsugi from './Kintsugi';
 
 /**
  * Escape id → scene component. Metadata lives in utils/tinyEscapes.ts (kept
@@ -16,7 +16,7 @@ export const ESCAPE_COMPONENTS: Record<string, ComponentType> = {
   bloom: BloomGarden,
   bubbles: BubbleTherapy,
   shatter: CrystalRelease,
-  rain: RainWindow,
   cosmos: StarDust,
   catcher: RainCatcher,
+  kintsugi: Kintsugi,
 };
