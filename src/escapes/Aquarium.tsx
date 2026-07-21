@@ -74,6 +74,11 @@ import {
  * BubbleTherapy uses. Fish still never share a path because each carries its
  * own phase, lane, speed jitter and two sine frequencies.
  *
+ * A touch is felt tank-wide and **every** fish answers it. Temperament sets how
+ * eagerly and how closely, not whether — an aquarium where shy species ignore
+ * you is more truthful but reads as an unresponsive control, since a fish that
+ * is ignoring you looks identical to a fish that never got the event.
+ *
  * NO SKIA. The brief asks for it — and for caustics, subsurface scattering and
  * 50+ fish. It is not a dependency, needs a native prebuild, and would break
  * the web preview. Caustics here are two crossing translucent gradient sheets
@@ -162,55 +167,75 @@ function Fish({
       y += (schoolY.value - y) * k;
     }
 
-    /**
-     * Curiosity.
-     *
-     * Freshness MUST be measured against the same clock the touch was stamped
-     * with. The first version compared each fish's own 0→1 swim loop against
-     * `clock` (which counts seconds), so the difference was ~-300 instead of
-     * ~0.5, `touchAge` came out around 1800 rather than 0–1, and the steering
-     * multiplier landed in the hundreds — the fish crossed the whole tank in a
-     * single frame and appeared to vanish.
-     *
-     * Two defences now: one shared timebase, and a hard cap on how much a fish
-     * may be steered per frame. Even if a timing bug returns, `STEER_MAX` means
-     * the worst case is a fish that leans, never one that teleports.
-     */
-    const STEER_MAX = 0.06;
+    // Curiosity. Freshness is measured against `clock` — the one shared
+    // timebase — because it is what stamped touchT in the first place.
     const now = clock.value;
+    const elapsed = now - touchT.value;
 
-    // Interest decays over ~5s, so they drift over and gradually lose interest.
-    const touchAge = Math.max(0, Math.min(1, 1 - (now - touchT.value) / 5));
+    // Interest decays over ~7s, so they gather, mill around, then drift off.
+    const touchAge = Math.max(0, Math.min(1, 1 - elapsed / 7));
     let engage = 0;
 
-    if (touchAge > 0 && s.curiosity > 0.3) {
-      const d = Math.hypot(touchX.value - x, touchY.value - y);
-      if (d < 230) {
-        const near = 1 - d / 230;
-        engage = s.curiosity * touchAge * near;
-        const pull = Math.min(STEER_MAX, engage * 0.06);
-        x += (touchX.value - x) * pull;
-        y += (touchY.value - y) * pull;
+    if (touchAge > 0 && touchT.value > 0) {
+      /**
+       * EVERY fish comes when you touch the glass.
+       *
+       * Two earlier versions of this were wrong in different ways, and both are
+       * worth recording because the second is the subtle one:
+       *
+       *  1. Freshness compared each fish's own 0→1 swim loop against `clock`,
+       *     which counts seconds — so the multiplier reached the hundreds and
+       *     fish crossed the tank in one frame.
+       *  2. The fix replaced that with a per-frame nudge, `x += (touch - x) *
+       *     0.05`. That reads like it should accumulate, but this position is
+       *     recomputed from scratch every frame from `t.value` — there is no
+       *     state to accumulate *into*. So the fish sat permanently 5% of the
+       *     way to your finger and barely appeared to react.
+       *
+       * Because the position is stateless, the *blend factor itself* has to
+       * carry the passage of time. `arrive` ramps 0→1 over the fish's approach
+       * window, so the lerp toward the touch strengthens smoothly — that is
+       * what actually makes a fish swim over. It also cannot overshoot: the
+       * blend is clamped below 1, so the worst case is a fish that reaches your
+       * finger, never one that flies past it.
+       *
+       * Temperament now sets how *fast* and how *close*, not *whether*: a Betta
+       * takes ~2.6s and hangs back, a Clownfish is there in under a second. An
+       * aquarium where shy species ignore you is more truthful, but it reads as
+       * an unresponsive control — a fish ignoring you looks identical to a fish
+       * that never received the event.
+       */
+      const eagerness = 0.45 + s.curiosity * 0.55;
+      const arriveSec = 0.8 + (1 - s.curiosity) * 1.8;
+      const arrive = Math.min(1, elapsed / arriveSec);
 
-        // The stunt: once a fish is genuinely interested it stops swimming
-        // straight at your finger and starts circling it, tipping as it banks.
-        // Fish investigating something in real water orbit it — swimming
-        // directly into the glass is what a cursor does, not a fish.
-        const orbit = now * 1.6 + index * 1.3;
-        x += Math.cos(orbit) * 30 * engage;
-        y += Math.sin(orbit) * 22 * engage;
-      }
+      // Capped below 1 so they crowd around the finger rather than onto it.
+      const blend = arrive * eagerness * touchAge * 0.88;
+      engage = blend;
+
+      x += (touchX.value - x) * blend;
+      y += (touchY.value - y) * blend;
+
+      // The stunt, once they have arrived: they stop bearing down on your
+      // finger and orbit it, banking into the turn. Swimming straight at a
+      // point is what a cursor does; fish investigating something circle it.
+      // Shy fish orbit wider, so the crowd has depth instead of one tight ring.
+      const ring = 30 + (1 - s.curiosity) * 34;
+      const orbit = now * 1.5 + index * 1.3;
+      x += Math.cos(orbit) * ring * arrive * touchAge;
+      y += Math.sin(orbit) * (ring * 0.7) * arrive * touchAge;
     }
 
-    // Food: everyone is interested, briefly, and the big slow ones arrive last.
-    const foodAge = Math.max(0, Math.min(1, 1 - (now - foodT.value) / 9));
-    if (foodAge > 0 && !asleep) {
-      const d = Math.hypot(foodX.value - x, foodY.value - y);
-      if (d < 340) {
-        const pull = Math.min(STEER_MAX, foodAge * (1 - d / 340) * 0.07 * (0.4 + s.speed));
-        x += (foodX.value - x) * pull;
-        y += (foodY.value - y) * pull;
-      }
+    // Food: same ramped blend as the touch, so a scatter actually draws a
+    // crowd. Faster species get there first, which is what makes feeding look
+    // like feeding rather than everything arriving at once.
+    const foodElapsed = now - foodT.value;
+    const foodAge = Math.max(0, Math.min(1, 1 - foodElapsed / 9));
+    if (foodAge > 0 && foodT.value > 0 && !asleep) {
+      const foodArrive = Math.min(1, foodElapsed / (1.1 + (1 - s.speed) * 2.2));
+      const blend = foodArrive * foodAge * 0.8;
+      x += (foodX.value - x) * blend;
+      y += (foodY.value - y) * blend;
     }
 
     // Breathing mode lifts the whole population very slightly on the inhale.
@@ -632,10 +657,10 @@ const Aquarium = () => {
   const schoolY = useSharedValue(h * 0.45);
   const touchX = useSharedValue(-999);
   const touchY = useSharedValue(-999);
-  const touchT = useSharedValue(-99);
+  const touchT = useSharedValue(0);
   const foodX = useSharedValue(-999);
   const foodY = useSharedValue(-999);
-  const foodT = useSharedValue(-99);
+  const foodT = useSharedValue(0);
   const current = useSharedValue(0);
   const breath = useSharedValue(0);
   const ripple = useSharedValue(0);
