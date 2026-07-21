@@ -11,6 +11,7 @@ import Toggle from '../components/Toggle';
 import Reveal from '../components/Reveal';
 import Notice from '../components/Notice';
 import { useTheme } from '../theme/useTheme';
+import { useAtmosphere } from '../theme/useAtmosphere';
 import { useAppStore } from '../store/appStore';
 import { COLORS } from '../constants';
 import { SPACE, RADIUS, MOTION, MIN_TAP } from '../theme/tokens';
@@ -32,6 +33,7 @@ const SettingsScreen = ({ navigation }: any) => {
     clearStore,
   } = useAppStore();
   const { colors: c, isDark, toggle } = useTheme();
+  const atmos = useAtmosphere();
 
   /**
    * Erasing is confirmed inline rather than through Alert.alert, which is a
@@ -59,7 +61,8 @@ const SettingsScreen = ({ navigation }: any) => {
     <Screen title="Settings">
       {/* Profile */}
       <Reveal index={0}>
-        <Surface style={{ marginBottom: SPACE.xxl }}>
+        <Surface variant="hero" style={{ marginBottom: SPACE.xxl, overflow: 'hidden' }}>
+          <View pointerEvents="none" style={[styles.profileWash, { backgroundColor: atmos.glow }]} />
           <View style={styles.profile}>
             <View style={[styles.avatar, { backgroundColor: COLORS.primarySoft }]}>
               <Text variant="title2" color={COLORS.primaryDark}>
@@ -79,7 +82,7 @@ const SettingsScreen = ({ navigation }: any) => {
       {/* Preferences */}
       <Reveal index={1}>
         <GroupLabel>Preferences</GroupLabel>
-        <Surface style={{ marginBottom: SPACE.xxl }}>
+        <Surface variant="quiet" lift style={{ marginBottom: SPACE.xxl }}>
           <Row
             label="Notifications"
             description="Period and check-in reminders"
@@ -119,7 +122,7 @@ const SettingsScreen = ({ navigation }: any) => {
       {/* Privacy */}
       <Reveal index={2}>
         <GroupLabel>Privacy</GroupLabel>
-        <Surface style={{ marginBottom: SPACE.lg }}>
+        <Surface variant="quiet" lift style={{ marginBottom: SPACE.lg }}>
           <Row
             label="Biometric lock"
             icon="lock"
@@ -221,6 +224,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   groupLabel: { marginBottom: SPACE.md, marginLeft: SPACE.xs },
+  /** Ambient wash behind the profile — the card belongs to today's light. */
+  profileWash: { position: 'absolute', top: -70, right: -50, width: 190, height: 190, borderRadius: 95 },
   promise: {
     flexDirection: 'row',
     gap: SPACE.md,

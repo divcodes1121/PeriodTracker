@@ -1,11 +1,16 @@
 import { useEffect } from 'react';
 import Svg, { Circle, Path } from 'react-native-svg';
 import Animated, {
+  Easing,
+  cancelAnimation,
+  interpolateColor,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
-  interpolateColor,
 } from 'react-native-reanimated';
 import { Pressable, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -51,14 +56,49 @@ interface MoodFaceProps {
  */
 const MoodFace = ({ value, label, selected, color, onPress, size = 56 }: MoodFaceProps) => {
   const { colors: c } = useTheme();
+  const reduced = useReducedMotion();
   const on = useSharedValue(selected ? 1 : 0);
+  /** Slow idle breath, so the faces are alive before anything is chosen. */
+  const breath = useSharedValue(0);
 
   useEffect(() => {
     on.value = withSpring(selected ? 1 : 0, MOTION.spring);
   }, [selected, on]);
 
+  useEffect(() => {
+    if (reduced) {
+      breath.value = 0.5;
+      return;
+    }
+    // Each face breathes on its own period, offset by valence, so the row
+    // undulates instead of pulsing in unison.
+    const dur = 2400 + value * 260;
+    breath.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: dur, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: dur, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
+    return () => cancelAnimation(breath);
+  }, [breath, value, reduced]);
+
   const wrap = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + on.value * 0.12 }, { translateY: -on.value * 4 }],
+    transform: [
+      { scale: 1 + on.value * 0.12 + breath.value * 0.02 },
+      { translateY: -on.value * 4 - breath.value * 1.5 },
+    ],
+  }));
+
+  /**
+   * Aura behind the selected face. It swells on the same breath, which is what
+   * turns a selected state into something that feels warm rather than merely
+   * highlighted.
+   */
+  const aura = useAnimatedStyle(() => ({
+    opacity: on.value * (0.32 + breath.value * 0.3),
+    transform: [{ scale: 0.9 + on.value * 0.35 + breath.value * 0.12 }],
   }));
 
   const disc = useAnimatedStyle(() => ({
@@ -80,6 +120,15 @@ const MoodFace = ({ value, label, selected, color, onPress, size = 56 }: MoodFac
       style={styles.press}
     >
       <Animated.View style={wrap}>
+        {/* Colour aura — sits behind the disc, never over the face. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.aura,
+            { width: size * 1.5, height: size * 1.5, borderRadius: size, backgroundColor: color },
+            aura,
+          ]}
+        />
         <Animated.View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }, disc]}>
           <Svg width={size * 0.68} height={size * 0.68} viewBox="0 0 24 24">
             <Circle cx="9.4" cy="10.6" r="1.05" fill={stroke} />
@@ -115,6 +164,7 @@ const MoodFace = ({ value, label, selected, color, onPress, size = 56 }: MoodFac
 
 const styles = StyleSheet.create({
   press: { alignItems: 'center', gap: 10, flex: 1 },
+  aura: { position: 'absolute', alignSelf: 'center', top: '50%', marginTop: -42 },
   disc: { alignItems: 'center', justifyContent: 'center' },
 });
 

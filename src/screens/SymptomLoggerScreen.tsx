@@ -89,7 +89,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
     <Screen title="Symptoms" subtitle="How is your body feeling today?">
       {/* Symptom pills */}
       <Reveal index={0}>
-        <Surface style={{ marginBottom: SPACE.lg }}>
+        <Surface variant="hero" style={{ marginBottom: SPACE.sm }}>
           <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.lg }}>
             Select what applies
           </Text>
@@ -113,7 +113,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
           entering={FadeIn.duration(MOTION.base)}
           layout={LinearTransition.springify().damping(MOTION.springSoft.damping)}
         >
-          <Surface style={{ marginBottom: SPACE.lg }}>
+          <Surface variant="quiet" lift style={{ marginBottom: SPACE.sm }}>
             <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.lg }}>
               How intense?
             </Text>
@@ -131,7 +131,7 @@ const SymptomLoggerScreen = ({ navigation }: any) => {
 
       {/* Flow */}
       <Reveal index={1}>
-        <Surface style={{ marginBottom: SPACE.xl }}>
+        <Surface variant="quiet" lift style={{ marginBottom: SPACE.xl }}>
           <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.lg }}>
             Flow
           </Text>

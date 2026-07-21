@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { v4 as uuidv4 } from 'uuid';
@@ -64,7 +64,6 @@ const MoodTrackerScreen = ({ navigation }: any) => {
       setSuggestion({ escapeId });
       return;
     }
-    Alert.alert('Saved', 'Your check-in has been recorded.');
     navigation.goBack();
   };
 
@@ -98,9 +97,20 @@ const MoodTrackerScreen = ({ navigation }: any) => {
 
   return (
     <Screen title="How are you?" subtitle="A moment to check in with yourself">
-      {/* Mood selector */}
+      {/* Mood selector.
+          Choosing a mood washes the whole card in that mood's colour — the
+          screen should answer the answer, not just record it. The wash sits
+          behind the faces at low alpha and crossfades, so nothing jumps. */}
       <Reveal index={0}>
-        <Surface style={{ marginBottom: SPACE.lg }}>
+        <Surface variant="hero" style={{ marginBottom: SPACE.lg, overflow: 'hidden' }}>
+          {selected ? (
+            <Animated.View
+              key={selected.value}
+              entering={FadeIn.duration(MOTION.slow)}
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { backgroundColor: `${selected.color}14` }]}
+            />
+          ) : null}
           <View style={styles.faces}>
             {MOODS.map((m) => (
               <MoodFace
@@ -127,7 +137,7 @@ const MoodTrackerScreen = ({ navigation }: any) => {
             What happened today?
           </Text>
 
-          <Surface style={{ marginBottom: SPACE.lg }}>
+          <Surface variant="quiet" style={{ marginBottom: SPACE.lg }}>
             <Stepper
               label="Stress"
               value={stress}

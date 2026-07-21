@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
   interpolateColor,
@@ -34,6 +35,10 @@ const Pill = ({ label, selected, onPress, icon, accent = COLORS.primary }: PillP
   const { colors: c, isDark } = useTheme();
   const on = useSharedValue(selected ? 1 : 0);
   const press = useSharedValue(0);
+  /** Finger-down sink, separate from the release bloom. */
+  const down = useSharedValue(0);
+  /** One-shot halo on selection. */
+  const bloom = useSharedValue(0);
 
   useEffect(() => {
     on.value = withTiming(selected ? 1 : 0, { duration: MOTION.fast });
@@ -42,8 +47,12 @@ const Pill = ({ label, selected, onPress, icon, accent = COLORS.primary }: PillP
       press.value = withSpring(1, MOTION.springSnap, () => {
         press.value = withSpring(0, MOTION.spring);
       });
+      bloom.value = withSequence(
+        withTiming(1, { duration: MOTION.fast }),
+        withTiming(0, { duration: MOTION.slow })
+      );
     }
-  }, [selected, on, press]);
+  }, [selected, on, press, bloom]);
 
   const fillStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
@@ -51,7 +60,23 @@ const Pill = ({ label, selected, onPress, icon, accent = COLORS.primary }: PillP
       [0, 1],
       [c.pillBg, isDark ? 'rgba(217,124,155,0.22)' : `${accent}22`]
     ),
-    transform: [{ scale: 1 + press.value * 0.04 }],
+    // Sinks slightly under the finger, then blooms past rest on release. The
+    // sink is what makes it feel like a physical key rather than a checkbox.
+    transform: [{ scale: 1 - down.value * 0.03 + press.value * 0.05 }],
+  }));
+
+  /**
+   * A soft halo that blooms outward once on selection and fades. Purely
+   * decorative and short-lived — the chip should acknowledge the tap, not
+   * decorate itself permanently.
+   */
+  const bloomStyle = useAnimatedStyle(() => ({
+    opacity: bloom.value * 0.5,
+    transform: [{ scale: 0.85 + bloom.value * 0.35 }],
+  }));
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + press.value * 0.22 }, { rotate: `${press.value * 8}deg` }],
   }));
 
   const textColor = selected ? (isDark ? c.text : COLORS.primaryDark) : c.textSecondary;
@@ -61,14 +86,28 @@ const Pill = ({ label, selected, onPress, icon, accent = COLORS.primary }: PillP
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={label}
+      onPressIn={() => {
+        down.value = withSpring(1, MOTION.springSnap);
+      }}
+      onPressOut={() => {
+        down.value = withSpring(0, MOTION.spring);
+      }}
       onPress={() => {
         Haptics.selectionAsync().catch(() => {});
         onPress();
       }}
     >
       <Animated.View style={[styles.pill, fillStyle]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.bloom, { backgroundColor: accent }, bloomStyle]}
+        />
         <View style={styles.row}>
-          {icon && <Icon name={icon} size={17} color={textColor} />}
+          {icon && (
+            <Animated.View style={iconStyle}>
+              <Icon name={icon} size={17} color={textColor} />
+            </Animated.View>
+          )}
           <Text variant="subhead" color={textColor} numberOfLines={1}>
             {label}
           </Text>
@@ -84,8 +123,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACE.lg,
     justifyContent: 'center',
+    overflow: 'visible',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  bloom: { position: 'absolute', left: -6, right: -6, top: -6, bottom: -6, borderRadius: RADIUS.pill },
 });
 
 export default Pill;

@@ -49,6 +49,8 @@ const AnimatedNumber = ({
 }: AnimatedNumberProps) => {
   const { colors: c } = useTheme();
   const animated = useSharedValue(0);
+  /** Advance per tabular digit for this type step. 0.62em is SF Pro's figure width. */
+  const digitWidth = ((TYPE[variant].fontSize as number) ?? 40) * 0.62;
 
   useEffect(() => {
     animated.value = withTiming(value, {
@@ -75,7 +77,18 @@ const AnimatedNumber = ({
       style={[
         TYPE[variant],
         TABULAR,
-        { color: color ?? c.text, padding: 0, margin: 0, borderWidth: 0 },
+        {
+          color: color ?? c.text,
+          padding: 0,
+          margin: 0,
+          borderWidth: 0,
+          // An <input> on web carries a default intrinsic width of ~180px,
+          // which silently overflowed its column and pushed the digits across
+          // neighbouring stats. Size it to its own content instead: tabular
+          // figures make the per-digit advance uniform, so this is exact.
+          width: Math.max(1, String(Math.round(value)).length) * digitWidth,
+          textAlign: 'center',
+        },
         style,
       ]}
     />

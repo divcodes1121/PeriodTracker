@@ -8,8 +8,10 @@ import Icon from '../components/Icon';
 import Reveal from '../components/Reveal';
 import BarChart from '../components/BarChart';
 import Sparkline from '../components/Sparkline';
+import GhostChart from '../components/GhostChart';
 import AnimatedNumber from '../components/AnimatedNumber';
 import { useTheme } from '../theme/useTheme';
+import { useAtmosphere } from '../theme/useAtmosphere';
 import { useAppStore } from '../store/appStore';
 import { COLORS } from '../constants';
 import { SPACE, RADIUS } from '../theme/tokens';
@@ -21,13 +23,37 @@ import {
   deriveCycleContext,
 } from '../utils/cycleCalculations';
 
-/** One big number with a quiet label. */
-function Stat({ value, label, unit }: { value: number; label: string; unit?: string }) {
+/**
+ * Analytics.
+ *
+ * The rule this screen now follows: **every panel always renders.** Previously
+ * it was five `{condition && ...}` blocks, so a new account saw one grey box
+ * reading "Not enough data yet" on an otherwise blank page — which looks like a
+ * broken screen rather than a new one, and gives no sense of what logging will
+ * eventually buy you.
+ *
+ * Each panel now knows both of its states. With data it draws the real chart;
+ * without, it draws its own shape in ghost form (see components/GhostChart)
+ * with one quiet line explaining what unlocks it. The layout is identical
+ * either way, so the screen fills in rather than growing.
+ *
+ * Ghost charts carry no numbers or axis labels — nothing on this screen can be
+ * mistaken for a measurement that was not taken.
+ */
+
+/** One big number with a quiet label. Renders an em-dash when unknown. */
+function Stat({ value, label, unit }: { value: number | null; label: string; unit?: string }) {
   return (
     <View style={styles.stat}>
       <View style={styles.statValue}>
-        <AnimatedNumber value={value} variant="title1" />
-        {unit ? (
+        {value === null ? (
+          <Text variant="title1" tone="tertiary">
+            —
+          </Text>
+        ) : (
+          <AnimatedNumber value={value} variant="title1" />
+        )}
+        {unit && value !== null ? (
           <Text variant="caption" tone="tertiary" style={{ marginBottom: 3 }}>
             {unit}
           </Text>
@@ -40,9 +66,24 @@ function Stat({ value, label, unit }: { value: number; label: string; unit?: str
   );
 }
 
+/** Section heading shared by every panel, so they read as one system. */
+function PanelHead({ over, title }: { over: string; title: string }) {
+  return (
+    <>
+      <Text variant="overline" tone="secondary">
+        {over}
+      </Text>
+      <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
+        {title}
+      </Text>
+    </>
+  );
+}
+
 const AnalyticsScreen = () => {
   const { user, periodEntries, moodEntries, symptomLogs } = useAppStore();
   const { colors: c, isDark } = useTheme();
+  const atmos = useAtmosphere();
 
   const cycleLengths = useMemo(() => buildCycleLengths(periodEntries), [periodEntries]);
 
@@ -83,65 +124,67 @@ const AnalyticsScreen = () => {
       .map(([type, n]) => ({ label: type.replace('_', ' '), value: n }));
   }, [symptomLogs]);
 
-  const hasNothing = cycleLengths.length === 0 && moodEntries.length === 0;
+  const logged = periodEntries.length;
 
   return (
     <Screen title="Analytics" subtitle="What your logs add up to">
-      {hasNothing && (
-        <Reveal index={0}>
-          <Surface>
-            <View style={[styles.emptyIcon, { backgroundColor: c.fill }]}>
-              <Icon name="chart" size={20} color={c.textSecondary} />
-            </View>
-            <Text variant="title3" style={{ marginTop: SPACE.lg }}>
-              Not enough data yet
-            </Text>
-            <Text variant="callout" tone="secondary" style={{ marginTop: SPACE.sm }}>
-              Cycle statistics need at least two logged periods, since a cycle is measured from one
-              start to the next.
-            </Text>
-          </Surface>
-        </Reveal>
-      )}
+      {/* ---- Summary. Always present; unknown values read as em-dashes ---- */}
+      <Reveal index={0}>
+        <Surface variant="hero" style={{ marginBottom: SPACE.sm }}>
+          <Text variant="overline" tone="secondary">
+            Your cycle
+          </Text>
+          <View style={styles.statRow}>
+            <Stat value={stats?.averageCycleLength ?? null} label="Avg length" unit="d" />
+            <View style={[styles.vRule, { backgroundColor: c.separator }]} />
+            <Stat value={stats?.cycleVariability ?? null} label="Variability" unit="d" />
+            <View style={[styles.vRule, { backgroundColor: c.separator }]} />
+            <Stat value={stats?.periodLength ?? user?.periodLength ?? null} label="Period" unit="d" />
+          </View>
 
-      {/* Cycle summary */}
-      {stats && (
-        <Reveal index={0}>
-          <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="secondary">
-              Your cycle
-            </Text>
-            <View style={styles.statRow}>
-              <Stat value={stats.averageCycleLength} label="Avg length" unit="d" />
-              <View style={[styles.vRule, { backgroundColor: c.separator }]} />
-              <Stat value={stats.cycleVariability} label="Variability" unit="d" />
-              <View style={[styles.vRule, { backgroundColor: c.separator }]} />
-              <Stat value={stats.periodLength} label="Period" unit="d" />
+          {stats?.irregularityDetected && (
+            <View style={[styles.notice, { backgroundColor: isDark ? c.fill : '#FDF1E5' }]}>
+              <Icon name="info" size={17} color={COLORS.warningDark} />
+              <Text variant="caption" tone="secondary" style={{ flex: 1 }}>
+                Your cycles vary by more than a week. That is common, and more logs will sharpen
+                predictions.
+              </Text>
             </View>
+          )}
 
-            {stats.irregularityDetected && (
-              <View style={[styles.notice, { backgroundColor: isDark ? c.fill : '#FDF1E5' }]}>
-                <Icon name="info" size={17} color={COLORS.warningDark} />
-                <Text variant="caption" tone="secondary" style={{ flex: 1 }}>
-                  Your cycles vary by more than a week. That is common, and more logs will sharpen
-                  predictions.
-                </Text>
+          {/* Progress toward a usable history, so "not yet" has a shape. */}
+          {cycleLengths.length === 0 && (
+            <View style={styles.progress}>
+              <View style={[styles.track, { backgroundColor: c.fill }]}>
+                <View
+                  style={[
+                    styles.fill,
+                    { width: `${Math.min(100, (logged / 2) * 100)}%`, backgroundColor: atmos.glow },
+                  ]}
+                />
               </View>
-            )}
-          </Surface>
-        </Reveal>
-      )}
+              <Text variant="caption" tone="secondary" style={{ marginTop: SPACE.sm }}>
+                {logged === 0
+                  ? 'Log your first period to start your history.'
+                  : 'One more logged period and these fill in — a cycle is measured from one start to the next.'}
+              </Text>
+            </View>
+          )}
+        </Surface>
+      </Reveal>
 
-      {/* Cycle length trend */}
-      {cycleLengths.length > 0 && (
-        <Reveal index={1}>
-          <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="secondary">
-              Cycle length
-            </Text>
-            <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
-              Last {cycleLengths.length} cycle{cycleLengths.length === 1 ? '' : 's'}
-            </Text>
+      {/* ---- Cycle length trend ---- */}
+      <Reveal index={1}>
+        <Surface lift style={{ marginBottom: SPACE.sm }}>
+          <PanelHead
+            over="Cycle length"
+            title={
+              cycleLengths.length > 0
+                ? `Last ${cycleLengths.length} cycle${cycleLengths.length === 1 ? '' : 's'}`
+                : 'How your cycles compare'
+            }
+          />
+          {cycleLengths.length > 0 ? (
             <BarChart
               data={cycleLengths.slice(-6).map((v, i, arr) => ({
                 label: i === arr.length - 1 ? 'Now' : `${arr.length - 1 - i}×`,
@@ -151,83 +194,109 @@ const AnalyticsScreen = () => {
               unit="d"
               showAverage={cycleLengths.length > 1}
             />
-          </Surface>
-        </Reveal>
-      )}
+          ) : (
+            <GhostChart
+              shape="bars"
+              accent={COLORS.primary}
+              label="Each bar will be one cycle, start to start."
+              hint="Needs two logged periods."
+            />
+          )}
+        </Surface>
+      </Reveal>
 
-      {/* Prediction confidence */}
-      {nextPeriod && cycleLengths.length > 0 && (
-        <Reveal index={2}>
-          <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="secondary">
-              Next period
-            </Text>
-            <View style={styles.predRow}>
-              <View style={{ flex: 1 }}>
-                <Text variant="title2" style={{ marginTop: SPACE.xs }}>
-                  {format(nextPeriod, 'EEE, MMM d')}
-                </Text>
-                <Text variant="callout" tone="secondary" style={{ marginTop: 2 }}>
-                  In {daysUntil(nextPeriod)} days
-                </Text>
-              </View>
-              <View style={styles.confRing}>
-                <Text variant="title3" color={COLORS.primaryDark} tabular>
-                  {confidence}%
-                </Text>
-                <Text variant="overline" tone="secondary">
-                  Confidence
-                </Text>
-              </View>
+      {/* ---- Prediction ---- */}
+      <Reveal index={2}>
+        <Surface lift style={{ marginBottom: SPACE.sm }}>
+          <Text variant="overline" tone="secondary">
+            Next period
+          </Text>
+          <View style={styles.predRow}>
+            <View style={{ flex: 1 }}>
+              <Text variant="title2" style={{ marginTop: SPACE.xs }}>
+                {nextPeriod ? format(nextPeriod, 'EEE, MMM d') : '—'}
+              </Text>
+              <Text variant="callout" tone="secondary" style={{ marginTop: 2 }}>
+                {nextPeriod ? `In ${daysUntil(nextPeriod)} days` : 'Set up your cycle to predict'}
+              </Text>
             </View>
-          </Surface>
-        </Reveal>
-      )}
-
-      {/* Mood & energy */}
-      {moodSeries.length > 1 && (
-        <Reveal index={3}>
-          <Surface style={{ marginBottom: SPACE.lg }}>
-            <Text variant="overline" tone="secondary">
-              Mood & energy
-            </Text>
-            <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
-              Last {moodSeries.length} check-ins
-            </Text>
-
-            <View style={styles.legendRow}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
-                <Text variant="caption" tone="secondary">
-                  Mood
-                </Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.accent }]} />
-                <Text variant="caption" tone="secondary">
-                  Energy
-                </Text>
-              </View>
+            <View style={styles.confRing}>
+              <Text variant="title3" color={COLORS.primaryDark} tabular>
+                {confidence}%
+              </Text>
+              <Text variant="overline" tone="secondary">
+                Confidence
+              </Text>
             </View>
+          </View>
 
-            <Sparkline data={moodSeries} color={COLORS.primary} height={64} />
-            <View style={{ height: SPACE.sm }} />
-            <Sparkline data={energySeries} color={COLORS.accent} height={64} />
-          </Surface>
-        </Reveal>
-      )}
+          {/* Confidence as a bar, so the number has a body. */}
+          <View style={[styles.track, { backgroundColor: c.fill, marginTop: SPACE.lg }]}>
+            <View
+              style={[
+                styles.fill,
+                { width: `${Math.max(4, confidence)}%`, backgroundColor: COLORS.primary },
+              ]}
+            />
+          </View>
+          <Text variant="caption" tone="tertiary" style={{ marginTop: SPACE.sm }}>
+            {confidence >= 70
+              ? 'Your cycles are steady enough for a confident estimate.'
+              : confidence > 0
+                ? 'Confidence rises as you log more cycles.'
+                : 'Predictions start from your onboarding answers until you log a period.'}
+          </Text>
+        </Surface>
+      </Reveal>
 
-      {/* Symptom frequency */}
-      {symptomFreq.length > 0 && (
-        <Reveal index={4}>
-          <Surface>
-            <Text variant="overline" tone="secondary">
-              Most logged
-            </Text>
-            <Text variant="title3" style={{ marginTop: SPACE.xs, marginBottom: SPACE.xl }}>
-              Symptoms, last 30 days
-            </Text>
-            {symptomFreq.map((s) => {
+      {/* ---- Mood & energy ---- */}
+      <Reveal index={3}>
+        <Surface variant="quiet" lift style={{ marginBottom: SPACE.sm }}>
+          <PanelHead
+            over="Mood & energy"
+            title={
+              moodSeries.length > 1 ? `Last ${moodSeries.length} check-ins` : 'How you have been feeling'
+            }
+          />
+          {moodSeries.length > 1 ? (
+            <>
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
+                  <Text variant="caption" tone="secondary">
+                    Mood
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.accent }]} />
+                  <Text variant="caption" tone="secondary">
+                    Energy
+                  </Text>
+                </View>
+              </View>
+              <Sparkline data={moodSeries} color={COLORS.primary} height={64} />
+              <View style={{ height: SPACE.sm }} />
+              <Sparkline data={energySeries} color={COLORS.accent} height={64} />
+            </>
+          ) : (
+            <GhostChart
+              accent={COLORS.accent}
+              label="Mood and energy traced across your check-ins."
+              hint="Needs two check-ins."
+            />
+          )}
+        </Surface>
+      </Reveal>
+
+      {/* ---- Symptom frequency ---- */}
+      <Reveal index={4}>
+        <Surface variant="quiet" lift>
+          <PanelHead
+            over="Most logged"
+            title={symptomFreq.length > 0 ? 'Symptoms, last 30 days' : 'What your body tends to do'}
+          />
+          {symptomFreq.length > 0 ? (
+            symptomFreq.map((s) => {
               const max = symptomFreq[0].value;
               return (
                 <View key={s.label} style={styles.freqRow}>
@@ -247,23 +316,22 @@ const AnalyticsScreen = () => {
                   </Text>
                 </View>
               );
-            })}
-          </Surface>
-        </Reveal>
-      )}
+            })
+          ) : (
+            <GhostChart
+              shape="bars"
+              accent={COLORS.success}
+              label="Your most frequent symptoms, ranked."
+              hint="Needs one symptom log."
+            />
+          )}
+        </Surface>
+      </Reveal>
     </Screen>
   );
 };
 
 const styles = StyleSheet.create({
-  emptyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   statRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACE.lg },
   stat: { flex: 1, alignItems: 'center' },
   statValue: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
@@ -277,6 +345,10 @@ const styles = StyleSheet.create({
     padding: SPACE.md,
     borderRadius: RADIUS.sm,
   },
+
+  progress: { marginTop: SPACE.xl },
+  track: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 3 },
 
   predRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.lg },
   confRing: { alignItems: 'flex-end' },
