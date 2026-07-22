@@ -4,8 +4,6 @@ import BubbleTherapy from './BubbleTherapy';
 import CrystalRelease from './CrystalRelease';
 import RainCatcher from './RainCatcher';
 import Aquarium from './Aquarium';
-import AuroraSky from './AuroraSky';
-import DandelionWishes from './DandelionWishes';
 
 /**
  * Escape id → scene component. Metadata lives in utils/tinyEscapes.ts (kept
@@ -13,10 +11,8 @@ import DandelionWishes from './DandelionWishes';
  */
 export const ESCAPE_COMPONENTS: Record<string, ComponentType> = {
   zen: ZenGarden,
-  dandelion: DandelionWishes,
   aquarium: Aquarium,
   bubbles: BubbleTherapy,
   shatter: CrystalRelease,
-  aurora: AuroraSky,
   catcher: RainCatcher,
 };

@@ -44,10 +44,25 @@ describe('timeBand', () => {
 });
 
 describe('atmosphere', () => {
-  it('gives every phase a visually distinct canvas', () => {
-    // If two phases produce identical washes the whole module is decorative.
-    const washes = PHASES.map((phase) => atmosphere({ phase, hour: 12, isDark: false }).canvas[2]);
-    expect(new Set(washes).size).toBe(PHASES.length);
+  it('keeps the canvas plain — no phase tint at all', () => {
+    // Reversed deliberately. Tinting the whole canvas by phase read as a colour
+    // cast over the app on a real device rather than as atmosphere, so colour
+    // was pulled back to controls, the ring and the hero glow. The background
+    // is now plain white / plain black, and this test stops it drifting back.
+    for (const phase of PHASES) {
+      const light = atmosphere({ phase, hour: 12, isDark: false });
+      const dark = atmosphere({ phase, hour: 12, isDark: true });
+      expect(new Set(light.canvas)).toEqual(new Set(['#FFFFFF']));
+      expect(new Set(dark.canvas)).toEqual(new Set(['#000000']));
+    }
+  });
+
+  it('paints no ambient blooms', () => {
+    for (const phase of PHASES) {
+      for (const orb of atmosphere({ phase, hour: 12, isDark: false }).orbs) {
+        expect(orb).toMatch(/,\s*0\.?0*\)$/);
+      }
+    }
   });
 
   it('gives every phase a distinct glow', () => {
@@ -55,38 +70,26 @@ describe('atmosphere', () => {
     expect(new Set(glows).size).toBe(PHASES.length);
   });
 
-  it('shifts the same phase across the day', () => {
-    // Time of day must move the canvas too, or the app looks identical at
-    // 3am and 3pm.
+  it('keeps the canvas identical at 3am and 3pm', () => {
+    // Time of day no longer tints anything. It still moves lightAngle, which is
+    // direction rather than colour.
     const seen = new Set(
-      [3, 7, 13, 19].map((hour) => atmosphere({ phase: 'luteal', hour, isDark: false }).canvas[0])
+      [3, 7, 13, 19].map((hour) => atmosphere({ phase: 'luteal', hour, isDark: false }).canvas.join())
     );
-    expect(seen.size).toBeGreaterThan(1);
+    expect(seen.size).toBe(1);
   });
 
-  it('keeps day the least tinted band', () => {
-    // Midday is high neutral light; dusk is the heaviest cast.
-    const day = alphaOf(atmosphere({ phase: 'menstrual', hour: 13, isDark: false }).canvas[2]);
-    const dusk = alphaOf(atmosphere({ phase: 'menstrual', hour: 19, isDark: false }).canvas[2]);
-    expect(day).toBeLessThan(dusk);
+  it('still varies the light direction through the day', () => {
+    const angles = new Set([3, 7, 13, 19].map((hour) => atmosphere({ phase: 'luteal', hour, isDark: false }).lightAngle));
+    expect(angles.size).toBeGreaterThan(1);
   });
 
-  it('runs menstrual warmer than follicular', () => {
-    // The cocoon should read heavier than the aerated rising phase.
-    const m = atmosphere({ phase: 'menstrual', hour: 12, isDark: false });
-    const f = atmosphere({ phase: 'follicular', hour: 12, isDark: false });
-    expect(m.warmth).toBeGreaterThan(f.warmth);
-  });
-
-  it('lifts alpha in dark mode so the grading survives a near-black canvas', () => {
-    const light = alphaOf(atmosphere({ phase: 'luteal', hour: 12, isDark: false }).glow);
-    const dark = alphaOf(atmosphere({ phase: 'luteal', hour: 12, isDark: true }).glow);
-    expect(dark).toBeGreaterThan(light);
-  });
-
-  it('lets night stars override the phase particle', () => {
-    expect(atmosphere({ phase: 'follicular', hour: 13, isDark: false }).mote).toBe('pollen');
-    expect(atmosphere({ phase: 'follicular', hour: 23, isDark: false }).mote).toBe('star');
+  it('drops no particles into the background', () => {
+    for (const phase of PHASES) {
+      for (const hour of [3, 13, 23]) {
+        expect(atmosphere({ phase, hour, isDark: false }).moteCount).toBe(0);
+      }
+    }
   });
 
   describe('reduced motion', () => {
@@ -97,8 +100,7 @@ describe('atmosphere', () => {
       expect(a.driftSec).toBe(Infinity);
     });
 
-    it('keeps the colour grading — only motion is removed', () => {
-      // Reduced motion is not reduced *beauty*: the canvas must still be graded.
+    it('changes nothing visible, since there is no ambient motion left', () => {
       const moving = atmosphere({ phase: 'ovulation', hour: 12, isDark: false });
       const still = atmosphere({ phase: 'ovulation', hour: 12, isDark: false, reducedMotion: true });
       expect(still.canvas).toEqual(moving.canvas);

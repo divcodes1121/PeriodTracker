@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Period Tracker",
-    "slug": "period-tracker",
+    "name": "Bloomly",
+    "slug": "bloomly",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "periodtracker",
+    "icon": "./assets/images/bloomly-icon.png",
+    "scheme": "bloomly",
     "userInterfaceStyle": "automatic",
     "description": "An AI-powered menstrual health companion that combines cycle tracking, wellness insights, mood prediction, and beautifully crafted interactions.",
     "platforms": [
@@ -14,9 +14,9 @@
       "web"
     ],
     "ios": {
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/bloomly-icon.png",
       "requireFullScreen": false,
-      "bundleIdentifier": "com.periodtracker.app",
+      "bundleIdentifier": "com.bloomly.app",
       "privacyManifests": {
         "NSPrivacyTracking": false,
         "NSPrivacyTrackingDomains": [],
@@ -52,10 +52,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FBF7F5",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "foregroundImage": "./assets/images/bloomly-adaptive.png",
+        "backgroundColor": "#F9C2DA"
       },
-      "package": "com.periodtracker.app",
+      "package": "com.bloomly.app",
       "permissions": [],
       "softwareKeyboardLayoutMode": "pan",
       "blockedPermissions": [
@@ -69,7 +69,7 @@
       ]
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro"
     },
@@ -78,8 +78,8 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FBF7F5",
-          "image": "./assets/images/icon.png",
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/bloomly-icon.png",
           "imageWidth": 200
         }
       ],

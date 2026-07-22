@@ -27,6 +27,16 @@ export interface ThemePalette {
   cardQuiet: string;
   /** Hairline highlight along a card's lit edge, aligned to atmosphere.lightAngle. */
   cardRim: string;
+  /**
+   * Card outline.
+   *
+   * The design language said depth comes from shadow, never borders — but that
+   * assumed a tinted canvas a white card could sit *on*. With a pure-white
+   * background the card and the page are the same colour and a soft shadow is
+   * not enough to separate them, so cards need an actual edge. Kept to a
+   * hairline so it defines without drawing attention.
+   */
+  cardBorder: string;
   /** Very subtle wash tinted toward the current phase, used behind the hero. */
   canvasTint: string;
 
@@ -80,12 +90,13 @@ export interface ThemePalette {
 export const lightPalette: ThemePalette = {
   // Blush-cream, not paper-grey: the canvas itself should feel warm before a
   // single accent lands on it.
-  bg: '#FFFBFC',
-  bgSecondary: '#F6EFEE',
+  bg: '#FFFFFF',
+  bgSecondary: '#F5F5F7',
   card: '#FFFFFF',
   cardElevated: '#FFFFFF',
-  cardQuiet: 'rgba(255,255,255,0.62)',
+  cardQuiet: 'rgba(248,248,250,0.92)',
   cardRim: 'rgba(255,255,255,0.9)',
+  cardBorder: 'rgba(20,20,26,0.10)',
   canvasTint: 'rgba(217,124,155,0.05)',
 
   text: '#1E1E22',
@@ -104,13 +115,13 @@ export const lightPalette: ThemePalette = {
   divider: 'rgba(30,30,34,0.07)',
   trackNeutral: 'rgba(30,30,34,0.06)',
 
-  inputBg: '#F6EFEE',
+  inputBg: '#F5F5F7',
   inputBorder: 'transparent',
   pillBg: 'rgba(30,30,34,0.04)',
   pillBorder: 'transparent',
   switchTrack: 'rgba(30,30,34,0.12)',
 
-  tabBarBg: 'rgba(251,247,245,0.82)',
+  tabBarBg: 'rgba(255,255,255,0.86)',
   tabBarBorder: 'rgba(30,30,34,0.06)',
   blurTint: 'light',
 
@@ -131,17 +142,18 @@ export const lightPalette: ThemePalette = {
 export const darkPalette: ThemePalette = {
   // Plum-ink, not neutral black: night mode keeps a rose undertone so the
   // brand pastels feel at home instead of floating on a server-room grey.
-  bg: '#100B10',
-  bgSecondary: '#1C151E',
-  card: '#1C1420',
-  cardElevated: '#251B29',
-  cardQuiet: 'rgba(42,33,48,0.58)',
+  bg: '#000000',
+  bgSecondary: '#141416',
+  card: '#171719',
+  cardElevated: '#212124',
+  cardQuiet: 'rgba(30,30,33,0.75)',
   cardRim: 'rgba(255,255,255,0.07)',
+  cardBorder: 'rgba(255,255,255,0.12)',
   canvasTint: 'rgba(217,124,155,0.07)',
 
   text: '#F6F3F6',
-  textSecondary: '#A59DAB',
-  textTertiary: '#786F80',
+  textSecondary: '#A0A0A6',
+  textTertiary: '#6E6E75',
   onAccent: '#FFFFFF',
 
   fill: 'rgba(255,255,255,0.06)',
@@ -150,13 +162,13 @@ export const darkPalette: ThemePalette = {
   divider: 'rgba(255,255,255,0.08)',
   trackNeutral: 'rgba(255,255,255,0.10)',
 
-  inputBg: '#2A2130',
+  inputBg: '#1D1D20',
   inputBorder: 'transparent',
   pillBg: 'rgba(255,255,255,0.06)',
   pillBorder: 'transparent',
   switchTrack: 'rgba(255,255,255,0.16)',
 
-  tabBarBg: 'rgba(21,16,22,0.82)',
+  tabBarBg: 'rgba(0,0,0,0.86)',
   tabBarBorder: 'rgba(255,255,255,0.08)',
   blurTint: 'dark',
 

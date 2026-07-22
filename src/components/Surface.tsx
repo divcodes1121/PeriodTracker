@@ -101,11 +101,14 @@ const Surface = ({
       borderRadius: g.radius,
       padding: padded ? g.pad : 0,
       ...(shadowKey === 'flat' ? {} : shadows[shadowKey]),
-      // A single hairline along the top edge reads as light catching the card's
-      // lip. It is not a border — there is no bottom or side stroke.
-      ...(v === 'quiet' || v === 'hero'
-        ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.cardRim }
-        : {}),
+      // Every card gets a hairline outline now. On a pure-white canvas a white
+      // card and the page are literally the same colour, so shadow alone left
+      // cards invisible — the outline is what makes them read as surfaces.
+      // Inset wells are excluded: they are recessed, so their own fill already
+      // separates them.
+      ...(v === 'inset'
+        ? {}
+        : { borderWidth: StyleSheet.hairlineWidth, borderColor: c.cardBorder }),
     };
   }, [c, v, g, padded, shadowKey, shadows]);
 

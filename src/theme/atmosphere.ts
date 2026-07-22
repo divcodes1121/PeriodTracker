@@ -75,14 +75,17 @@ const PHASE_ATMOS: Record<
   PhaseKey,
   { hue: string; glow: string; mote: MoteKind; warmth: number }
 > = {
-  // Deepest rose. The heaviest tint of the four — a warm cocoon.
-  menstrual: { hue: 'rgba(196,86,124,', glow: 'rgba(214,110,148,', mote: 'dust', warmth: 1 },
-  // Palest blush. Rising and aerated, so the lightest tint.
-  follicular: { hue: 'rgba(240,168,196,', glow: 'rgba(246,190,212,', mote: 'pollen', warmth: 0.4 },
-  // Peak. The most saturated pink, and the only phase that gets sparks.
-  ovulation: { hue: 'rgba(232,112,164,', glow: 'rgba(242,146,186,', mote: 'spark', warmth: 0.72 },
-  // Settling inward. Pink pulled toward mauve, quiet and slow.
-  luteal: { hue: 'rgba(198,132,182,', glow: 'rgba(212,158,198,', mote: 'dust', warmth: 0.58 },
+  // The background is deliberately PLAIN — white in light, black in dark.
+  //
+  // Phase used to tint the whole canvas, which was the point of this module.
+  // On a real device that read as a coloured cast over everything rather than
+  // as atmosphere, so colour has been pulled back to where it carries meaning:
+  // controls, selection states, the cycle ring, and the phase dot. The hue is
+  // still exported for the hero glow, but the canvas alpha is zero.
+  menstrual: { hue: 'rgba(196,86,124,', glow: 'rgba(214,110,148,', mote: 'none', warmth: 0 },
+  follicular: { hue: 'rgba(240,168,196,', glow: 'rgba(246,190,212,', mote: 'none', warmth: 0 },
+  ovulation: { hue: 'rgba(232,112,164,', glow: 'rgba(242,146,186,', mote: 'none', warmth: 0 },
+  luteal: { hue: 'rgba(198,132,182,', glow: 'rgba(212,158,198,', mote: 'none', warmth: 0 },
 };
 
 /**
@@ -94,22 +97,20 @@ const BAND: Record<
   TimeBand,
   { top: string; bottom: string; lightAngle: number; lift: number; mote: MoteKind | null }
 > = {
-  // Early light. Pale pink rather than the amber this used to be.
-  dawn: { top: '#FFF9FB', bottom: '#FDF1F5', lightAngle: 65, lift: 0.85, mote: null },
-  // High neutral light — near-white, the least tinted state.
-  day: { top: '#FFFCFD', bottom: '#FCF6F9', lightAngle: 15, lift: 0.5, mote: null },
-  // Evening. Deeper pink, no orange in it at all.
-  dusk: { top: '#FDF2F6', bottom: '#F8E6EE', lightAngle: 295, lift: 1, mote: null },
-  // Night keeps a cool pink cast and swaps particles for stars.
-  night: { top: '#FBF2F7', bottom: '#F5E8F0', lightAngle: 340, lift: 0.7, mote: 'star' },
+  // Plain white. `lightAngle` still varies so the ring sweep and card rims
+  // shift through the day — that is lighting direction, not colour.
+  dawn: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 65, lift: 0, mote: null },
+  day: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 15, lift: 0, mote: null },
+  dusk: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 295, lift: 0, mote: null },
+  night: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 340, lift: 0, mote: null },
 };
 
-/** Dark mode: near-black carrying a pink cast, never brown or plum. */
+/** Dark mode: plain black. No plum, no pink cast, no gradient. */
 const BAND_DARK: Record<TimeBand, { top: string; bottom: string }> = {
-  dawn: { top: '#171016', bottom: '#110C11' },
-  day: { top: '#150F14', bottom: '#100B10' },
-  dusk: { top: '#1A1119', bottom: '#130D13' },
-  night: { top: '#120C12', bottom: '#0C080C' },
+  dawn: { top: '#000000', bottom: '#000000' },
+  day: { top: '#000000', bottom: '#000000' },
+  dusk: { top: '#000000', bottom: '#000000' },
+  night: { top: '#000000', bottom: '#000000' },
 };
 
 /** Base particle counts before reduced-motion scaling. */
@@ -154,9 +155,12 @@ export function atmosphere({
   // matching the two by eye rather than by number keeps the themes at parity.
   // Light now runs *hotter* than dark on the blooms specifically — a rose wash
   // on white has far less contrast to work with than the same wash on plum.
+  // All zero: the canvas is plain and the drifting blooms are gone. Only the
+  // hero glow keeps a value, because that sits behind the cycle ring where the
+  // phase colour is meaningful rather than ambient.
   const a = isDark
-    ? { wash: 0.1, orbA: 0.2, orbB: 0.14, orbC: 0.11, glow: 0.26 }
-    : { wash: 0.1, orbA: 0.3, orbB: 0.22, orbC: 0.16, glow: 0.24 };
+    ? { wash: 0, orbA: 0, orbB: 0, orbC: 0, glow: 0.2 }
+    : { wash: 0, orbA: 0, orbB: 0, orbC: 0, glow: 0.14 };
 
   const lift = b.lift;
   const tint = (alpha: number) => `${p.hue}${(alpha * lift).toFixed(3)})`;
@@ -167,7 +171,10 @@ export function atmosphere({
   const mote: MoteKind = b.mote ?? p.mote;
 
   return {
-    canvas: [base.top, base.top, tint(a.wash), base.bottom],
+    // Four identical stops: a genuinely flat fill rather than a gradient whose
+    // middle band happens to be fully transparent. Kept as four so the shape of
+    // the record is unchanged for consumers.
+    canvas: [base.top, base.top, base.top, base.bottom],
     orbs: [
       tint(a.orbA),
       `${p.glow}${(a.orbB * lift).toFixed(3)})`,

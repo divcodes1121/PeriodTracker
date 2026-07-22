@@ -1,9 +1,7 @@
 import {
   ESCAPES,
   RAIN_ENVIRONMENTS,
-  MEADOW_STAGES,
   environmentForCatches,
-  stageForSeeds,
   recommendEscape,
   summarizeResets,
 } from './tinyEscapes';
@@ -45,9 +43,12 @@ describe('recommendEscape', () => {
     expect(recommendEscape(3, 4)).toBe('zen');
   });
 
-  it('suggests gentle growth for low mood', () => {
-    expect(recommendEscape(2, 3)).toBe('dandelion');
-    expect(recommendEscape(1, 1)).toBe('dandelion');
+  it('suggests slowing down for low mood', () => {
+    // Was Dandelion until that scene was retired. The registry test below is
+    // what actually protects this: a recommendation must always resolve to a
+    // scene that exists, or the player opens blank.
+    expect(recommendEscape(2, 3)).toBe('zen');
+    expect(recommendEscape(1, 1)).toBe('zen');
   });
 
   it('peak stress outranks low mood', () => {
@@ -129,35 +130,3 @@ describe('summarizeResets', () => {
   });
 });
 
-describe('stageForSeeds', () => {
-  it('starts in the morning', () => {
-    expect(stageForSeeds(0).id).toBe('morning');
-  });
-
-  it('walks forward through every stage and never skips backwards', () => {
-    // The light must only ever move forward within a session.
-    let lastIndex = -1;
-    for (let n = 0; n <= 600; n += 5) {
-      const i = MEADOW_STAGES.findIndex((s) => s.id === stageForSeeds(n).id);
-      expect(i).toBeGreaterThanOrEqual(lastIndex);
-      lastIndex = i;
-    }
-  });
-
-  it('reaches every stage at its own threshold', () => {
-    for (const stage of MEADOW_STAGES) {
-      expect(stageForSeeds(stage.at).id).toBe(stage.id);
-    }
-  });
-
-  it('holds at the last stage rather than wrapping', () => {
-    const last = MEADOW_STAGES[MEADOW_STAGES.length - 1];
-    expect(stageForSeeds(last.at + 5000).id).toBe(last.id);
-  });
-
-  it('has strictly increasing thresholds', () => {
-    for (let i = 1; i < MEADOW_STAGES.length; i++) {
-      expect(MEADOW_STAGES[i].at).toBeGreaterThan(MEADOW_STAGES[i - 1].at);
-    }
-  });
-});
