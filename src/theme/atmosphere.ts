@@ -75,14 +75,14 @@ const PHASE_ATMOS: Record<
   PhaseKey,
   { hue: string; glow: string; mote: MoteKind; warmth: number }
 > = {
-  // A warm protective cocoon — deep rose, the heaviest tint of the four.
-  menstrual: { hue: 'rgba(196,86,110,', glow: 'rgba(217,124,155,', mote: 'dust', warmth: 1 },
-  // Rising, green, aerated. Pollen drifting upward.
-  follicular: { hue: 'rgba(141,181,150,', glow: 'rgba(141,181,150,', mote: 'pollen', warmth: 0.45 },
-  // Peak. Golden, luminous — the only phase that gets sparks.
-  ovulation: { hue: 'rgba(245,177,122,', glow: 'rgba(245,177,122,', mote: 'spark', warmth: 0.7 },
-  // Settling inward. Lavender, quiet, slowest drift.
-  luteal: { hue: 'rgba(184,154,216,', glow: 'rgba(184,154,216,', mote: 'dust', warmth: 0.6 },
+  // Deepest rose. The heaviest tint of the four — a warm cocoon.
+  menstrual: { hue: 'rgba(196,86,124,', glow: 'rgba(214,110,148,', mote: 'dust', warmth: 1 },
+  // Palest blush. Rising and aerated, so the lightest tint.
+  follicular: { hue: 'rgba(240,168,196,', glow: 'rgba(246,190,212,', mote: 'pollen', warmth: 0.4 },
+  // Peak. The most saturated pink, and the only phase that gets sparks.
+  ovulation: { hue: 'rgba(232,112,164,', glow: 'rgba(242,146,186,', mote: 'spark', warmth: 0.72 },
+  // Settling inward. Pink pulled toward mauve, quiet and slow.
+  luteal: { hue: 'rgba(198,132,182,', glow: 'rgba(212,158,198,', mote: 'dust', warmth: 0.58 },
 };
 
 /**
@@ -94,21 +94,22 @@ const BAND: Record<
   TimeBand,
   { top: string; bottom: string; lightAngle: number; lift: number; mote: MoteKind | null }
 > = {
-  // Low warm sun from the east.
-  dawn: { top: '#FDF6F0', bottom: '#F9EFEC', lightAngle: 65, lift: 0.9, mote: null },
-  // High neutral light. The clearest, least-tinted state.
-  day: { top: '#FCFAF8', bottom: '#F7F3F1', lightAngle: 15, lift: 0.55, mote: null },
-  // Long shadows, amber cast.
-  dusk: { top: '#FBF2EE', bottom: '#F5E9E8', lightAngle: 295, lift: 1, mote: null },
-  // Cool moonlight — the one band that overrides phase particles with stars.
-  night: { top: '#F6F1F4', bottom: '#F1EAEF', lightAngle: 340, lift: 0.75, mote: 'star' },
+  // Early light. Pale pink rather than the amber this used to be.
+  dawn: { top: '#FFF9FB', bottom: '#FDF1F5', lightAngle: 65, lift: 0.85, mote: null },
+  // High neutral light — near-white, the least tinted state.
+  day: { top: '#FFFCFD', bottom: '#FCF6F9', lightAngle: 15, lift: 0.5, mote: null },
+  // Evening. Deeper pink, no orange in it at all.
+  dusk: { top: '#FDF2F6', bottom: '#F8E6EE', lightAngle: 295, lift: 1, mote: null },
+  // Night keeps a cool pink cast and swaps particles for stars.
+  night: { top: '#FBF2F7', bottom: '#F5E8F0', lightAngle: 340, lift: 0.7, mote: 'star' },
 };
 
+/** Dark mode: near-black carrying a pink cast, never brown or plum. */
 const BAND_DARK: Record<TimeBand, { top: string; bottom: string }> = {
-  dawn: { top: '#1B1418', bottom: '#150F14' },
-  day: { top: '#181218', bottom: '#141014' },
-  dusk: { top: '#1D1419', bottom: '#160F16' },
-  night: { top: '#141017', bottom: '#100C13' },
+  dawn: { top: '#171016', bottom: '#110C11' },
+  day: { top: '#150F14', bottom: '#100B10' },
+  dusk: { top: '#1A1119', bottom: '#130D13' },
+  night: { top: '#120C12', bottom: '#0C080C' },
 };
 
 /** Base particle counts before reduced-motion scaling. */

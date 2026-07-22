@@ -241,10 +241,11 @@ export function rosterFor(seed: number, count = 22): FishSpec[] {
     }
     return {
       species,
-      // Fish read small against a full-height tank at 1x, and a shoal of
-      // near-identical sizes reads flat. A wider range gives both presence and
-      // a depth cue: bigger fish are simply nearer.
-      scale: 1.05 + rand() * 0.75,
+      // Sized down after device testing: 1.05-1.80 read fine in a desktop
+      // browser and far too large on an actual phone, where the tank is a
+      // fraction of the width. The spread is kept, since varied sizes are what
+      // give the shoal depth — bigger simply means nearer.
+      scale: 0.7 + rand() * 0.5,
       phase: rand(),
       // Lane keeps a fish near its species' preferred depth without pinning it.
       lane: Math.max(0.08, Math.min(0.92, species.depth + (rand() - 0.5) * 0.3)),

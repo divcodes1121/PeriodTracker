@@ -3,6 +3,7 @@ import { StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useTheme } from '../theme/useTheme';
 import Icon, { IconName } from '../components/Icon';
@@ -102,6 +103,7 @@ function SettingsStack() {
 
 function MainTabs() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }: any) => ({
@@ -122,7 +124,12 @@ function MainTabs() {
           left: 0,
           right: 0,
           bottom: 0,
-          height: Platform.select({ ios: 86, default: 66 }),
+          // Grow by the system inset instead of assuming a fixed height. On
+          // Android the gesture pill or 3-button nav bar overlays the bottom of
+          // the screen, so a fixed 66pt bar sits UNDERNEATH it and the tabs
+          // become unreachable — which is exactly what happened on device.
+          height: Platform.select({ ios: 86, default: 66 }) + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 10,
           borderTopWidth: 0,
           backgroundColor: 'transparent',

@@ -80,7 +80,7 @@ export interface ThemePalette {
 export const lightPalette: ThemePalette = {
   // Blush-cream, not paper-grey: the canvas itself should feel warm before a
   // single accent lands on it.
-  bg: '#FBF7F5',
+  bg: '#FFFBFC',
   bgSecondary: '#F6EFEE',
   card: '#FFFFFF',
   cardElevated: '#FFFFFF',
@@ -131,10 +131,10 @@ export const lightPalette: ThemePalette = {
 export const darkPalette: ThemePalette = {
   // Plum-ink, not neutral black: night mode keeps a rose undertone so the
   // brand pastels feel at home instead of floating on a server-room grey.
-  bg: '#151016',
+  bg: '#100B10',
   bgSecondary: '#1C151E',
-  card: '#201925',
-  cardElevated: '#2A2130',
+  card: '#1C1420',
+  cardElevated: '#251B29',
   cardQuiet: 'rgba(42,33,48,0.58)',
   cardRim: 'rgba(255,255,255,0.07)',
   canvasTint: 'rgba(217,124,155,0.07)',
