@@ -89,11 +89,6 @@
           "ios": {
             "useFrameworks": "static",
             "minimumDeploymentTarget": "14.0"
-          },
-          "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
           }
         }
       ],
