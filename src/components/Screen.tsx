@@ -137,8 +137,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    // Clears the floating nav arrows.
-    marginTop: SPACE.h2,
+    // Clears the floating nav arrows, which sit at insets.top + SPACE.sm and
+    // stand 36pt tall. At SPACE.h2 the title landed on top of them.
+    marginTop: SPACE.h3,
     marginBottom: SPACE.xxl,
     gap: SPACE.lg,
   },

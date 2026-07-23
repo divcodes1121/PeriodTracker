@@ -115,5 +115,34 @@ const seed = {
     console.log('captured', tab);
   }
 
+  // Home-stack screens. Reached by pressing a card, not by a tab -- and
+  // puppeteer's auto-scroll does not work inside RN-web ScrollViews, so the
+  // target must be scrolled into view and clicked by bounding-box centre or
+  // the click clamps to the viewport edge and lands on the tab bar.
+  await goTab('home');
+  const openByText = async (needle) => {
+    const box = await page.evaluate((n) => {
+      const els = [...document.querySelectorAll('[role="button"]')];
+      const el = els.find((e) => (e.innerText || '').includes(n));
+      if (!el) return null;
+      el.scrollIntoView({ block: 'center' });
+      const r = el.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    }, needle);
+    if (!box) { console.log('not found:', needle); return false; }
+    await new Promise((r) => setTimeout(r, 600));
+    await page.mouse.click(box.x, box.y);
+    await new Promise((r) => setTimeout(r, 2200));
+    return true;
+  };
+
+  for (const [needle, name] of [['Symptoms', 'symptoms'], ['Mood', 'mood'], ['Need a moment', 'reset']]) {
+    if (await openByText(needle)) {
+      await page.screenshot({ path: `${OUT}-${name}.png` });
+      console.log('captured', name);
+    }
+    await goTab('home');
+  }
+
   await browser.close();
 })().catch((e) => { console.error('FAILED', e.message); process.exit(1); });

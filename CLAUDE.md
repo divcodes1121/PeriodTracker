@@ -1,6 +1,6 @@
-# CLAUDE.md — Period Tracker
+# CLAUDE.md — Bloomly
 
-AI-powered menstrual health app. Expo / React Native, runs on iOS, Android, and web from one codebase. Goal: production-grade app for the App Store + Play Store.
+**"Gentle care for every cycle."** AI-powered menstrual health app. Expo / React Native, runs on iOS, Android, and web from one codebase. Goal: production-grade app for the App Store + Play Store.
 
 ## Stack
 - Expo SDK 56, React Native 0.85, React 19 (new JSX transform — **don't import `React` unless you use `React.FC`/namespace**).
@@ -50,33 +50,170 @@ Calming micro-experiences ("Reset"), NOT a game tab — no scores, timers that j
 - Tab bar: frosted `BlurView` (the one place glass is still used — content scrolls under it), theme-aware; icons are stroke **`Icon`** glyphs that spring + thicken stroke on activation.
 - **Browser-style back/forward:** `navRef.ts` (nav container ref) + `useNavHistory.ts` (separate Zustand store). It snapshots the full nav state on each distinct page and keeps a pointer; back/forward restore snapshots (`goBack`/`goForward`), a new nav truncates forward entries. Wired in `App.tsx` via `onReady`/`onStateChange`. Rendered by `NavControls.tsx` (chevron `Icon`s on a soft fill, top-left).
 
-### Theme — `src/theme/`
-- `palette.ts`: `lightPalette` / `darkPalette` (`ThemePalette` type). Editorial neutral system — `bg` (warm off-white `#FCFBFA`), `bgSecondary`, `card` (pure white), `text`/`textSecondary`/`textTertiary`, `fill`/`separator`, chrome. Brand/phase colors stay in `constants` `COLORS`.
-- `tokens.ts`: **the design language.** `TYPE` (SF Pro Display scale — `display`→`overline`, optical tracking), `SPACE` (4-based, generous), `RADIUS`, `SHADOW`/`SHADOW_DARK` (wide soft warm elevation — depth comes from shadow, **never borders**), `MOTION` (springs + durations + `stagger`), `FONT`, `TABULAR`, `MIN_TAP` (44).
-- `useTheme()` reads `theme` from the store (reactive → whole UI re-themes). Returns `{ colors, isDark, toggle, setTheme }`. `App.tsx` derives the `NavigationContainer` theme from the palette (no longer hardcoded light).
-- **`usePhaseColor()` / `phaseInk()` / `inkFor()`** — accessibility-critical. Brand pastels are ~2–3:1 on white, so: `usePhaseColor` returns the surface-safe hue (deep in light via `PHASE_DEEP`, pastel in dark); `phaseInk` returns `PHASE_INK` for white-on-fill (selected calendar day); `inkFor(accent)` darkens a pastel for an icon on its own `${accent}1F` tint. Contrast is enforced by `theme/contrast.test.ts`.
+### Theme — `src/theme/` — the **Bloomly** design language
+
+Full reference: **`docs/BLOOMLY-DESIGN.md`** (audit, IA, motion spec, handoff notes).
+
+- **The identity is a GARDEN, not a chart.** Phases are a year in a garden:
+  Menstrual=Rose (letting go) → Follicular=Sage (budding) → Ovulation=Gold (full
+  bloom) → Luteal=Lavender (winding down). Warm to cool, closing on itself.
+  That loop is why this reads as Bloomly and not as another pink tracker.
+- **`constants/index.ts`** owns brand colour. Every hue ships in **three
+  values** — `pastel` (the petal, fills + dark-mode text), `deep` (the stem,
+  ≥3:1 for strokes/dots/chart marks), `ink` (the soil, ≥4.5:1 for text and
+  filled buttons). Reach for the wrong one and `contrast.test.ts` fails. `PAPER`
+  holds the surfaces the palette is tuned against.
+- **`palette.ts`: never plain white, never plain black.** Canvas is warm white
+  (`#FFFAF7`) falling to blush (`#FBEFF1`); card is cream (`#FFFDFB`) — *lighter*
+  than the blush it floats on. That ~2% step plus a wide plum-tinted shadow is
+  what separates them, so **`cardBorder` is `transparent` and no card has an
+  outline**. A test asserts it. If borders ever look necessary again the bug is
+  in the palette, not in `Surface`. Dark is plum ink, not charcoal — neutral
+  grey drains the warmth out of every pastel laid on it.
+- **`tokens.ts`**: `SPACE` (4-based; `h1`–`h4` are *composition* steps, not
+  sizes), `RADIUS` (card 28, hero 34 — rounder than a system default on
+  purpose), `TYPE` (`FONT_DISPLAY` rounded for headings, `FONT` for body;
+  overlines are sentence-case with open tracking, **never all-caps**), `SHADOW`
+  (warm plum `#7A4356`, wide and faint — black shadow under a blush card reads
+  as grey sludge), `MOTION` (+ `springBloom`, the **only** spring allowed to
+  overshoot, reserved for things that literally bloom), `BREATH` (4s in / 6s
+  out, shared by every ambient rhythm so the app breathes together),
+  `MIN_TAP` 44 / `MIN_TAP_COMFORT` 56.
+- **`usePhaseColor()` / `phaseInk()` / `inkFor()` / `deepFor()`** —
+  accessibility-critical surface-safe lookups.
+
+#### ⚠ Phase is carried by SHAPE, not colour — this is not optional
+
+The four phase hues were run through a CVD validator. Best achievable on-brand
+set: **ΔE 15.3 normal vision (pass) / ΔE 3.1 deuteranopia (fail)**. The earlier
+Rose/Peach/Gold/Lavender set was worse — ΔE **0.7** between peach and gold,
+i.e. literally the same colour to a deutan reader, and only 6.8 to everyone
+else. Deuteranopia collapses pink and green *by definition*; **no arrangement of
+four soft pastels passes.**
+
+So colour was demoted to reinforcement and shape promoted to carrier:
+`PHASE_GLYPH` → **drop / leaf / sun / moon**, rendered by `components/PhaseMark`
+(+ `PhaseLegend`). Four silhouettes that survive any colour vision, greyscale
+and a 10px calendar dot.
+
+**Anywhere a phase appears — ring, calendar, legend, chart, chip — use
+`PhaseMark`. A bare coloured dot is a regression, and no test can catch it in a
+new file.** Follicular moved peach → sage as part of this (which also tells the
+garden story better: new growth is green).
 
 ### Atmosphere — `src/theme/atmosphere.ts` + `components/Atmosphere.tsx`
-**This is where colour stopped being decorative.** The old rule ("~80% of every screen stays neutral") was enforced so completely that luteal Tuesday and ovulation Saturday rendered as the same beige — the palette was already warm, but it carried no *meaning*. Atmosphere fixes that.
-- **`theme/atmosphere.ts`** — one pure function, `atmosphere({ phase, hour, isDark, reducedMotion })` → `{ canvas[4], orbs[2], glow, mote, moteCount, lightAngle, warmth, driftSec }`. RN-free and node-tested (`atmosphere.test.ts`, 25 tests), same pattern as `tinyEscapes`/`kintsugi`. The tests pin the invariants that matter: phases must stay visually distinct from each other, `day` stays the least-tinted band, dark mode must run *higher* alpha than light, and reduced motion must remove motion **without** removing the colour grading. Also owns `timeBand(hour)` and `greetingFor(band)` — Home's greeting reads from these so copy can't say "afternoon" while the canvas has gone to dusk.
-- **`useAtmosphere()`** binds it to live state: phase via the same `deriveCycleContext` path everything else uses (so the background can't disagree with the numbers on top of it), and the hour re-checked on a 15-min interval so the app slides into dusk while open.
-- **`components/Atmosphere.tsx`** renders it — four strata: graded wash → two drifting soft-falloff orbs → three parallax mote layers → paper grain. **Hard budget: five animated nodes regardless of particle count**, zero React re-renders once mounted. Mote layers reuse BubbleTherapy's draw-twice-and-wrap trick (one transform per layer, not per particle). Orbs are SVG `radialGradient`, **not** `expo-blur` — cheaper and softer at full-screen scale.
-- Light mode runs **higher** alphas than intuition suggests: the same tint that reads on near-black nearly vanishes on warm paper, so the two themes are matched by eye, not by number.
-- Motes are deliberately large (2–6px) and very faint. A sub-pixel dot at 2x DPI antialiases into a hard speck that reads as **dirt on the user's screen** rather than atmosphere in the app. Stars are the one exception — a crisp point of light is the literal subject, and only ever on a dark canvas.
-- **No Skia.** Same conclusion the escapes reached twice: it isn't a dependency, it needs a native prebuild, and it would break the web preview workflow. SVG + Reanimated covers everything here.
 
-## Design system — "Editorial"
-Premium, calm, ~80% neutral; color is an accent. No heavy gradients, minimal glass, stroke icons (never emoji), large whitespace, soft depth. Tokens in `theme/tokens.ts` + `theme/palette.ts`. Reusable components in `src/components/`:
-- **`Screen`** — page scaffold: owns canvas color, `CONTENT_MAX_WIDTH` column, edge gutter, large editorial title/subtitle, and the bottom `tabSafe` inset. Every screen renders inside one. It also **renders `<Atmosphere/>`** (so ambient life is a property of *being a screen*, not something each page opts into and half forget — pass `atmosphere={false}` for pages that paint their own background) and **publishes its scroll offset as a `SharedValue` via `ScrollContext`**. That second part is load-bearing: it was previously a bare `ScrollView`, which made every scroll-reactive effect unbuildable without re-plumbing each screen. Read it with `useScrollY()` — inside worklets, so a scrolling page costs zero re-renders however many elements react. Returns null outside a scrolling Screen, so handle absence.
-- **`Surface`** — the default card (soft shadow, no border). **`variant`: `hero | card | quiet | inset`** — each with its own radius, padding and elevation. Before variants every card was the same object (radius 24, shadow sm, padding 20), which made visual hierarchy *structurally impossible* no matter how the content was written; a variant is a decision about importance and the geometry follows. `quiet` is translucent (`c.cardQuiet`) so secondary cards recede **into** the atmosphere instead of punching an opaque hole in it. `lift` opts into scroll parallax (one animated node per card — opt-in so a long list doesn't quietly allocate twenty). `onPress` makes it a spring-pressed haptic button. The legacy `inset` boolean still works.
-- **`Notice`** — inline feedback banner (`error|warning|info|success`). **Use this instead of `Alert.alert` for anything the user must see or act on** — see the RN-web gotcha below. Carries `accessibilityRole="alert"` + live region so screen readers announce it.
-- **`Text`** — typed primitive; pick a `variant` + `tone`, never hand-roll font sizes. `tabular` for numbers.
-- **`Icon`** — SF Symbols-style stroke set on a 24-grid, uniform 1.75 weight, `weight` multiplier. **The only icon source.**
-- **`CycleTimeline`** — hero ring: neutral track + faint phase arcs from `getPhaseRanges` (drawn from the cycle math, can't drift) + animated gradient sweep + marker + breathing halo. Optional `glow` (normally `atmosphere.glow`, so the halo agrees with the canvas at every hour) and `lightAngle` (rotates the sweep to the app's shared light direction instead of picking its own).
-- **`Button`** (restrained sizes, spring press), **`Pill`** (tactile selectable, color-crossfade), **`Toggle`** (iOS switch, hand-built), **`Severity`** (gesture 1–5 slider, haptic per step), **`Stepper`** (segmented scale, sliding thumb), **`MoodFace`** (drawn expressive face), **`Row`** (grouped-list row), **`TextField`**/**`DateField`**.
-- **`InsightCard`** (AI hero: tone badge, confidence meter, sparkline evidence, "why this" disclosure, ambient glow), **`MetricCard`** (one big number, quiet label), **`BarChart`** + **`Sparkline`** (Apple Health-style, hand-built, honest scales), **`AnimatedNumber`** (UI-thread count-up), **`OnboardingArt`** (abstract geometric SVG per step).
-- **`Reveal`** — the one staggered entrance (index × `MOTION.stagger`); screens use it instead of hand-picked delays.
-- **`src/utils/responsive.ts`**: `scale()`, `fontScale()`, `CONTENT_MAX_WIDTH`.
+One pure function, `atmosphere({ phase, hour, isDark, reducedMotion })`, answers
+*what does the app feel like right now?* and returns a record the visual layer
+consumes wholesale — so a phase change re-tints the whole app coherently rather
+than via conditionals in eleven screens. RN-free, **30 tests**.
+
+- **Why it was zeroed out and why it is back.** A previous pass set the canvas
+  to flat `#FFF`/`#000` after device feedback that phase tinting read as a
+  colour cast. *That feedback was correct and the diagnosis was wrong.* The
+  problem was not that the canvas had colour — it was that it had colour
+  **uniformly**: a flat 8% rose over the whole screen has no light source, so
+  the eye files it as broken white balance. Three fixes: (1) the canvas is
+  already warm *before* phase touches it — shifting a warm canvas reads as
+  weather, tinting a white one reads as a filter; (2) **tint pools downward**
+  (`PHASE_LIFT` 0.15 at the top → 1.0 at the bottom) so colour gathers where
+  light would settle, giving the gradient a direction and therefore a cause —
+  *this is the change that made phase colour stop looking broken*; (3) day is
+  nearly clean, so phase is most visible at dawn/dusk/night.
+- **A test ties every atmosphere hue back to `COLORS`.** This is not
+  hypothetical: when follicular moved peach → sage, this module kept tinting the
+  background peach, putting a sage arc on a peach wash — exactly the
+  "background disagreeing with the numbers" failure it exists to prevent.
+- **Renderer: four strata** — graded wash → three drifting soft-falloff orbs →
+  three parallax **petal** layers → paper grain. **Hard budget: six animated
+  nodes regardless of particle count, zero re-renders once mounted, no
+  per-particle animation ever.** Each layer is ONE `Svg` drawn twice (at `y` and
+  `y+h`) translating by one screen height, so the wrap is seamless and costs one
+  transform per layer. Sway rides the same shared value, so it is free.
+- **Orbs are SVG `radialGradient`, never a flat circle.** An even fill has a
+  hard edge at *any* alpha, so a solid disc reads as a coloured *plate* laid
+  over the page. This bug shipped twice (ring halo, onboarding backdrop) and was
+  caught both times by screenshotting.
+- Light mode runs *higher* alphas than intuition suggests; the two themes are
+  matched by eye, not by number.
+- **Reduced motion removes movement, never colour** — a test asserts `canvas`,
+  `glow` and `orbs` are byte-identical with the flag on. Someone who gets motion
+  sick still deserves the app to feel like evening at 9pm.
+- **No Skia.** Not a dependency, needs a native prebuild, would break the web
+  preview workflow. SVG + Reanimated covers everything.
+
+## Design system — "Bloomly"
+
+Soft, warm, premium, alive. Colour is meaning, not decoration. Stroke icons
+(never emoji), flat pastel illustrations, generous space, soft depth, no
+borders anywhere. See **`docs/BLOOMLY-DESIGN.md`** for the full system.
+
+**Signature components:**
+- **`BloomRing`** — the hero. **A flower opening over a month**, not a progress
+  bar. 12 petals, each owning a cycle slice and taking its phase's colour; open
+  behind you, folded ahead, one caught mid-open. Progress *and* phase become
+  legible without a number or a legend, and it looks visibly different on day 4
+  and day 22 (a progress ring never does). Colours come from `getCyclePhase()`
+  so the flower cannot disagree with its own label. Petals are `Animated.View`s,
+  not SVG paths — transforms are worklet-native and behave identically on
+  RN-web. **The folded-petal `grow` floor is 0.72 and the window is narrow:**
+  0.80 made a day-3 flower read as a *sun* (pale spikes), 0.50 hid the buds
+  inside the core disc. Constraint is `rBase·grow − (ph·scaleY)/2 > core radius`.
+- **`TodaysGarden`** + **`utils/garden.ts`** (RN-free, 20 tests) — every log
+  plants something. **Chosen over a streak deliberately:** a streak has a number
+  that can hit zero on the one week someone is too unwell to open a period
+  tracker. A garden only accumulates. Same retention mechanic, opposite
+  emotional sign. **No decay, no wilting, no "your garden misses you"** — all
+  three reintroduce the punishment, and a test asserts the functions take no
+  time input. Counted **by day, not by entry** (six symptoms on a bad day must
+  not out-grow a quiet day — that rewards suffering). No stage label may contain
+  a digit. One shared wind drives all 14 plants.
+- **`MoodBloom`** — nine feelings as flowers with faces. **Petals change shape
+  with the mood, not just hue**, which is both the character and the
+  colour-blind story. Replaced a 1–5 valence scale that had no square for
+  "anxious but fine"; still maps to the same ordinal underneath.
+- **`Illustration`** — 12 flat pastel scenes on a shared construction: one
+  ground ellipse, two values per shape, one accent, **no outlines**. Code not
+  PNGs (re-tints per theme, scales without @3x, zero bundle bytes). At most one
+  animated node each, all reading one shared clock. **Never medical** — symptom
+  glyphs draw the *sensation*, not the organ.
+- **`PetalBurst`** — petals, not confetti rectangles. Ballistic so it *falls*
+  (radial-only reads as a firework). Never blocks input; silent under reduced
+  motion, but the haptic still fires.
+- **`SplashBloom`** — three petal rings opening outside-in. The gate in
+  `App.tsx` requires **both** hydration and intro completion: dismissing the
+  instant hydration lands cuts the flower off mid-open, and a half-finished
+  animation reads as a glitch where a complete one reads as an intro.
+- **`PhaseMark` / `PhaseLegend`** — see the phase-shape rule above.
+- **`Chip`** — opens a small flower behind the icon on select.
+- **`States`** — `EmptyState` (says what *will* be here, never what is missing),
+  `ErrorState` (**never red** — red is reserved for destructive confirmation;
+  spending it on a network hiccup leaves nothing in reserve), `BloomLoader`,
+  `LoadingState`, `Shimmer`.
+
+**Core:**
+- **`Screen`** — owns canvas, column cap, gutter, tab-safe inset; renders
+  `<Atmosphere/>` so ambient life is a property of *being a screen*; publishes
+  scroll offset via `ScrollContext` (`useScrollY()`, read in worklets → zero
+  re-renders).
+- **`Surface`** — `hero | card | quiet | glass | inset`. **At most one `hero`
+  per screen.** `quiet` is translucent so secondary cards recede *into* the
+  atmosphere. `tint` washes a card in a brand hue at ~7%. `lift` opts into
+  scroll parallax (opt-in so a long list doesn't allocate twenty nodes).
+- **`Button`** — pill, tonal gradient. Press squashes **and** softens its
+  shadow; opacity alone reads as "disabled", the opposite message.
+- **`Text`** (typed variants) · **`Icon`** (57 glyphs, the only icon source) ·
+  **`Reveal`** (`index × MOTION.stagger`).
+
+**Charts — `PetalChart` is ONLY for data indexed by cycle day.** Radial charts
+are usually a mistake; the exception is earned because a cycle is genuinely
+periodic (day 28 is adjacent to day 1, so a Cartesian axis has to cut the loop
+somewhere). It encodes by **length, not area**, is zero-anchored, has labelled
+rings and a mandatory phase legend. Everything non-periodic goes to `BarChart`
+(rounded data-end only, zero-anchored, **width capped at 56pt** or bars read as
+colour blocks, peak-only direct label). **Chart marks use `deep`, never
+`pastel`** — rose pastel is 2.19:1 on cream, under the 3:1 WCAG requires of a
+graphical object (this was a live bug).
 
 ### Screen convention
 Screens are functional, theme-read via `useTheme()`; static styles in a module-level `StyleSheet.create`, dynamic bits inline from `c.*`/tokens. Wrap in `<Screen>`, group content in `<Surface>`, stagger with `<Reveal index>`. Editorial copy: **fewer words** ("Luteal · Day 22", not "Current Menstrual Cycle Phase"). Old per-screen `makeStyles(c)` factories are gone.
@@ -104,14 +241,43 @@ ode22;$env:PATH"
 5. `app.json` sets native `userInterfaceStyle: "light"`; consider `"automatic"` so native dialogs match dark mode in a real build.
 6. `react-native-svg` is now a **direct** dependency (added via `expo install`) — the icon set, charts and cycle ring all depend on it. Previously it was only present transitively via `react-native-chart-kit`.
 7. **`Alert.alert` is a NO-OP on RN-web.** Not cosmetic — it silently breaks real functionality. A button-array Alert means the buttons *never exist*, so the action is unreachable on web; deleting a logged period and "Log out and erase" were both dead this way, and three validation guards failed in total silence. **Anything the user must see or act on renders in the tree** (`components/Notice`, or an inline confirm that keeps the target visible while you decide). Alert is still fine for fire-and-forget native niceties, but never as the only channel. Grep before adding one.
-8. **Web UI testing traps** (puppeteer-core, `localStorage['period-tracker-store']` seeding). Two ways a test lies and reports green: (a) **inactive tab screens stay mounted in the DOM**, so finding an element is *not* proof it is visible — navigate for real (tabs are `[role="tab"]` matched by text) before asserting; (b) **puppeteer's auto-scroll does not work inside RN-web ScrollViews** — clicks on below-the-fold elements get clamped to the viewport edge and land on the floating tab bar, silently navigating elsewhere. `scrollIntoView({block:'center'})` then click by `boundingBox` centre. Also: `git worktree` gets no `node_modules` and a plain symlink fails on Windows without elevation, so every commit "fails" typecheck identically (if *all* results are the same failure, suspect the harness, not the code).
-9. **DANGER — never junction `node_modules` into a git worktree.** The obvious fix for #8 is `New-Item -ItemType Junction` pointing at the real `node_modules`. Do **not**: `git worktree remove --force` (and `rm -rf`) recurse *through* the junction and delete the real directory's contents, wiping the project's install. This has already happened once. To typecheck an old commit, either `npm ci` inside the worktree, or check out the commit in place, or just trust the branch-level check. Recovery is `npm ci` (~2 min) — nothing is lost as long as work is committed, which is a good reason to commit before archaeology.
+8. **Screenshot before you believe it.** `node scripts/screenshot.js <name> [dark]`
+   seeds `localStorage` past onboarding and captures Home + every tab + the
+   Home-stack screens. Four real bugs in the redesign were invisible to both
+   `tsc` and the 244-test suite and obvious in a screenshot: the plate-not-glow
+   halo, the sun-not-flower petals, a settings gear that was geometrically the
+   same drawing as a sun (two icons from the theme toggle's actual sun), and a
+   canvas tinting peach for a phase that had moved to sage.
+9. **Web UI testing traps** (puppeteer-core, `localStorage['period-tracker-store']` seeding). Two ways a test lies and reports green: (a) **inactive tab screens stay mounted in the DOM**, so finding an element is *not* proof it is visible — navigate for real (tabs are `[role="tab"]` matched by text) before asserting; (b) **puppeteer's auto-scroll does not work inside RN-web ScrollViews** — clicks on below-the-fold elements get clamped to the viewport edge and land on the floating tab bar, silently navigating elsewhere. `scrollIntoView({block:'center'})` then click by `boundingBox` centre. Also: `git worktree` gets no `node_modules` and a plain symlink fails on Windows without elevation, so every commit "fails" typecheck identically (if *all* results are the same failure, suspect the harness, not the code).
+10. **DANGER — never junction `node_modules` into a git worktree.** The obvious fix for #8 is `New-Item -ItemType Junction` pointing at the real `node_modules`. Do **not**: `git worktree remove --force` (and `rm -rf`) recurse *through* the junction and delete the real directory's contents, wiping the project's install. This has already happened once. To typecheck an old commit, either `npm ci` inside the worktree, or check out the commit in place, or just trust the branch-level check. Recovery is `npm ci` (~2 min) — nothing is lost as long as work is committed, which is a good reason to commit before archaeology.
 
 ## Done
-Persistence + hydration · onboarding (full-screen emotional pages + validation) · symptom-log/cycle-math separation · **full "Editorial" redesign (all screens + component system, light + dark, WCAG AA)** · stroke `Icon` set · glass tab bar · browser-style back/forward · **period logging (`PeriodLoggerScreen`) + cycle context derived from logged entries** · **Tiny Escapes ("Reset"): 7 calming scenes + fullscreen player + adaptive mood-triggered suggestion + check-out loop into AI Insights** · unit tests for `cycleCalculations`, `tinyEscapes`, `kintsugi`, `atmosphere` + contrast audit test · **atmosphere layer (phase- and time-graded live canvas on every screen) + `Surface` variants + scroll context** · **Home recomposed around the ring** · **RN-web `Alert` dead-action fixes (`Notice` + inline confirms)**.
 
-### Redesign — in progress
-The atmosphere pass is the foundation of a larger elevation (handcrafted / alive / emotionally calm, per the Apple-Design-Award brief). **Done:** design system foundation, Home. **Not yet touched — these still use the old uniform-card language internally**, though they inherit the live canvas and header parallax for free: Calendar, Analytics, Mood, Symptoms, Settings, Reset, AI Insights, Period Logger, Onboarding. Outstanding brief items: living mood illustrations with palette-shifting auras, blooming symptom chips, Analytics animated empty states, shared-element transitions.
+Persistence + hydration · onboarding · symptom-log/cycle-math separation ·
+period logging + derived cycle context · Tiny Escapes (7 scenes + player +
+adaptive suggestion + check-out loop) · browser-style back/forward · glass tab
+bar · RN-web `Alert` dead-action fixes · unit tests for `cycleCalculations`,
+`tinyEscapes`, `aquarium`, `reminders`, `atmosphere`, `garden` + the contrast
+audit (**244 tests, typecheck clean**).
+
+### The Bloomly redesign — complete
+
+Brand + colour system (three-value, CVD-audited) · warm canvas + phase-graded
+living atmosphere with drifting petals · **BloomRing** · **TodaysGarden** ·
+**MoodBloom** · **PhaseMark** · **PetalChart** · **PetalBurst** · **Illustration**
+(12 scenes) · **Chip** · **States** · **SplashBloom** · Surface variants + glass ·
+gradient pill Button · Home rebuilt as the signature screen · Mood (nine
+feelings) · Symptoms (grouped + illustrated chips) · Calendar phase silhouettes ·
+6-page onboarding · chart contrast + mark specs · **`docs/BLOOMLY-DESIGN.md`**.
+
+**Screens specified but NOT built** (new features, not redesigns — they need
+product decisions and in two cases a backend; direction is settled in
+`docs/BLOOMLY-DESIGN.md` §15): Sign In, Community, Premium, Journal,
+Notifications centre, Profile.
+
+**One open decision:** `FONT_DISPLAY` resolves to SF Pro Rounded on iOS only.
+Bundling a rounded family (Nunito/Quicksand) via `expo-font` is a one-constant
+change — left as a bundle-size and licensing call rather than made.
 
 ## Not done / next (roadmap order)
 1. **Notifications** — `src/services/notifications.ts` (empty `services/` folder), on-device period/log reminders via `expo-notifications`. Now unblocked: there is real logged data to remind against.

@@ -448,7 +448,8 @@ const styles = StyleSheet.create({
   greetRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: SPACE.h1,
+    // Same clearance as Screen's header — the greeting is this page's title.
+    marginTop: SPACE.h3,
     marginBottom: SPACE.lg,
   },
 

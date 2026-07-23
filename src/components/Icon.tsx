@@ -398,12 +398,18 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
           uterus; bloating is a swell, not an abdomen. A period tracker that
           draws organs at people is a clinic, and this is not one. */}
 
-      {/* Cramps — a tight core with radiating pulses. */}
+      {/* Cramps — a squeeze: a tight core with pressure closing in on it.
+          The first draft was a core with eight radiating rays, which is
+          *geometrically the same drawing as the ovulation sun mark* — and both
+          can appear on a filtered calendar at once. Inward arcs read as
+          pressure rather than emission, which is also the truer sensation. */}
       {name === 'spark' && (
         <>
-          <Circle cx="12" cy="12" r="3.2" {...common} />
-          <Path d="M12 5.5V3.5M12 20.5v-2M18.5 12h2M3.5 12h2" {...common} />
-          <Path d="M16.6 7.4 18 6M6 18l1.4-1.4M16.6 16.6 18 18M6 6l1.4 1.4" {...common} opacity={0.6} />
+          <Circle cx="12" cy="12" r="3.4" {...common} />
+          <Path d="M6.2 7.4A7 7 0 0 0 6.2 16.6" {...common} />
+          <Path d="M17.8 7.4a7 7 0 0 1 0 9.2" {...common} />
+          <Path d="M2.8 5.4A10.5 10.5 0 0 0 2.8 18.6" {...common} opacity={0.5} />
+          <Path d="M21.2 5.4a10.5 10.5 0 0 1 0 13.2" {...common} opacity={0.5} />
         </>
       )}
 

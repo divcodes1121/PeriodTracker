@@ -153,13 +153,14 @@ const MoodTrackerScreen = ({ navigation }: any) => {
             accessibilityLabel="How are you feeling"
           >
             {MOODS.map((m) => (
-              <MoodBloom
-                key={m.key}
-                mood={m.key}
-                selected={mood === m.key}
-                onPress={() => setMood(m.key)}
-                size={78}
-              />
+              <View key={m.key} style={styles.face}>
+                <MoodBloom
+                  mood={m.key}
+                  selected={mood === m.key}
+                  onPress={() => setMood(m.key)}
+                  size={80}
+                />
+              </View>
             ))}
           </View>
         </Surface>
@@ -211,14 +212,14 @@ const MoodTrackerScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  // Wraps to three rows of three on a phone. A 3×3 grid of faces reads as a
-  // palette to choose from; a single scrolling row reads as a slider.
-  faces: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: SPACE.md,
-  },
+  // A 3×3 grid. A grid of faces reads as a palette to choose from; a single
+  // scrolling row reads as a slider.
+  //
+  // The width is explicit rather than left to `space-between`, which packs as
+  // many as fit and put four on a row — orphaning the ninth mood on a line of
+  // its own. Nine items only read as a considered set when they form a square.
+  faces: { flexDirection: 'row', flexWrap: 'wrap', rowGap: SPACE.lg },
+  face: { width: '33.33%', alignItems: 'center' },
   question: { marginBottom: SPACE.lg },
 });
 
