@@ -150,7 +150,10 @@ export const lightPalette: ThemePalette = {
   pillBorder: 'transparent',
   switchTrack: 'rgba(168,68,106,0.16)',
 
-  tabBarBg: 'rgba(255,251,249,0.80)',
+  // 0.88, not 0.80. At the lower value the blurred content scrolling behind
+  // the bar stayed legible enough to read as a *smudge* rather than as frosted
+  // glass — a label sliding under the bar looked like dirt on the screen.
+  tabBarBg: 'rgba(255,251,249,0.88)',
   tabBarBorder: 'rgba(168,68,106,0.07)',
   blurTint: 'light',
 
@@ -201,7 +204,7 @@ export const darkPalette: ThemePalette = {
   pillBorder: 'transparent',
   switchTrack: 'rgba(255,255,255,0.17)',
 
-  tabBarBg: 'rgba(18,14,20,0.80)',
+  tabBarBg: 'rgba(18,14,20,0.88)',
   tabBarBorder: 'rgba(255,255,255,0.08)',
   blurTint: 'dark',
 

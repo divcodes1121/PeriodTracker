@@ -218,10 +218,10 @@ const BloomRing = ({
   // outside them, so the ring still functions as an honest timeline for anyone
   // who wants to read it as one.
   const center = size / 2;
-  const ph = size * 0.3;
+  const ph = size * 0.315;
   const pw = size * 0.135;
   const rBase = size * 0.32;
-  const rTrack = size * 0.47;
+  const rTrack = size * 0.455;
 
   /**
    * Petal specs. Colour comes from the *cycle maths*, not from a hand-written

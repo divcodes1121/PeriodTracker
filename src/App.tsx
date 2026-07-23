@@ -1,4 +1,4 @@
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { RootNavigator } from './navigation/RootNavigator';
 import { navigationRef } from './navigation/navRef';
 import { useNavHistory } from './navigation/useNavHistory';
 import NavControls from './components/NavControls';
+import SplashBloom from './components/SplashBloom';
 import { useTheme } from './theme/useTheme';
 import { COLORS } from './constants';
 import { FONT } from './theme/tokens';
@@ -16,15 +17,24 @@ export default function App() {
   const { showOnboarding, user, hasHydrated } = useAppStore();
   const { colors, isDark } = useTheme();
   const recordHistory = useNavHistory((s) => s.record);
+  const [introDone, setIntroDone] = useState(false);
 
-  // Wait for persisted state to load from disk before deciding which
-  // navigator to show. Otherwise returning users briefly see onboarding.
-  if (!hasHydrated) {
-    return (
-      <View style={[styles.splash, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
+  /**
+   * The splash gate has two conditions, and both matter.
+   *
+   *   hasHydrated  the persisted store has finished loading from disk. Without
+   *                this, a returning user gets a flash of onboarding.
+   *   introDone    the bloom has finished opening.
+   *
+   * Requiring *both* is deliberate. Hydration usually wins the race, and
+   * dismissing the splash the instant it lands would cut the flower off
+   * mid-open — a half-finished animation reads as a glitch, where a completed
+   * one reads as an intro. The extra few hundred milliseconds buy the whole
+   * first impression. If hydration is the slower of the two, the bloom simply
+   * rests open until it arrives.
+   */
+  if (!hasHydrated || !introDone) {
+    return <SplashBloom onDone={() => setIntroDone(true)} />;
   }
 
   return (
@@ -65,7 +75,3 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  splash: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-});

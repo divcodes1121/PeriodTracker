@@ -25,46 +25,65 @@ import TextField from '../components/TextField';
 import DateField from '../components/DateField';
 import Icon, { IconName } from '../components/Icon';
 import Surface from '../components/Surface';
-import OnboardingArt, { ArtName } from '../components/OnboardingArt';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Illustration, { IllustrationName } from '../components/Illustration';
 import { useTheme } from '../theme/useTheme';
 import { useAppStore } from '../store/appStore';
 import { User } from '../types';
 import { validateCycleInfo } from '../utils/cycleCalculations';
-import { ONBOARDING_STEPS, COLORS } from '../constants';
+import { ONBOARDING_STEPS, COLORS, BLOOM, TAGLINE } from '../constants';
 import { SPACE, MOTION, MIN_TAP, RADIUS, TABULAR } from '../theme/tokens';
 import { CONTENT_MAX_WIDTH } from '../utils/responsive';
 
-/** Copy per step. Minimal words; the illustration carries the feeling. */
-const PAGES: { art: ArtName; title: string; body: string }[] = [
+/**
+ * The six pages.
+ *
+ * ── Voice ─────────────────────────────────────────────────────────────────
+ *
+ * Onboarding is where an app tells you what it thinks of you. Bloomly's rule
+ * for these six screens: **every page either explains a benefit or asks for
+ * exactly one thing, and it never does both.**
+ *
+ * Two consequences worth keeping:
+ *
+ *   • The data-collection pages say *why* before they ask. "This anchors
+ *     everything else" earns the date field; a bare label does not.
+ *   • The privacy page makes a concrete promise ("no account, no upload"),
+ *     not a reassuring adjective. Anyone can write "we take privacy
+ *     seriously"; only a local-only app can say nothing leaves the device.
+ *
+ * Illustration carries the feeling so the copy can stay short.
+ */
+const PAGES: { art: IllustrationName; title: string; body: string }[] = [
   {
-    art: 'cycle',
-    title: 'Know your rhythm',
-    body: 'Meaningful insights from your own body, not from averages.',
+    art: 'bloom',
+    title: 'Welcome to Bloomly',
+    body: TAGLINE,
   },
   {
-    art: 'profile',
-    title: 'A little about you',
-    body: 'Only what is needed to make predictions accurate.',
+    art: 'calendar',
+    title: 'Track your cycle',
+    body: 'Your predictions come from your own logs, not from an average of strangers.',
   },
   {
-    art: 'rhythm',
-    title: 'Your rhythm',
-    body: 'Every cycle is different. Tell us roughly what yours looks like.',
+    art: 'sunrise',
+    title: 'Understand your body',
+    body: 'Four phases, each with its own energy. Bloomly shows you where you are in yours.',
   },
   {
-    art: 'moment',
-    title: 'Where you are now',
-    body: 'When did your last period start? This anchors everything else.',
+    art: 'butterfly',
+    title: 'Moods and symptoms',
+    body: 'Log a feeling in one tap. Patterns you would never spot alone start to show up.',
   },
   {
-    art: 'privacy',
+    art: 'shield',
     title: 'Private by design',
-    body: 'This is health data. It is treated like it.',
+    body: 'Everything stays on this device. No account, no upload, no ads, no trackers.',
   },
   {
-    art: 'ready',
-    title: 'You are all set',
-    body: 'Log your first period whenever you are ready, and the picture sharpens from there.',
+    art: 'teacup',
+    title: 'A moment for you',
+    body: 'Seven calm scenes for when a day gets heavy. No scores, no streaks, no timer judging you.',
   },
 ];
 
@@ -95,14 +114,31 @@ const Orb = memo(function Orb({
   const style = useAnimatedStyle(() => ({
     transform: [{ translateX: t.value * dx }, { translateY: t.value * dy }, { scale: 1 + t.value * 0.08 }],
   }));
+  /**
+   * A radial gradient, not a flat circle with a border radius.
+   *
+   * This was a solid `backgroundColor` disc. An even fill has a hard edge no
+   * matter how low its alpha, so at full-screen scale it read as a giant pink
+   * *plate* laid over the page rather than as light in the room — the same
+   * mistake the Bloom Ring's halo made, caught the same way (by looking at a
+   * screenshot). A gradient that falls to zero opacity has no edge to see.
+   */
   return (
     <Animated.View
       pointerEvents="none"
-      style={[
-        { position: 'absolute', left: x, top: y, width: size, height: size, borderRadius: size / 2, backgroundColor: color },
-        style,
-      ]}
-    />
+      style={[{ position: 'absolute', left: x, top: y, width: size, height: size }, style]}
+    >
+      <Svg width={size} height={size}>
+        <Defs>
+          <RadialGradient id={`onb-orb-${x}-${y}`} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={color} stopOpacity={1} />
+            <Stop offset="0.55" stopColor={color} stopOpacity={0.45} />
+            <Stop offset="1" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#onb-orb-${x}-${y})`} />
+      </Svg>
+    </Animated.View>
   );
 });
 
@@ -268,28 +304,64 @@ function DialButton({
 
 /* ------------------------------ Progress dots ----------------------------- */
 
+/**
+ * Progress, as a row of petals.
+ *
+ * ── A design decision that got reversed, and why ──────────────────────────
+ *
+ * The first version of this was a *rosette*: six petals arranged in a ring
+ * that filled as you advanced, so by the final page the indicator became the
+ * Bloomly mark. It read beautifully in description and failed on the device.
+ *
+ * Two reasons, both instructive:
+ *
+ *   1. **Progress is inherently linear and a ring is not.** "Step 2 of 6" is a
+ *      position along a path. A ring has no start, so the eye cannot tell 2/6
+ *      from 5/6 without counting — which is exactly the work a progress
+ *      indicator exists to remove.
+ *   2. At the ~50px a header allows, six petals around a hub is *smaller than
+ *      the smallest legible flower*. It landed as a stray asterisk near the
+ *      top of the page, which is worse than no indicator at all.
+ *
+ * So: a row. Left to right, filled behind you, folded ahead — the same
+ * vocabulary as the Bloom Ring, in the one geometry that suits the job.
+ * Brand should lose to legibility every time it is a real contest, and this
+ * was one.
+ */
 function Dots({ count, active }: { count: number; active: number }) {
-  const { colors: c } = useTheme();
   return (
-    <View style={styles.dots}>
+    <View
+      style={styles.dots}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 1, max: count, now: active + 1 }}
+      accessibilityLabel={`Step ${active + 1} of ${count}`}
+    >
       {Array.from({ length: count }).map((_, i) => (
-        <Dot key={i} on={i === active} done={i < active} dim={c.fillStrong} />
+        <ProgressPetal key={i} on={i === active} done={i < active} />
       ))}
     </View>
   );
 }
 
-function Dot({ on, done, dim }: { on: boolean; done: boolean; dim: string }) {
-  const w = useSharedValue(on ? 22 : 6);
+function ProgressPetal({ on, done }: { on: boolean; done: boolean }) {
+  const open = useSharedValue(on ? 1 : 0);
+
   useEffect(() => {
-    w.value = withSpring(on ? 22 : 6, MOTION.spring);
-  }, [on, w]);
-  const style = useAnimatedStyle(() => ({ width: w.value }));
+    open.value = withSpring(on ? 1 : 0, MOTION.springBloom);
+  }, [on, open]);
+
+  // The current step's petal stands taller and fuller; completed ones stay
+  // coloured but small; upcoming ones are pale slivers.
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scaleY: 0.62 + open.value * 0.38 }, { scaleX: 0.7 + open.value * 0.3 }],
+    opacity: done ? 0.75 : 0.3 + open.value * 0.7,
+  }));
+
   return (
     <Animated.View
       style={[
-        styles.dot,
-        { backgroundColor: on || done ? COLORS.primary : dim, opacity: done && !on ? 0.4 : 1 },
+        styles.progressPetal,
+        { backgroundColor: on || done ? COLORS.primaryDeep : BLOOM.rose.pastel },
         style,
       ]}
     />
@@ -566,7 +638,7 @@ const OnboardingScreen = () => {
               style={styles.page}
             >
               <View style={styles.art}>
-                <OnboardingArt name={page.art} size={compact ? 170 : 224} />
+                <Illustration name={page.art} size={compact ? 168 : 216} />
               </View>
 
               <Text variant={step === 0 ? 'display' : 'title1'} style={styles.title}>
@@ -632,8 +704,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  dots: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  dot: { height: 6, borderRadius: 3 },
+  // The petal rosette. Absolute children rotating about a shared centre, so
+  // the progress indicator is one small flower rather than a row of marks.
+  dots: { flexDirection: 'row', gap: 7, alignItems: 'center' },
+  progressPetal: { width: 8, height: 18, borderTopLeftRadius: 8, borderTopRightRadius: 8, borderBottomLeftRadius: 8, borderBottomRightRadius: 8 },
 
   page: { paddingTop: SPACE.h2, paddingBottom: SPACE.xxl },
   art: { alignItems: 'center', marginBottom: SPACE.h1 },

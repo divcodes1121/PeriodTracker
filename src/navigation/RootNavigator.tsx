@@ -22,7 +22,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import ResetScreen from '../screens/ResetScreen';
 import EscapePlayerScreen from '../screens/EscapePlayerScreen';
 
-import { COLORS } from '../constants';
+import { COLORS, GLASS } from '../constants';
 
 const TAB_ICON: Record<string, IconName> = {
   Home: 'home',
@@ -138,7 +138,7 @@ function MainTabs() {
         // The one place glass earns its keep: content scrolls under the bar.
         tabBarBackground: () => (
           <BlurView
-            intensity={24}
+            intensity={GLASS.intensity}
             tint={colors.blurTint}
             style={[
               StyleSheet.absoluteFill,
