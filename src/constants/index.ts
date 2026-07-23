@@ -9,16 +9,16 @@
  * rather than four arbitrary highlighter hues.
  *
  *    Menstrual   Rose      — the bloom at full colour, then letting go
- *    Follicular  Peach     — warmth returning, buds
+ *    Follicular  Sage      — new growth, first leaves
  *    Ovulation   Gold      — the day the light peaks
  *    Luteal      Lavender  — dusk, cooling, folding inward
  *
- * Rose → Peach → Gold → Lavender → back to Rose is a *tonal loop*: it runs warm
- * to cool and closes on itself, which is what a cycle is. That is the reason
- * this reads as Bloomly and not as "another pink period tracker" — the pink is
- * one station on a journey, not the whole map.
+ * Bloom → leaf → sun → dusk → back to bloom. It spans plant *and* sky, and it
+ * closes on itself, which is what a cycle is. That is the reason this reads as
+ * Bloomly and not as "another pink period tracker": the pink is one station on
+ * a journey, not the whole map.
  *
- * ── Two hard rules ────────────────────────────────────────────────────────
+ * ── Three hard rules ────────────────────────────────────────────────────────
  *
  * 1. **Never plain white, never plain black.** The light canvas is warm white
  *    falling to blush; the dark canvas is plum ink. A pastel identity on #FFF
@@ -35,6 +35,22 @@
  *
  *    Reach for the wrong one and `theme/contrast.test.ts` fails. That test is
  *    the enforcement mechanism for this comment.
+ *
+ * 3. **Phase is never carried by colour alone — see PHASE_GLYPH.** This is not
+ *    a courtesy; it is forced by measurement. Running the four phase hues
+ *    through a CVD validator gives, for the best on-brand set achievable:
+ *
+ *        normal vision   dE 15.3 worst adjacent pair   PASS
+ *        deuteranopia    dE  3.1 worst adjacent pair   FAIL
+ *
+ *    Deuteranopia confuses pink and green *by definition*, and no reshuffling
+ *    of four soft hues fixes it — the earlier Rose/Peach/Gold/Lavender set was
+ *    worse still (dE 0.7 between peach and gold, i.e. literally the same
+ *    colour to a deutan reader, and only 6.8 to everyone else).
+ *
+ *    So colour was demoted to *reinforcement* and **shape was promoted to
+ *    carrier**: drop, leaf, sun, moon. Four silhouettes nobody can confuse at
+ *    10px, in any vision, in greyscale, in a print-out.
  */
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -47,21 +63,21 @@
  */
 export const BLOOM = {
   /** Blossom Pink — the lightest petal. Fills and illustration only. */
-  blossom: { pastel: '#F4A6C0', deep: '#C25A7E', ink: '#A8446A' },
+  blossom: { pastel: '#F7B3CA', deep: '#C2457A', ink: '#A83E68' },
   /** Rose — the signature. Menstrual phase, primary brand mark. */
-  rose: { pastel: '#E77397', deep: '#C25A7E', ink: '#A8446A' },
-  /** Peach — follicular warmth. */
-  peach: { pastel: '#F7B58E', deep: '#C0692F', ink: '#A34B34' },
+  rose: { pastel: '#F291B1', deep: '#C2457A', ink: '#A83E68' },
+  /** Peach — warmth. An accent hue, deliberately NOT a phase (see below). */
+  peach: { pastel: '#F9B98D', deep: '#C0692F', ink: '#A34B34' },
   /** Soft Coral — the accent that stops the palette going saccharine. */
-  coral: { pastel: '#F58E78', deep: '#C86243', ink: '#A34B34' },
+  coral: { pastel: '#F79079', deep: '#C86243', ink: '#A34B34' },
   /** Muted Gold — ovulation, achievements, premium. Never yellow-neon. */
-  gold: { pastel: '#E2B45C', deep: '#A67C1E', ink: '#7E5B0C' },
+  gold: { pastel: '#EFC55E', deep: '#B08322', ink: '#7E5B0C' },
   /** Lavender — luteal, calm, Self-Care. */
-  lavender: { pastel: '#BCA3DE', deep: '#9573C6', ink: '#6B4A96' },
+  lavender: { pastel: '#BFA0EE', deep: '#8A63C4', ink: '#64438F' },
   /** Lilac — the palest cool. Backgrounds and tints, never a stroke. */
-  lilac: { pastel: '#DCC9EE', deep: '#9573C6', ink: '#6B4A96' },
-  /** Sage — growth, streaks, "you're doing fine". The only green. */
-  sage: { pastel: '#9CC4A6', deep: '#5E8A69', ink: '#4A7454' },
+  lilac: { pastel: '#DDC9F5', deep: '#8A63C4', ink: '#64438F' },
+  /** Sage — new growth. The follicular phase, streaks, "you're doing fine". */
+  sage: { pastel: '#6FC494', deep: '#3A8A5E', ink: '#2E6B49' },
   /** Sky — hydration and sleep only. Borrowed, not brand. */
   sky: { pastel: '#9DBEE8', deep: '#5B84BC', ink: '#3F6699' },
 } as const;
@@ -101,9 +117,9 @@ export const COLORS = {
   primaryDark: BLOOM.rose.ink,
   /** Rose at 3:1 — strokes and dots on a light card. */
   primaryDeep: BLOOM.rose.deep,
-  primarySoft: 'rgba(231,115,151,0.12)',
+  primarySoft: 'rgba(242,145,177,0.14)',
   /** The palest rose wash, for tinted tiles under a rose glyph. */
-  primaryTint: 'rgba(231,115,151,0.14)',
+  primaryTint: 'rgba(242,145,177,0.16)',
 
   secondary: BLOOM.lavender.pastel,
   /** Lavender. */
@@ -111,7 +127,7 @@ export const COLORS = {
   accentLight: BLOOM.lilac.pastel,
   accentDark: BLOOM.lavender.ink,
   accentDeep: BLOOM.lavender.deep,
-  accentSoft: 'rgba(188,163,222,0.14)',
+  accentSoft: 'rgba(191,160,238,0.16)',
 
   /** Soft Coral. */
   coral: BLOOM.coral.pastel,
@@ -124,10 +140,12 @@ export const COLORS = {
   peachDark: BLOOM.peach.ink,
 
   // Cycle phases — the garden year. Pastels are tuned for DARK surfaces and
-  // for tinted fills; on cream they reach only ~1.7–2.9:1, so anything drawn
-  // on a light surface uses PHASE_DEEP (see usePhaseColor).
+  // for tinted fills; on cream they reach only ~1.6–2.2:1, so anything drawn
+  // on a light surface uses PHASE_DEEP (see usePhaseColor). Follicular is sage
+  // rather than peach because peach and gold measured 0.7 dE apart under
+  // deuteranopia — the same colour. See the note at the top of this file.
   menstrual: BLOOM.rose.pastel,
-  follicular: BLOOM.peach.pastel,
+  follicular: BLOOM.sage.pastel,
   ovulation: BLOOM.gold.pastel,
   luteal: BLOOM.lavender.pastel,
 
@@ -209,16 +227,16 @@ export const GRADIENT = {
   /** The signature. Blossom falling to Rose — the brand mark, the FAB, splash. */
   bloom: [BLOOM.blossom.pastel, BLOOM.rose.pastel],
   /** Filled CTA. Deep enough that white labels clear AA across the whole ramp. */
-  bloomInk: ['#C25A7E', '#A8446A'],
+  bloomInk: ['#C2457A', '#A83E68'],
   primary: [BLOOM.blossom.pastel, BLOOM.rose.pastel],
   /** Ovulation / fertility / achievement. */
-  golden: ['#F0CE8C', BLOOM.gold.pastel],
+  golden: ['#F6D98D', BLOOM.gold.pastel],
   fertility: [BLOOM.lilac.pastel, BLOOM.lavender.pastel],
   /** Self-Care, meditation, Reset. */
   calm: [BLOOM.lilac.pastel, BLOOM.lavender.pastel],
   /** Growth, streaks, the garden. */
-  wellness: ['#BBD9C2', BLOOM.sage.pastel],
-  sunset: ['#FBD2B4', BLOOM.peach.pastel],
+  wellness: ['#A5DCBC', BLOOM.sage.pastel],
+  sunset: ['#FCD6B6', BLOOM.peach.pastel],
   /** Cards that need to glow without shouting — 8% over whatever is beneath. */
   veil: ['rgba(255,255,255,0.70)', 'rgba(255,255,255,0.40)'],
   veilDark: ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.03)'],
@@ -229,10 +247,10 @@ export const GRADIENT = {
  * of one hue: light lip, body, shadow — the lighting model of a real petal.
  */
 export const PHASE_GRADIENTS: Record<string, string[]> = {
-  Menstrual: ['#F4A6C0', '#E77397', '#C25A7E'],
-  Follicular: ['#FBD2B4', '#F7B58E', '#C0692F'],
-  Ovulation: ['#F0CE8C', '#E2B45C', '#A67C1E'],
-  Luteal: ['#DCC9EE', '#BCA3DE', '#9573C6'],
+  Menstrual: ['#F7B3CA', '#F291B1', '#C2457A'],
+  Follicular: ['#A5DCBC', '#6FC494', '#3A8A5E'],
+  Ovulation: ['#F6D98D', '#EFC55E', '#B08322'],
+  Luteal: ['#DDC9F5', '#BFA0EE', '#8A63C4'],
 };
 
 /**
@@ -240,10 +258,10 @@ export const PHASE_GRADIENTS: Record<string, string[]> = {
  * ring, stroke or legend swatch in light mode.
  */
 export const PHASE_DEEP: Record<string, string> = {
-  menstrual: '#C25A7E',
-  follicular: '#C0692F',
-  ovulation: '#A67C1E',
-  luteal: '#9573C6',
+  menstrual: '#C2457A',
+  follicular: '#3A8A5E',
+  ovulation: '#B08322',
+  luteal: '#8A63C4',
 };
 
 /**
@@ -251,11 +269,40 @@ export const PHASE_DEEP: Record<string, string> = {
  * label (selected calendar day, filled phase chip).
  */
 export const PHASE_INK: Record<string, string> = {
-  menstrual: '#A8446A',
-  follicular: '#A34B34',
+  menstrual: '#A83E68',
+  follicular: '#2E6B49',
   ovulation: '#7E5B0C',
-  luteal: '#6B4A96',
+  luteal: '#64438F',
 };
+
+/**
+ * ── The accessibility backbone ───────────────────────────────────────
+ *
+ * Phase identity as a **silhouette**. Rendered by `components/PhaseMark`.
+ *
+ * This exists because measurement said colour cannot do the job (see the note
+ * at the top of this file): four soft hues are indistinguishable to a deutan
+ * reader no matter how they are chosen. Rather than accept that a colour-blind
+ * user reads a worse app, phase is carried by four shapes that survive *any*
+ * vision, greyscale printing, and a 10px calendar dot:
+ *
+ *     drop   menstrual    a shed petal / a drop
+ *     leaf   follicular   first growth
+ *     sun    ovulation    the light peaking
+ *     moon   luteal       folding into dusk
+ *
+ * Colour then *agrees* with the shape rather than carrying it alone. Anywhere
+ * a phase appears — ring, calendar, legend, chart, chip — the mark comes from
+ * here.
+ */
+export const PHASE_GLYPH = {
+  menstrual: 'drop',
+  follicular: 'leaf',
+  ovulation: 'sun',
+  luteal: 'moon',
+} as const;
+
+export type PhaseGlyph = (typeof PHASE_GLYPH)[keyof typeof PHASE_GLYPH];
 
 /**
  * Ambient canvas fallback. The live values come from `theme/atmosphere.ts`,

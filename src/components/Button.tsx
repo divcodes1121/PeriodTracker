@@ -1,11 +1,17 @@
-import { ReactNode } from 'react';
 import { Pressable, StyleProp, ViewStyle, View, StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import Text from './Text';
 import Icon, { IconName } from './Icon';
 import { useTheme } from '../theme/useTheme';
-import { COLORS } from '../constants';
+import { COLORS, GRADIENT } from '../constants';
 import { RADIUS, SPACE, MOTION, SHADOW, SHADOW_DARK, MIN_TAP } from '../theme/tokens';
 
 type Variant = 'primary' | 'secondary' | 'tinted' | 'plain';
@@ -20,18 +26,30 @@ interface ButtonProps {
   iconRight?: IconName;
   disabled?: boolean;
   fullWidth?: boolean;
-  /** Overrides the accent used by `primary`/`tinted` (e.g. a phase color). */
+  /** Overrides the accent used by `primary`/`tinted` (e.g. a phase colour). */
   accent?: string;
   style?: StyleProp<ViewStyle>;
-  children?: ReactNode;
 }
 
 /**
- * The one button. Sizes are restrained — the brief calls for elegance, so
- * even `lg` is 54pt rather than the chunky 60pt+ of a template app.
+ * The one button.
  *
- * Press feedback is a spring scale plus a selection haptic; there is no ripple
- * because the editorial language expresses touch through motion, not ink.
+ * ── Three decisions worth keeping ─────────────────────────────────────────
+ *
+ * **Pill, not rounded rectangle.** At `RADIUS.pill` the button stops reading
+ * as a container and starts reading as an object you can pick up. It is also
+ * the single strongest shape cue tying the button to the chips, the FAB and
+ * the tab pills — one family, one silhouette.
+ *
+ * **Primary is a gradient, and the gradient is tonal.** Blossom→Rose ink, two
+ * values of one hue. It reads as a lit surface rather than as a colour ramp,
+ * and both ends clear 4.5:1 under a white label — the whole reason the ink
+ * values exist. Passing a custom `accent` opts out of the gradient and into a
+ * flat fill, and the caller then owns its contrast.
+ *
+ * **The press is a squash, not a fade.** Scale down slightly and let the
+ * shadow soften at the same time, so the button appears to be pushed toward
+ * the page. Opacity alone reads as "disabled", which is the opposite message.
  */
 const Button = ({
   label,
@@ -48,15 +66,16 @@ const Button = ({
   const { colors: c, isDark } = useTheme();
   const shadows = isDark ? SHADOW_DARK : SHADOW;
   const press = useSharedValue(0);
-  // Default fill is the deep rose: white-on-Rose-Quartz is only 2.87:1 and
-  // would fail AA for the label. Callers passing `accent` (e.g. a phase color)
-  // are responsible for its own contrast.
-  const tint = accent ?? COLORS.primaryDark;
 
-  const height = size === 'lg' ? 54 : MIN_TAP;
+  // Default fill is the rose *ink*: white on the rose pastel is only 2.9:1 and
+  // would fail AA for the label. A caller passing `accent` owns its contrast.
+  const tint = accent ?? COLORS.primaryDark;
+  const gradient = !accent && variant === 'primary';
+
+  const height = size === 'lg' ? 56 : MIN_TAP;
 
   const surface: Record<Variant, ViewStyle> = {
-    primary: { backgroundColor: tint, ...shadows.sm },
+    primary: { backgroundColor: gradient ? 'transparent' : tint, ...shadows.md },
     secondary: { backgroundColor: c.card, ...shadows.sm },
     tinted: { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : `${tint}1A` },
     plain: { backgroundColor: 'transparent' },
@@ -65,13 +84,20 @@ const Button = ({
   const labelColor: Record<Variant, string> = {
     primary: c.onAccent,
     secondary: c.text,
-    tinted: isDark ? c.text : COLORS.primaryDark,
-    plain: COLORS.primaryDark,
+    tinted: isDark ? c.text : tint,
+    plain: tint,
   };
 
   const animated = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - press.value * 0.02 }],
-    opacity: 1 - press.value * 0.06,
+    transform: [{ scale: 1 - press.value * 0.024 }],
+    // Shadow softens with the squash so the button reads as pressed *into* the
+    // page rather than merely shrinking.
+    shadowOpacity: interpolate(
+      press.value,
+      [0, 1],
+      [(surface[variant].shadowOpacity as number) ?? 0, 0.04],
+      Extrapolation.CLAMP
+    ),
   }));
 
   return (
@@ -98,6 +124,14 @@ const Button = ({
           animated,
         ]}
       >
+        {gradient ? (
+          <LinearGradient
+            colors={GRADIENT.bloomInk as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         <View style={styles.row}>
           {icon && <Icon name={icon} size={19} color={labelColor[variant]} />}
           <Text variant="button" color={labelColor[variant]} numberOfLines={1}>
@@ -112,10 +146,11 @@ const Button = ({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACE.xxl,
+    overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
 });

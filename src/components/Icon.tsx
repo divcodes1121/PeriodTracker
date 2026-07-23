@@ -58,7 +58,21 @@ export type IconName =
   | 'aurora'
   | 'fish'
   | 'dandelion'
-  | 'breathe';
+  | 'breathe'
+  // Symptoms — sensations, not organs.
+  | 'spark'
+  | 'headache'
+  | 'back'
+  | 'bloat'
+  | 'wave'
+  | 'acne'
+  | 'cherry'
+  | 'petal'
+  // Navigation & features
+  | 'book'
+  | 'hand'
+  | 'trophy'
+  | 'user';
 
 interface IconProps {
   name: IconName;
@@ -369,6 +383,120 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
         <>
           <Circle cx="12" cy="12" r="3" {...common} />
           <Circle cx="12" cy="12" r="8.5" {...common} opacity={0.55} />
+        </>
+      )}
+
+      {/* ── Symptom set ───────────────────────────────────────────────────
+          Every symptom needs a glyph that reads at 20pt without being a
+          medical pictogram. The trick throughout is to draw the *sensation*
+          rather than the body part: cramps are a radiating pulse, not a
+          uterus; bloating is a swell, not an abdomen. A period tracker that
+          draws organs at people is a clinic, and this is not one. */}
+
+      {/* Cramps — a tight core with radiating pulses. */}
+      {name === 'spark' && (
+        <>
+          <Circle cx="12" cy="12" r="3.2" {...common} />
+          <Path d="M12 5.5V3.5M12 20.5v-2M18.5 12h2M3.5 12h2" {...common} />
+          <Path d="M16.6 7.4 18 6M6 18l1.4-1.4M16.6 16.6 18 18M6 6l1.4 1.4" {...common} opacity={0.6} />
+        </>
+      )}
+
+      {/* Headache — a brow line with pressure arcs at the temple. */}
+      {name === 'headache' && (
+        <>
+          <Path d="M6.5 20v-3a5.5 5.5 0 0 1 11 0v3" {...common} />
+          <Path d="M9 12.5h6" {...common} opacity={0.7} />
+          <Path d="M5 7.5 3 6M19 7.5 21 6M12 5.5v-2" {...common} />
+        </>
+      )}
+
+      {/* Back pain — a spine with a flare at the base. */}
+      {name === 'back' && (
+        <>
+          <Path d="M12 3.5c-2 3-2 5.5 0 8.5s2 5.5 0 8.5" {...common} />
+          <Path d="M9.5 6.5h5M9 11h5.5M9.5 15.5h5" {...common} opacity={0.7} />
+          <Path d="M18 13.5 20 12.5M18 16.5l2 1" {...common} />
+        </>
+      )}
+
+      {/* Bloating — a swell, drawn as a widening arc pair. */}
+      {name === 'bloat' && (
+        <>
+          <Path d="M12 4.5c-4.5 0-7.5 3.4-7.5 7.5S7.5 19.5 12 19.5s7.5-3.4 7.5-7.5S16.5 4.5 12 4.5" {...common} />
+          <Path d="M8 11c1.4-1.4 2.6-1.4 4 0s2.6 1.4 4 0" {...common} opacity={0.65} />
+          <Path d="M8.5 15c1.2-1.2 2.2-1.2 3.5 0s2.3 1.2 3.5 0" {...common} opacity={0.45} />
+        </>
+      )}
+
+      {/* Nausea — an unsettled wave. */}
+      {name === 'wave' && (
+        <>
+          <Path d="M3 9c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0" {...common} />
+          <Path d="M3 15c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0" {...common} opacity={0.6} />
+        </>
+      )}
+
+      {/* Acne — a cheek curve with three marks. */}
+      {name === 'acne' && (
+        <>
+          <Path d="M5 4.5c-1 5-1 10 0 15 5 1.6 9 1.6 14 0 1-5 1-10 0-15-5-1.6-9-1.6-14 0Z" {...common} />
+          <Circle cx="9.5" cy="10" r="1.3" {...common} />
+          <Circle cx="14.5" cy="13.5" r="1.6" {...common} />
+          <Circle cx="15" cy="8" r="1" {...common} opacity={0.6} />
+        </>
+      )}
+
+      {/* Cravings — a cherry pair. Softer than a chocolate bar and it scales. */}
+      {name === 'cherry' && (
+        <>
+          <Circle cx="8" cy="17" r="3.5" {...common} />
+          <Circle cx="16.5" cy="18" r="3" {...common} />
+          <Path d="M8 13.5c1-5 4-8 8-9M16.5 15c-.5-3.6.5-6.6 3-9" {...common} />
+          <Path d="M13 5.5c2-1.6 4-1.6 6 .5-2 1.6-4 1.6-6-.5Z" {...common} opacity={0.65} />
+        </>
+      )}
+
+      {/* Mood swings — a single petal. Used wherever "feelings" is the group. */}
+      {name === 'petal' && (
+        <>
+          <Path d="M12 3c4.4 3.6 6.5 6.6 6.5 9.5A6.5 6.5 0 0 1 12 19a6.5 6.5 0 0 1-6.5-6.5C5.5 9.6 7.6 6.6 12 3Z" {...common} />
+          <Path d="M12 8.5v7" {...common} opacity={0.5} />
+        </>
+      )}
+
+      {/* Journal — a bound notebook with a ribbon. */}
+      {name === 'book' && (
+        <>
+          <Path d="M5 4.5h11a3 3 0 0 1 3 3v12H8a3 3 0 0 0-3 3Z" {...common} />
+          <Path d="M5 4.5v15" {...common} />
+          <Path d="M13.5 4.5v7l2-1.5 2 1.5v-7" {...common} opacity={0.7} />
+        </>
+      )}
+
+      {/* Self-care — an open hand cupping a small bloom. */}
+      {name === 'hand' && (
+        <>
+          <Path d="M4.5 12.5c0 4.4 3.4 7.5 7.5 7.5s7.5-3.1 7.5-7.5" {...common} />
+          <Circle cx="12" cy="7" r="2.6" {...common} />
+          <Path d="M12 9.6v3" {...common} opacity={0.6} />
+        </>
+      )}
+
+      {/* Trophy — achievements. Muted gold, never a game badge. */}
+      {name === 'trophy' && (
+        <>
+          <Path d="M7.5 4h9v5.5a4.5 4.5 0 0 1-9 0Z" {...common} />
+          <Path d="M7.5 5.5H5A2.5 2.5 0 0 0 5 10.5h1M16.5 5.5H19a2.5 2.5 0 0 1 0 5h-1" {...common} />
+          <Path d="M12 14v3.5M8.5 20.5h7" {...common} />
+        </>
+      )}
+
+      {/* User — profile. */}
+      {name === 'user' && (
+        <>
+          <Circle cx="12" cy="8" r="3.8" {...common} />
+          <Path d="M4.5 20.5c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5" {...common} />
         </>
       )}
     </Svg>

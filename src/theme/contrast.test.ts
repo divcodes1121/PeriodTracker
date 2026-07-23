@@ -1,5 +1,5 @@
 import { lightPalette, darkPalette } from './palette';
-import { COLORS, PHASE_DEEP, PHASE_INK, INK, DEEP, BLOOM, BloomHue } from '../constants';
+import { COLORS, PHASE_DEEP, PHASE_INK, PHASE_GLYPH, INK, DEEP, BLOOM, BloomHue } from '../constants';
 
 /**
  * WCAG AA contrast audit for the palette.
@@ -132,6 +132,44 @@ describe('Rose usage guard', () => {
     // Documents the constraint that shaped the palette: if this ever passes,
     // the brand color changed and Button/Toggle should be revisited.
     expect(contrast('#FFFFFF', COLORS.primary)).toBeLessThan(TEXT);
+  });
+});
+
+/**
+ * The colour-blind backbone.
+ *
+ * Bloomly's phase hues measurably FAIL deuteranopia separation (ΔE 3.1 worst
+ * adjacent pair) and no arrangement of four soft hues passes — deuteranopia
+ * collapses pink and green by definition. Rather than ship a worse app to
+ * colour-blind users, phase identity was moved onto four silhouettes.
+ *
+ * These tests are what stop someone quietly reverting to coloured dots.
+ */
+describe('phase identity does not depend on colour', () => {
+  const phases = ['menstrual', 'follicular', 'ovulation', 'luteal'] as const;
+
+  it('gives every phase its own glyph', () => {
+    const glyphs = phases.map((p) => PHASE_GLYPH[p]);
+    expect(new Set(glyphs).size).toBe(phases.length);
+  });
+
+  it('covers every phase — a missing glyph would silently fall back to colour', () => {
+    for (const p of phases) {
+      expect(PHASE_GLYPH[p]).toBeTruthy();
+    }
+  });
+
+  it('records the four expected silhouettes', () => {
+    // Pinned by name because the *specific* shapes were chosen to be
+    // unconfusable: a radial burst, a crescent, a teardrop and a leaf share no
+    // silhouette family. Swapping one for, say, a second round shape would
+    // pass the distinctness test above while quietly undoing the point.
+    expect(PHASE_GLYPH).toEqual({
+      menstrual: 'drop',
+      follicular: 'leaf',
+      ovulation: 'sun',
+      luteal: 'moon',
+    });
   });
 });
 
