@@ -20,6 +20,8 @@ import PeriodLoggerScreen from '../screens/PeriodLoggerScreen';
 import AIInsightsScreen from '../screens/AIInsightsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import ResetScreen from '../screens/ResetScreen';
+import TodaysCareScreen from '../screens/TodaysCareScreen';
+import ExercisePlayerScreen from '../screens/ExercisePlayerScreen';
 import EscapePlayerScreen from '../screens/EscapePlayerScreen';
 
 import { COLORS, GLASS } from '../constants';
@@ -70,6 +72,8 @@ function HomeStack() {
       <Stack.Screen name="SymptomLogger" component={SymptomLoggerScreen} />
       <Stack.Screen name="MoodTracker" component={MoodTrackerScreen} />
       <Stack.Screen name="Reset" component={ResetScreen} />
+      <Stack.Screen name="TodaysCare" component={TodaysCareScreen} />
+      <Stack.Screen name="ExercisePlayer" component={ExercisePlayerScreen} />
       <Stack.Screen name="Calendar" component={CalendarScreen} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} />
       <Stack.Screen name="AIInsights" component={AIInsightsScreen} />

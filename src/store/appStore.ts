@@ -12,6 +12,7 @@ import {
   SymptomLog,
   ResetSession,
 } from '../types';
+import { CheckIn } from '../care/types';
 
 const isSameCalendarDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
@@ -44,6 +45,14 @@ interface AppStore {
   // Tiny Escapes sessions (with post-session check-outs)
   resetSessions: ResetSession[];
   addResetSession: (session: ResetSession) => void;
+
+  /**
+   * Today's Care check-ins. One per calendar day — `upsertCareCheckIn` replaces
+   * the day's entry rather than appending, so re-doing a check-in corrects it
+   * instead of creating a second, contradictory record of the same day.
+   */
+  careCheckIns: CheckIn[];
+  upsertCareCheckIn: (checkIn: CheckIn) => void;
 
   // Mood Entries
   moodEntries: MoodEntry[];
@@ -166,6 +175,24 @@ export const useAppStore = create<AppStore>()(
       addResetSession: (session) =>
         set((state) => ({ resetSessions: [...state.resetSessions, session] })),
 
+      careCheckIns: [],
+      upsertCareCheckIn: (checkIn) =>
+        set((state) => {
+          const sameDay = (a: Date, b: Date) =>
+            a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate();
+          const existing = state.careCheckIns.find((c) => sameDay(c.date, checkIn.date));
+          if (existing) {
+            return {
+              careCheckIns: state.careCheckIns.map((c) =>
+                c.id === existing.id ? { ...checkIn, id: existing.id } : c
+              ),
+            };
+          }
+          return { careCheckIns: [...state.careCheckIns, checkIn] };
+        }),
+
       // Mood Entries defaults
       moodEntries: [],
       setMoodEntries: (moodEntries) => set({ moodEntries }),
@@ -233,6 +260,7 @@ export const useAppStore = create<AppStore>()(
           periodEntries: [],
           symptomLogs: [],
           resetSessions: [],
+          careCheckIns: [],
           moodEntries: [],
           healthMetrics: [],
           aiInsights: [],
@@ -251,6 +279,7 @@ export const useAppStore = create<AppStore>()(
         periodEntries: state.periodEntries,
         symptomLogs: state.symptomLogs,
         resetSessions: state.resetSessions,
+        careCheckIns: state.careCheckIns,
         moodEntries: state.moodEntries,
         healthMetrics: state.healthMetrics,
         aiInsights: state.aiInsights,

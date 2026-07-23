@@ -29,6 +29,7 @@ import { useAtmosphere } from '../theme/useAtmosphere';
 import { greetingFor } from '../theme/atmosphere';
 import { useAppStore } from '../store/appStore';
 import { countGardenLogs } from '../utils/garden';
+import { checkInFor, isPeriodDay, periodDayNumber } from '../care/period';
 import {
   getDayOfCycle,
   getCyclePhase,
@@ -182,7 +183,8 @@ function Hero({ children }: { children: React.ReactNode }) {
 }
 
 const HomeScreen = ({ navigation }: any) => {
-  const { user, periodEntries, symptomLogs, moodEntries, resetSessions } = useAppStore();
+  const { user, periodEntries, symptomLogs, moodEntries, resetSessions, careCheckIns } =
+    useAppStore();
   const { colors: c, isDark } = useTheme();
   const atmos = useAtmosphere();
   const [refreshing, setRefreshing] = useState(false);
@@ -221,6 +223,22 @@ const HomeScreen = ({ navigation }: any) => {
       resetSessions: resetSessions.length,
     });
   }, [periodEntries, symptomLogs, moodEntries, resetSessions]);
+
+  /**
+   * Today's Care unlocks only on logged period days. Derived from
+   * `periodEntries` rather than from a prediction: a predicted period that has
+   * not started is not a period, and unlocking on a guess would put "how heavy
+   * is your flow?" in front of someone who is not bleeding.
+   */
+  const care = useMemo(() => {
+    const today = new Date();
+    const unlocked = isPeriodDay(today, periodEntries);
+    return {
+      unlocked,
+      day: periodDayNumber(today, periodEntries),
+      done: Boolean(checkInFor(today, careCheckIns)),
+    };
+  }, [periodEntries, careCheckIns]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -329,12 +347,62 @@ const HomeScreen = ({ navigation }: any) => {
         </View>
       </Reveal>
 
+      {/* ── Today's Care ────────────────────────────────────────────────────
+          Unlocked, it is the most important thing on the page and gets a hero.
+          Locked, it stays visible as a quiet card — discovery without clutter,
+          and it tells you when it opens rather than teasing. */}
+      <Reveal index={3}>
+        <Surface
+          variant={care.unlocked ? 'hero' : 'quiet'}
+          tint={care.unlocked ? BLOOM.rose.pastel : BLOOM.lilac.pastel}
+          onPress={() => navigation.navigate('TodaysCare')}
+          accessibilityLabel={
+            care.unlocked
+              ? "Today's Care, day " + care.day
+              : "Today's Care, available during your next period"
+          }
+          style={styles.careCard}
+        >
+          <View style={styles.careRow}>
+            <View
+              style={[
+                styles.actionIcon,
+                {
+                  backgroundColor: care.unlocked
+                    ? `${BLOOM.rose.pastel}38`
+                    : isDark
+                      ? c.fill
+                      : `${BLOOM.lilac.pastel}38`,
+                },
+              ]}
+            >
+              <Icon
+                name={care.unlocked ? 'hand' : 'lock'}
+                size={19}
+                color={care.unlocked ? BLOOM.rose.ink : BLOOM.lavender.ink}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="headline">Today's Care</Text>
+              <Text variant="caption" tone="secondary" style={{ marginTop: 1 }}>
+                {care.unlocked
+                  ? care.done
+                    ? `Day ${care.day} · your plan is ready`
+                    : `Day ${care.day} · a one-minute check-in`
+                  : 'Available during your next period'}
+              </Text>
+            </View>
+            <Icon name="chevronRight" size={17} color={c.textTertiary} />
+          </View>
+        </Surface>
+      </Reveal>
+
       {/* ── 3. Today: quiet surfaces that sit in the atmosphere ───────────── */}
       <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
         Today
       </Text>
 
-      <Reveal index={3}>
+      <Reveal index={4}>
         <Surface
           variant="quiet"
           lift
@@ -359,7 +427,7 @@ const HomeScreen = ({ navigation }: any) => {
         </Surface>
       </Reveal>
 
-      <Reveal index={4}>
+      <Reveal index={5}>
         <Surface
           variant="quiet"
           lift
@@ -384,7 +452,7 @@ const HomeScreen = ({ navigation }: any) => {
         </Surface>
       </Reveal>
 
-      <Reveal index={5}>
+      <Reveal index={6}>
         <View style={styles.actions}>
           {QUICK_ACTIONS.map((a) => {
             const tone = BLOOM[a.hue];
@@ -415,7 +483,7 @@ const HomeScreen = ({ navigation }: any) => {
       </Reveal>
 
       {/* ── 4. The garden. Last, unhurried, no score. ─────────────────────── */}
-      <Reveal index={6}>
+      <Reveal index={7}>
         <View style={styles.gardenBlock}>
           <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.md }}>
             Your garden
@@ -490,6 +558,9 @@ const styles = StyleSheet.create({
   },
 
   metrics: { flexDirection: 'row', gap: SPACE.sm },
+
+  careCard: { marginBottom: SPACE.h2 },
+  careRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md },
 
   sectionLabel: { marginBottom: SPACE.md },
   tendCard: { marginBottom: SPACE.sm },
