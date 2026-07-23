@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Path, Stop, G } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Stop, G } from 'react-native-svg';
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -133,20 +133,33 @@ function Petal({
     // scaled by that, so the flower opens outward-in-order rather than all at
     // once. The stagger is geometric, not a chain of delays.
     const o = spec.target * bloom.value;
-    const grow = interpolate(o, [0, 1], [0.8, 1], Extrapolation.CLAMP);
+    // How far in a folded petal sits.
+    //
+    // Two failed attempts are worth recording, because the window here is
+    // narrow and both ends of it look broken:
+    //   0.80 — petals stayed out near the rim, so a day-3 flower read as a
+    //          *sun*: eleven pale spikes radiating outward.
+    //   0.50 — petals pulled inside the core disc and vanished entirely,
+    //          leaving one lonely petal beside a white circle.
+    // 0.72 puts the bud cluster just *outside* the core, which is where a real
+    // bud sits. The constraint is arithmetic: rBase·grow − (ph·scaleY)/2 must
+    // stay greater than the core radius.
+    const grow = interpolate(o, [0, 1], [0.72, 1], Extrapolation.CLAMP);
     const rad = ((spec.deg - 90) * Math.PI) / 180;
     const r = rBase * grow;
     return {
-      opacity: interpolate(o, [0, 1], [0.16, 1], Extrapolation.CLAMP),
+      // Floor at 0.34, not 0.16. Too faint and the unopened half disappears,
+      // leaving one lonely petal instead of a bud with one petal out.
+      opacity: interpolate(o, [0, 1], [0.34, 1], Extrapolation.CLAMP),
       transform: [
         { translateX: Math.cos(rad) * r },
         { translateY: Math.sin(rad) * r },
         { rotate: `${spec.deg}deg` },
-        // Width closes in faster than length — a folded petal is a *sliver*,
-        // not a small petal. This is the single detail that makes the closed
-        // half read as "not yet" rather than "faded out".
-        { scaleX: interpolate(o, [0, 1], [0.34, 1], Extrapolation.CLAMP) },
-        { scaleY: interpolate(o, [0, 1], [0.62, 1], Extrapolation.CLAMP) },
+        // Width closes faster than length, and length closes a long way — a
+        // folded petal is a *stub*, not a small petal. This is the detail that
+        // makes the unopened half read as "not yet" rather than "faded out".
+        { scaleX: interpolate(o, [0, 1], [0.42, 1], Extrapolation.CLAMP) },
+        { scaleY: interpolate(o, [0, 1], [0.4, 1], Extrapolation.CLAMP) },
       ],
     };
   });
@@ -284,8 +297,8 @@ const BloomRing = ({
   }, [cycleLength, periodLength, rTrack, isDark]);
 
   const haloStyle = useAnimatedStyle(() => ({
-    opacity: 0.5 + breath.value * 0.5,
-    transform: [{ scale: 0.9 + breath.value * 0.08 }],
+    opacity: 0.62 + breath.value * 0.38,
+    transform: [{ scale: 0.94 + breath.value * 0.1 }],
   }));
 
   /** Marker riding the rim, so "today" has a position as well as a number. */
@@ -312,16 +325,28 @@ const BloomRing = ({
       accessibilityRole="image"
       accessibilityLabel={`Day ${dayOfCycle} of ${cycleLength}, ${phaseName} phase`}
     >
-      {/* Ambient halo. The only motion at rest, and it breathes on the app's
-          shared rhythm rather than a rate this component invented. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { borderRadius: size / 2, backgroundColor: glow ?? ramp[0] },
-          haloStyle,
-        ]}
-      />
+      {/*
+        Ambient halo. The only motion at rest, and it breathes on the app's
+        shared rhythm rather than a rate this component invented.
+
+        This was a flat `backgroundColor` circle at first, and it was the
+        single worst thing on the screen: an even fill has a hard edge, so it
+        read as a solid pink *disc* sitting behind the flower rather than as
+        light coming off it. A radial gradient that falls to zero has no edge
+        at all, which is the entire difference between a glow and a plate.
+      */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, haloStyle]}>
+        <Svg width={size} height={size}>
+          <Defs>
+            <RadialGradient id="bloom-halo" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={glow ?? ramp[0]} stopOpacity={0.9} />
+              <Stop offset="0.45" stopColor={glow ?? ramp[0]} stopOpacity={0.4} />
+              <Stop offset="1" stopColor={glow ?? ramp[0]} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="url(#bloom-halo)" />
+        </Svg>
+      </Animated.View>
 
       {/* Track + phase arcs. Hairline: this is the reference grid the flower
           sits on, not a competing element. */}
@@ -406,8 +431,8 @@ const BloomRing = ({
           style={[
             styles.coreDisc,
             {
-              width: size * 0.44,
-              height: size * 0.44,
+              width: size * 0.37,
+              height: size * 0.37,
               borderRadius: size,
               backgroundColor: isDark ? 'rgba(28,22,31,0.72)' : 'rgba(255,253,251,0.82)',
             },

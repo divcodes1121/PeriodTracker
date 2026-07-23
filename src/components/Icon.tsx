@@ -125,13 +125,18 @@ const Icon = ({ name, size = 24, color = '#1E1E22', weight = 1, style }: IconPro
         </>
       )}
 
+      {/* Settings — sliders, not a gear.
+          The gear was drawn as a hub with eight radial spokes, which at 24pt
+          is *geometrically the same drawing as a sun*. It sat in the tab bar
+          two icons away from the theme toggle's actual sun, and the two were
+          indistinguishable at a glance. Sliders carry "adjust things" with no
+          such collision. */}
       {name === 'settings' && (
         <>
-          <Circle cx="12" cy="12" r="2.75" {...common} />
-          <Path
-            d="M12 3.5v1.8M12 18.7v1.8M20.5 12h-1.8M5.3 12H3.5M18.01 5.99l-1.27 1.27M7.26 16.74l-1.27 1.27M18.01 18.01l-1.27-1.27M7.26 7.26 5.99 5.99"
-            {...common}
-          />
+          <Path d="M4 7.5h4.5M13.5 7.5H20" {...common} />
+          <Path d="M4 16.5h7.5M16.5 16.5H20" {...common} />
+          <Circle cx="11" cy="7.5" r="2.5" {...common} />
+          <Circle cx="14" cy="16.5" r="2.5" {...common} />
         </>
       )}
 

@@ -25,6 +25,7 @@ import Surface from '../components/Surface';
 import Text from '../components/Text';
 import Icon from '../components/Icon';
 import Reveal from '../components/Reveal';
+import PhaseMark from '../components/PhaseMark';
 import { useTheme } from '../theme/useTheme';
 import { usePhaseColor, phaseInk } from '../theme/usePhaseColor';
 import { useAppStore } from '../store/appStore';
@@ -39,13 +40,22 @@ import { SPACE, RADIUS, MOTION, MIN_TAP } from '../theme/tokens';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-/** A single day cell: number, today-ring, selection fill, phase dot. */
+/**
+ * A single day cell: number, today-ring, selection fill, and a **phase mark**.
+ *
+ * The mark used to be a 4px coloured dot. That failed the app's own
+ * accessibility rule in the most visible place possible: four soft hues at 4px
+ * are indistinguishable to a deutan reader, so a whole month of cycle
+ * information was encoded in a channel some users do not have. A silhouette
+ * survives any vision at any size — see components/PhaseMark.
+ */
 function DayCell({
   day,
   selected,
   today,
   dimmed,
   phaseColor,
+  phaseKey,
   phaseInk,
   onPress,
 }: {
@@ -53,8 +63,10 @@ function DayCell({
   selected: boolean;
   today: boolean;
   dimmed: boolean;
-  /** Surface-safe hue for the dot and today-ring (≥3:1 on the card). */
+  /** Surface-safe hue for the today-ring (≥3:1 on the card). */
   phaseColor: string;
+  /** Phase key, for the silhouette mark under the day number. */
+  phaseKey: string;
   /** Deep ink for the selected fill, so the white day number clears AA. */
   phaseInk: string;
   onPress: () => void;
@@ -93,12 +105,11 @@ function DayCell({
           {format(day, 'd')}
         </Text>
       </Animated.View>
-      <View
-        style={[
-          styles.dot,
-          { backgroundColor: selected ? 'transparent' : phaseColor, opacity: dimmed ? 0.3 : 0.75 },
-        ]}
-      />
+      {/* Shape, not a coloured dot. Hidden under the selection fill, where
+          the filled circle already carries the phase. */}
+      <View style={[styles.dot, { opacity: selected ? 0 : dimmed ? 0.34 : 0.9 }]}>
+        <PhaseMark phase={phaseKey} size={11} />
+      </View>
     </Pressable>
   );
 }
@@ -201,6 +212,7 @@ const CalendarScreen = () => {
                   today={isToday(day)}
                   dimmed={!isSameMonth(day, currentMonth)}
                   phaseColor={phaseColor(phaseFor(day)?.name)}
+                  phaseKey={phaseFor(day)?.name ?? 'menstrual'}
                   phaseInk={phaseInk(phaseFor(day)?.name)}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
@@ -217,7 +229,7 @@ const CalendarScreen = () => {
           <View style={[styles.legend, { borderTopColor: c.separator }]}>
             {legend.map((r) => (
               <View key={r.key} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: phaseColor(r.key) }]} />
+                <PhaseMark phase={r.key} size={13} />
                 <Text variant="caption" tone="secondary">
                   {r.key[0].toUpperCase() + r.key.slice(1)}
                 </Text>
@@ -320,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 3 },
+  dot: { marginTop: 2, height: 13 },
 
   legend: {
     flexDirection: 'row',

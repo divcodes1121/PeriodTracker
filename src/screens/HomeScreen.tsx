@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, RefreshControl, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,24 +9,26 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import Text from '../components/Text';
 import Screen from '../components/Screen';
 import Surface from '../components/Surface';
 import Reveal from '../components/Reveal';
 import Icon, { IconName } from '../components/Icon';
+import BloomRing from '../components/BloomRing';
+import TodaysGarden from '../components/TodaysGarden';
+import PhaseMark from '../components/PhaseMark';
 import MetricCard from '../components/MetricCard';
-import CycleTimeline from '../components/CycleTimeline';
-import LivePhaseTitle from '../components/LivePhaseTitle';
 import ThemeToggle from '../components/ThemeToggle';
+import { LoadingState } from '../components/States';
 import { useScrollY } from '../components/ScrollContext';
-import { COLORS, inkFor } from '../constants';
-import { SPACE, RADIUS, MIN_TAP } from '../theme/tokens';
+import { BLOOM, BloomHue, COLORS, CYCLE_PHASES, GRADIENT } from '../constants';
+import { SPACE, RADIUS, MIN_TAP_COMFORT, MOTION } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
-import { usePhaseColor } from '../theme/usePhaseColor';
 import { useAtmosphere } from '../theme/useAtmosphere';
 import { greetingFor } from '../theme/atmosphere';
 import { useAppStore } from '../store/appStore';
+import { countGardenLogs } from '../utils/garden';
 import {
   getDayOfCycle,
   getCyclePhase,
@@ -37,55 +40,73 @@ import {
 } from '../utils/cycleCalculations';
 
 /**
- * Home.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HOME — the signature screen.
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * The composition rule that replaced the old ten-block column: **proximity
- * carries grouping**. Related things sit SPACE.sm apart and read as one object;
- * unrelated clusters sit SPACE.h2 apart. Previously every gap was SPACE.lg, so
- * ten equally-spaced identical cards produced a list with no structure — the
- * "everything feels disconnected" symptom, which was a spacing problem wearing
- * a styling costume.
+ * ── The composition rule ──────────────────────────────────────────────────
  *
- * Three clusters, in descending importance:
- *   1. The ring — floats directly on the live canvas, in no card at all. That
- *      is what makes it read as hero; wrapping it in the same Surface as
- *      everything else was flattening it.
- *   2. Act — the log CTA welded to its two outcome metrics, because logging is
- *      what makes those two numbers real.
- *   3. Tend — insight, reset, check-ins. Quiet variants, so they recede into
- *      the atmosphere rather than competing with the hero.
+ * **Proximity carries grouping.** Related things sit `SPACE.sm` apart and read
+ * as one object; unrelated clusters sit `SPACE.h2` apart. This page used to be
+ * ten full-width blocks at a uniform `SPACE.lg`, which is *why* it read as
+ * disconnected: ten equally-spaced identical cards produce a list with no
+ * structure, and no amount of card decoration fixes a spacing problem.
+ *
+ * ── Four movements, in descending importance ──────────────────────────────
+ *
+ *   1. **The Bloom Ring.** Floats directly on the live canvas, in no card at
+ *      all. That is what makes it read as hero — wrapping it in the same
+ *      Surface as everything else was flattening it.
+ *   2. **Act.** The log CTA welded to the two numbers it changes, because
+ *      logging is what makes those numbers real.
+ *   3. **Today.** Insight, reset, quick check-ins. `quiet` variants, so they
+ *      recede into the atmosphere rather than competing with the hero.
+ *   4. **The garden.** Last, at the bottom, unhurried. It is the reward for
+ *      everything above it and it should feel like arriving somewhere rather
+ *      than being scored.
+ *
+ * ── One deliberate omission ───────────────────────────────────────────────
+ *
+ * There is no streak, no completion percentage and no "you haven't logged in 3
+ * days" anywhere on this page. A health app that nags is a health app people
+ * delete in the week they most need it. The garden carries the entire
+ * returning-user incentive, and it only ever grows.
  */
 
 interface QuickAction {
   label: string;
   icon: IconName;
-  accent: string;
+  hue: BloomHue;
   route: string;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'Mood', icon: 'heart', accent: COLORS.primary, route: 'MoodTracker' },
-  { label: 'Symptoms', icon: 'activity', accent: COLORS.accent, route: 'SymptomLogger' },
-  { label: 'Insights', icon: 'sparkles', accent: COLORS.success, route: 'AIInsights' },
+  { label: 'Mood', icon: 'heart', hue: 'blossom', route: 'MoodTracker' },
+  { label: 'Symptoms', icon: 'petal', hue: 'lavender', route: 'SymptomLogger' },
+  { label: 'Insights', icon: 'sparkles', hue: 'gold', route: 'AIInsights' },
 ];
 
 /**
- * The primary CTA — logging a period is what makes every prediction real, so it
- * gets a deep-rose filled card rather than a slot in the quick-action grid.
- * Deep rose (not the pastel) so the white label clears AA.
+ * The primary CTA.
+ *
+ * Logging a period is what makes every prediction on this screen real, so it
+ * gets a filled gradient card rather than a slot in the quick-action grid. The
+ * gradient is the ink ramp, not the pastel one — white labels have to clear AA
+ * across the whole sweep, not just at the light end.
  */
 function LogPeriodCTA({ onPress }: { onPress: () => void }) {
   const press = useSharedValue(0);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - press.value * 0.015 }],
+    transform: [{ scale: 1 - press.value * 0.018 }],
   }));
 
-  // The blooms drift apart very slightly under the press, so the card feels
-  // like it has something alive inside rather than being a painted rectangle.
+  // The decorative blooms drift apart very slightly under the press, so the
+  // card feels like it has something alive inside rather than being a painted
+  // rectangle that changes size.
   const bloom = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + press.value * 0.08 }],
-    opacity: 1 - press.value * 0.15,
+    transform: [{ scale: 1 + press.value * 0.09 }],
+    opacity: 1 - press.value * 0.18,
   }));
 
   return (
@@ -94,34 +115,39 @@ function LogPeriodCTA({ onPress }: { onPress: () => void }) {
       accessibilityLabel="Log period"
       accessibilityHint="Opens the period logger"
       onPressIn={() => {
-        press.value = withSpring(1, { damping: 15, stiffness: 260, mass: 0.7 });
+        press.value = withSpring(1, MOTION.springSnap);
         Haptics.selectionAsync().catch(() => {});
       }}
       onPressOut={() => {
-        press.value = withSpring(0, { damping: 18, stiffness: 180, mass: 0.9 });
+        press.value = withSpring(0, MOTION.spring);
       }}
       onPress={onPress}
     >
       <Animated.View style={[styles.cta, style]}>
-        {/* Soft decorative blooms — light on deep rose, no text over them */}
+        <LinearGradient
+          colors={GRADIENT.bloomInk as [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <Animated.View
-          style={[styles.ctaBloom, { top: -46, right: -32, width: 130, height: 130 }, bloom]}
+          style={[styles.ctaBloom, { top: -50, right: -34, width: 140, height: 140 }, bloom]}
         />
         <Animated.View
           style={[
             styles.ctaBloom,
-            { bottom: -58, right: 66, width: 96, height: 96, opacity: 0.6 },
+            { bottom: -62, right: 70, width: 104, height: 104, opacity: 0.55 },
             bloom,
           ]}
         />
         <View style={styles.ctaIcon}>
-          <Icon name="drop" size={20} color="#FFFFFF" />
+          <Icon name="drop" size={21} color="#FFFFFF" />
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="headline" color="#FFFFFF">
             Log period
           </Text>
-          <Text variant="caption" color="rgba(255,255,255,0.8)" style={{ marginTop: 1 }}>
+          <Text variant="caption" color="rgba(255,255,255,0.82)" style={{ marginTop: 1 }}>
             Predictions sharpen with every log
           </Text>
         </View>
@@ -132,9 +158,11 @@ function LogPeriodCTA({ onPress }: { onPress: () => void }) {
 }
 
 /**
- * The hero, wrapped so it responds to scroll: as the page moves the ring drifts
- * up at half speed and softens, letting the content below feel like it is
- * rising over the ring rather than the whole page sliding as one sheet.
+ * The hero wrapper.
+ *
+ * As the page scrolls the ring drifts up at half speed and softens, so the
+ * content below feels like it is *rising over* the ring rather than the whole
+ * page sliding as one sheet. One animated node, worklet-driven.
  */
 function Hero({ children }: { children: React.ReactNode }) {
   const scrollY = useScrollY();
@@ -142,10 +170,10 @@ function Hero({ children }: { children: React.ReactNode }) {
   const style = useAnimatedStyle(() => {
     if (!scrollY) return {};
     return {
-      opacity: interpolate(scrollY.value, [0, 260], [1, 0.55], Extrapolation.CLAMP),
+      opacity: interpolate(scrollY.value, [0, 280], [1, 0.5], Extrapolation.CLAMP),
       transform: [
-        { translateY: interpolate(scrollY.value, [0, 300], [0, -46], Extrapolation.CLAMP) },
-        { scale: interpolate(scrollY.value, [0, 300], [1, 0.94], Extrapolation.CLAMP) },
+        { translateY: interpolate(scrollY.value, [0, 320], [0, -52], Extrapolation.CLAMP) },
+        { scale: interpolate(scrollY.value, [0, 320], [1, 0.93], Extrapolation.CLAMP) },
       ],
     };
   });
@@ -154,9 +182,8 @@ function Hero({ children }: { children: React.ReactNode }) {
 }
 
 const HomeScreen = ({ navigation }: any) => {
-  const { user, periodEntries } = useAppStore();
+  const { user, periodEntries, symptomLogs, moodEntries, resetSessions } = useAppStore();
   const { colors: c, isDark } = useTheme();
-  const phaseColorFor = usePhaseColor();
   const atmos = useAtmosphere();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -174,6 +201,27 @@ const HomeScreen = ({ navigation }: any) => {
     };
   }, [user, periodEntries]);
 
+  /**
+   * Garden size. Counted by *day*, not by entry — six symptoms on one bad day
+   * must not grow six flowers while a quiet day grows none. See
+   * `countGardenLogs`.
+   */
+  const gardenLogs = useMemo(() => {
+    const uniqueDays = (dates: Date[]) => {
+      const seen: Date[] = [];
+      for (const d of dates) {
+        if (!seen.some((s) => isSameDay(s, d))) seen.push(d);
+      }
+      return seen.length;
+    };
+    return countGardenLogs({
+      periodDays: uniqueDays(periodEntries.map((e) => e.startDate)),
+      symptomDays: uniqueDays(symptomLogs.map((l) => l.date)),
+      moodDays: uniqueDays(moodEntries.map((m) => m.timestamp)),
+      resetSessions: resetSessions.length,
+    });
+  }, [periodEntries, symptomLogs, moodEntries, resetSessions]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 900);
@@ -182,34 +230,36 @@ const HomeScreen = ({ navigation }: any) => {
   if (!user || !cycle) {
     return (
       <Screen scroll={false}>
-        <View style={styles.loading}>
-          <Text tone="secondary">Loading</Text>
-        </View>
+        <LoadingState label="Opening your garden" />
       </Screen>
     );
   }
 
   const raw = cycle.phase?.name ?? 'menstrual';
   const phaseName = raw.charAt(0).toUpperCase() + raw.slice(1);
-  const phaseColor = phaseColorFor(raw);
+  const season = CYCLE_PHASES[raw as keyof typeof CYCLE_PHASES]?.season ?? '';
   const firstName = user.name.trim().split(/\s+/)[0];
 
   return (
     <Screen
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={COLORS.primaryDeep}
+        />
       }
     >
-      {/* ---- Greeting ------------------------------------------------------
+      {/* ── Greeting ───────────────────────────────────────────────────────
           Deliberately quiet. It used to be title1, competing with the phase
           name below it for the same job; the hero owns the headline now. */}
       <Reveal index={0}>
         <View style={styles.greetRow}>
           <View style={{ flex: 1 }}>
             <Text variant="overline" tone="secondary">
-              {format(new Date(), 'EEEE, MMMM d')}
+              {format(new Date(), 'EEEE, d MMMM')}
             </Text>
-            <Text variant="title3" style={{ marginTop: 4 }}>
+            <Text variant="title3" style={{ marginTop: 3 }}>
               {greetingFor(atmos.band)}, {firstName}
             </Text>
           </View>
@@ -217,32 +267,36 @@ const HomeScreen = ({ navigation }: any) => {
         </View>
       </Reveal>
 
-      {/* ---- 1. The ring. No card. ---------------------------------------- */}
+      {/* ── 1. The Bloom Ring. No card. ──────────────────────────────────── */}
       <Reveal index={1}>
         <Hero>
-          <CycleTimeline
+          <BloomRing
             dayOfCycle={cycle.dayOfCycle}
             cycleLength={cycle.cycleLength}
             periodLength={cycle.periodLength}
             phaseName={phaseName}
             glow={atmos.glow}
             lightAngle={atmos.lightAngle}
-            size={296}
+            size={306}
           >
             <Text variant="overline" tone="secondary">
-              Day {cycle.dayOfCycle} of {cycle.cycleLength}
+              Day {cycle.dayOfCycle}
             </Text>
-            <LivePhaseTitle name={phaseName} glow={atmos.glow} style={styles.phaseTitle} />
-            <View style={[styles.phaseDot, { backgroundColor: phaseColor }]} />
-          </CycleTimeline>
+            <Text variant="title2" style={styles.phaseTitle}>
+              {phaseName}
+            </Text>
+            {/* Shape, not a coloured dot — phase identity has to survive
+                colour blindness. See PhaseMark. */}
+            <PhaseMark phase={raw} size={17} style={{ marginTop: SPACE.xs }} />
+          </BloomRing>
 
           <Text variant="callout" tone="secondary" style={styles.heroCaption}>
-            {cycle.phase?.description}
+            {season}. {cycle.phase?.description}
           </Text>
         </Hero>
       </Reveal>
 
-      {/* ---- 2. Act: the CTA welded to the numbers it changes -------------- */}
+      {/* ── 2. Act: the CTA welded to the numbers it changes ──────────────── */}
       <Reveal index={2}>
         <View style={styles.cluster}>
           <LogPeriodCTA onPress={() => navigation.navigate('PeriodLogger')} />
@@ -254,7 +308,7 @@ const HomeScreen = ({ navigation }: any) => {
                 label="Next period"
                 value={formatCountdown(cycle.daysUntilPeriod)}
                 icon="drop"
-                accent={COLORS.menstrual}
+                accent={BLOOM.rose.pastel}
                 onPress={() => navigation.navigate('Calendar')}
               />
             </View>
@@ -267,7 +321,7 @@ const HomeScreen = ({ navigation }: any) => {
                     : formatCountdown(cycle.fertility.daysFromNow)
                 }
                 icon="leaf"
-                accent={COLORS.success}
+                accent={BLOOM.sage.pastel}
                 onPress={() => navigation.navigate('Calendar')}
               />
             </View>
@@ -275,7 +329,7 @@ const HomeScreen = ({ navigation }: any) => {
         </View>
       </Reveal>
 
-      {/* ---- 3. Tend: quiet surfaces that sit in the atmosphere ------------ */}
+      {/* ── 3. Today: quiet surfaces that sit in the atmosphere ───────────── */}
       <Text variant="overline" tone="secondary" style={styles.sectionLabel}>
         Today
       </Text>
@@ -284,16 +338,15 @@ const HomeScreen = ({ navigation }: any) => {
         <Surface
           variant="quiet"
           lift
+          tint={BLOOM.gold.pastel}
           onPress={() => navigation.navigate('AIInsights')}
           accessibilityLabel="Today's insight"
-          accessibilityHint="Opens AI insights"
+          accessibilityHint="Opens insights"
           style={styles.tendCard}
         >
           <View style={styles.insightHead}>
-            <View
-              style={[styles.insightIcon, { backgroundColor: isDark ? c.fill : COLORS.primarySoft }]}
-            >
-              <Icon name="sparkles" size={15} color={COLORS.primaryDark} />
+            <View style={[styles.tinyIcon, { backgroundColor: `${BLOOM.gold.pastel}2E` }]}>
+              <Icon name="sparkles" size={15} color={BLOOM.gold.ink} />
             </View>
             <Text variant="overline" tone="secondary" style={{ flex: 1 }}>
               Insight
@@ -310,14 +363,15 @@ const HomeScreen = ({ navigation }: any) => {
         <Surface
           variant="quiet"
           lift
+          tint={BLOOM.lavender.pastel}
           onPress={() => navigation.navigate('Reset')}
           accessibilityLabel="Take a reset"
-          accessibilityHint="Opens Tiny Escapes"
+          accessibilityHint="Opens the Self-Care scenes"
           style={styles.tendCard}
         >
           <View style={styles.resetRow}>
-            <View style={[styles.actionIcon, { backgroundColor: isDark ? c.fill : COLORS.accentSoft }]}>
-              <Icon name="wind" size={19} color={isDark ? COLORS.accent : COLORS.accentDark} />
+            <View style={[styles.actionIcon, { backgroundColor: `${BLOOM.lavender.pastel}2E` }]}>
+              <Icon name="wind" size={19} color={BLOOM.lavender.ink} />
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="headline">Need a moment?</Text>
@@ -332,38 +386,57 @@ const HomeScreen = ({ navigation }: any) => {
 
       <Reveal index={5}>
         <View style={styles.actions}>
-          {QUICK_ACTIONS.map((a) => (
-            <Surface
-              key={a.label}
-              variant="quiet"
-              onPress={() => navigation.navigate(a.route)}
-              accessibilityLabel={`Log ${a.label}`}
-              padded={false}
-              style={styles.action}
-            >
-              <View style={styles.actionInner}>
-                <View
-                  style={[styles.actionIcon, { backgroundColor: isDark ? c.fill : `${a.accent}1F` }]}
-                >
-                  <Icon name={a.icon} size={19} color={isDark ? a.accent : inkFor(a.accent)} />
+          {QUICK_ACTIONS.map((a) => {
+            const tone = BLOOM[a.hue];
+            return (
+              <Surface
+                key={a.label}
+                variant="quiet"
+                onPress={() => navigation.navigate(a.route)}
+                accessibilityLabel={`Log ${a.label}`}
+                padded={false}
+                style={styles.action}
+              >
+                <View style={styles.actionInner}>
+                  <View
+                    style={[
+                      styles.actionIcon,
+                      { backgroundColor: isDark ? c.fill : `${tone.pastel}33` },
+                    ]}
+                  >
+                    <Icon name={a.icon} size={19} color={isDark ? tone.pastel : tone.ink} />
+                  </View>
+                  <Text variant="subhead">{a.label}</Text>
                 </View>
-                <Text variant="subhead">{a.label}</Text>
-              </View>
-            </Surface>
-          ))}
+              </Surface>
+            );
+          })}
+        </View>
+      </Reveal>
+
+      {/* ── 4. The garden. Last, unhurried, no score. ─────────────────────── */}
+      <Reveal index={6}>
+        <View style={styles.gardenBlock}>
+          <Text variant="overline" tone="secondary" style={{ marginBottom: SPACE.md }}>
+            Your garden
+          </Text>
+          <TodaysGarden logs={gardenLogs} />
         </View>
       </Reveal>
     </Screen>
   );
 };
 
-/** Phase-appropriate one-liner. Supportive, never prescriptive. */
+/**
+ * Phase-appropriate one-liner. Supportive, never prescriptive — no "should",
+ * no diagnosis, no instruction. It is a friend who happens to know biology.
+ */
 function insightFor(phase: string): string {
   switch (phase) {
     case 'menstrual':
       return 'Energy is naturally lower today. Gentle movement and warmth tend to help more than pushing through.';
     case 'follicular':
-      return 'Estrogen is rising and energy usually follows. A good day to start something you have been putting off.';
+      return 'Oestrogen is rising and energy usually follows. A good day to start something you have been putting off.';
     case 'ovulation':
       return 'You may feel at your most social and clear-headed today. Worth scheduling the harder conversations.';
     default:
@@ -372,8 +445,6 @@ function insightFor(phase: string): string {
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
   greetRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -382,13 +453,12 @@ const styles = StyleSheet.create({
   },
 
   hero: { alignItems: 'center', marginBottom: SPACE.h2 },
-  phaseTitle: { marginTop: SPACE.xs },
-  phaseDot: { width: 6, height: 6, borderRadius: 3, marginTop: SPACE.md },
+  phaseTitle: { marginTop: 2 },
   heroCaption: {
     textAlign: 'center',
     marginTop: SPACE.xl,
     paddingHorizontal: SPACE.lg,
-    maxWidth: 320,
+    maxWidth: 330,
   },
 
   // Tight internal gap — the CTA and its metrics are one object.
@@ -398,23 +468,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACE.md,
-    backgroundColor: COLORS.primaryDark,
     borderRadius: RADIUS.card,
     paddingHorizontal: SPACE.xl,
     paddingVertical: SPACE.lg,
     overflow: 'hidden',
-    minHeight: MIN_TAP + 26,
+    minHeight: MIN_TAP_COMFORT + 20,
   },
   ctaBloom: {
     position: 'absolute',
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   ctaIcon: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     borderRadius: RADIUS.sm,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -425,9 +494,9 @@ const styles = StyleSheet.create({
   tendCard: { marginBottom: SPACE.sm },
 
   insightHead: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
-  insightIcon: {
-    width: 26,
-    height: 26,
+  tinyIcon: {
+    width: 28,
+    height: 28,
     borderRadius: RADIUS.xs,
     alignItems: 'center',
     justifyContent: 'center',
@@ -438,7 +507,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: SPACE.sm },
   action: { flex: 1 },
   actionInner: {
-    minHeight: MIN_TAP + 44,
+    minHeight: MIN_TAP_COMFORT + 38,
     paddingVertical: SPACE.lg,
     paddingHorizontal: SPACE.md,
     alignItems: 'center',
@@ -446,12 +515,14 @@ const styles = StyleSheet.create({
     gap: SPACE.sm,
   },
   actionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: RADIUS.xs,
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  gardenBlock: { marginTop: SPACE.h2 },
 });
 
 export default HomeScreen;

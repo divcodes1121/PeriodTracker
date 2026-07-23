@@ -173,10 +173,15 @@ const styles = StyleSheet.create({
   // on a phone.
   cols: { flexDirection: 'row', alignItems: 'flex-end', gap: SPACE.sm, flex: 1 },
   col: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
-  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end' },
+  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   // Rounded data-end, square baseline.
+  // Capped width. Two bars stretched across a whole card read as colour
+  // blocks rather than as a chart: the eye starts comparing areas instead of
+  // heights, which is the exact distortion a bar chart exists to avoid.
   bar: {
     width: '100%',
+    maxWidth: 56,
+    alignSelf: 'center',
     borderTopLeftRadius: 6,
     borderTopRightRadius: 6,
     minHeight: 3,

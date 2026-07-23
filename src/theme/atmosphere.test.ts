@@ -1,4 +1,5 @@
 import { atmosphere, timeBand, greetingFor, mix, PhaseKey, TimeBand } from './atmosphere';
+import { COLORS } from '../constants';
 
 /**
  * The atmosphere is the one place colour becomes semantic, so its promises are
@@ -267,6 +268,34 @@ describe('atmosphere shape', () => {
     const at = (phase: PhaseKey) => atmosphere({ phase, hour: 13, isDark: false }).driftSec;
     expect(at('luteal')).toBeGreaterThan(at('menstrual'));
     expect(at('ovulation')).toBeLessThan(at('follicular'));
+  });
+});
+
+/**
+ * The canvas must agree with the data drawn on top of it.
+ *
+ * This is not hypothetical: when follicular moved from peach to sage in the
+ * palette, this module kept tinting the background peach for a while. The
+ * screen showed a sage phase arc floating on a peach wash — precisely the
+ * "background disagreeing with the numbers" failure this module's own header
+ * promises to prevent. Colour lives in two places by necessity (one is RN-free
+ * grading, the other is the brand table), so something has to hold them
+ * together. This is that something.
+ */
+describe('atmosphere agrees with the brand palette', () => {
+  it.each(PHASES)('%s tints the canvas with its own phase hue', (phase) => {
+    const expected = (COLORS as Record<string, string>)[phase];
+    expect(atmosphere({ phase, hour: 12, isDark: false }).hue.toLowerCase()).toBe(
+      expected.toLowerCase()
+    );
+  });
+
+  it('derives each glow from the same hue it tints with', () => {
+    for (const phase of PHASES) {
+      const a = atmosphere({ phase, hour: 12, isDark: false });
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(a.hue.slice(i, i + 2), 16));
+      expect(a.glow.startsWith(`rgba(${r},${g},${b},`)).toBe(true);
+    }
   });
 });
 

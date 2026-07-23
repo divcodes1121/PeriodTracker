@@ -137,13 +137,13 @@ const PHASE_ATMOS: Record<
   { hue: string; glow: string; mote: MoteKind; drift: number }
 > = {
   /** Letting go. Rose, slow, petals falling. */
-  menstrual: { hue: '#E77397', glow: 'rgba(231,115,151,', mote: 'petal', drift: 38 },
-  /** Budding. Peach, brisker, pollen rising. */
-  follicular: { hue: '#F7B58E', glow: 'rgba(247,181,142,', mote: 'pollen', drift: 30 },
+  menstrual: { hue: '#F291B1', glow: 'rgba(242,145,177,', mote: 'petal', drift: 38 },
+  /** New growth. Sage, brisker, pollen rising. */
+  follicular: { hue: '#6FC494', glow: 'rgba(111,196,148,', mote: 'pollen', drift: 30 },
   /** Full bloom. Gold, liveliest. */
-  ovulation: { hue: '#E2B45C', glow: 'rgba(226,180,92,', mote: 'pollen', drift: 26 },
+  ovulation: { hue: '#EFC55E', glow: 'rgba(239,197,94,', mote: 'pollen', drift: 26 },
   /** Winding down. Lavender, slowest — luteal settles inward. */
-  luteal: { hue: '#BCA3DE', glow: 'rgba(188,163,222,', mote: 'petal', drift: 46 },
+  luteal: { hue: '#BFA0EE', glow: 'rgba(191,160,238,', mote: 'petal', drift: 46 },
 };
 
 /**

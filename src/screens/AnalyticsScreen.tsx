@@ -190,7 +190,7 @@ const AnalyticsScreen = () => {
                 label: i === arr.length - 1 ? 'Now' : `${arr.length - 1 - i}×`,
                 value: v,
               }))}
-              color={COLORS.primary}
+              color={COLORS.primaryDeep}
               unit="d"
               showAverage={cycleLengths.length > 1}
             />
@@ -235,7 +235,7 @@ const AnalyticsScreen = () => {
             <View
               style={[
                 styles.fill,
-                { width: `${Math.max(4, confidence)}%`, backgroundColor: COLORS.primary },
+                { width: `${Math.max(4, confidence)}%`, backgroundColor: COLORS.primaryDeep },
               ]}
             />
           </View>
@@ -262,21 +262,21 @@ const AnalyticsScreen = () => {
             <>
               <View style={styles.legendRow}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.primaryDeep }]} />
                   <Text variant="caption" tone="secondary">
                     Mood
                   </Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: COLORS.accent }]} />
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.accentDeep }]} />
                   <Text variant="caption" tone="secondary">
                     Energy
                   </Text>
                 </View>
               </View>
-              <Sparkline data={moodSeries} color={COLORS.primary} height={64} />
+              <Sparkline data={moodSeries} color={COLORS.primaryDeep} height={64} />
               <View style={{ height: SPACE.sm }} />
-              <Sparkline data={energySeries} color={COLORS.accent} height={64} />
+              <Sparkline data={energySeries} color={COLORS.accentDeep} height={64} />
             </>
           ) : (
             <GhostChart
@@ -307,7 +307,7 @@ const AnalyticsScreen = () => {
                     <View
                       style={[
                         styles.freqFill,
-                        { width: `${(s.value / max) * 100}%`, backgroundColor: COLORS.accent },
+                        { width: `${(s.value / max) * 100}%`, backgroundColor: COLORS.accentDeep },
                       ]}
                     />
                   </View>
