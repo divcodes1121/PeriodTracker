@@ -1,5 +1,6 @@
 import { ReactNode, useMemo, useState } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle, Pressable, LayoutChangeEvent } from 'react-native';
+import { BlurView } from 'expo-blur';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -11,26 +12,39 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/useTheme';
 import { useScrollY } from './ScrollContext';
 import { RADIUS, SHADOW, SHADOW_DARK, SPACE, MOTION } from '../theme/tokens';
+import { GLASS } from '../constants';
 
-type Elevation = 'flat' | 'sm' | 'md' | 'lg';
+type Elevation = 'flat' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 /**
- * The depth tiers. Previously every card in the app was the same object —
- * radius 24, shadow sm, padding 20 — which made visual hierarchy structurally
- * impossible no matter how the content was written. A variant is now a
- * *decision about importance*, and the geometry follows from it.
+ * The depth tiers.
+ *
+ * A variant is a **decision about importance**, and the geometry follows from
+ * it. Before variants existed every card in the app was the same object —
+ * one radius, one shadow, one padding — which made visual hierarchy
+ * structurally impossible no matter how carefully the content was written. You
+ * cannot write your way out of five identical rectangles.
+ *
+ * Budget per screen: **at most one `hero`**. If a page seems to need two, it is
+ * really two pages, or one of them is a `card`.
  */
 export type SurfaceVariant =
-  /** The one thing on the page that matters most. Wider radius, deep shadow. */
+  /** The one thing on the page that matters most. Widest radius, deepest lift. */
   | 'hero'
   /** Standard content card. The workhorse. */
   | 'card'
   /**
    * Secondary. Translucent, no shadow — the live atmosphere reads through it,
-   * so supporting content recedes into the canvas instead of competing with
+   * so supporting content recedes *into* the canvas instead of competing with
    * the cards above it.
    */
   | 'quiet'
+  /**
+   * Real frosted glass. Only for surfaces content genuinely passes **behind** —
+   * sheet headers, floating chrome, the escape-player dock. Glass on a static
+   * card is decoration cosplaying as depth, and it costs a blur pass.
+   */
+  | 'glass'
   /** Recessed well, for grouped rows and nested content. */
   | 'inset';
 
@@ -43,6 +57,12 @@ interface SurfaceProps {
   padded?: boolean;
   /** @deprecated Use variant="inset". Kept so existing screens keep compiling. */
   inset?: boolean;
+  /**
+   * A brand hue this card is "about". Paints a very faint wash of it behind the
+   * content so a Self-Care card feels lavender and a fertility card feels gold,
+   * without either of them shouting. Pass a pastel; the wash is ~7%.
+   */
+  tint?: string;
   /**
    * Opt into scroll-reactive parallax: the card rises and settles slightly as
    * it crosses the viewport. One animated node per card, worklet-driven, zero
@@ -57,18 +77,26 @@ interface SurfaceProps {
 }
 
 const GEOMETRY: Record<SurfaceVariant, { radius: number; pad: number; elevation: Elevation }> = {
-  hero: { radius: RADIUS.sheet, pad: SPACE.xxl, elevation: 'lg' },
+  hero: { radius: RADIUS.hero, pad: SPACE.xxl, elevation: 'lg' },
   card: { radius: RADIUS.card, pad: SPACE.xl, elevation: 'sm' },
   quiet: { radius: RADIUS.card, pad: SPACE.xl, elevation: 'flat' },
-  inset: { radius: RADIUS.md, pad: SPACE.lg, elevation: 'flat' },
+  glass: { radius: RADIUS.card, pad: SPACE.xl, elevation: 'md' },
+  inset: { radius: RADIUS.lg, pad: SPACE.lg, elevation: 'flat' },
 };
 
 /**
  * The default surface of the design language: a card that separates from the
- * live canvas by shadow and translucency — never a border.
+ * live canvas by **a small luminance step and a wide warm shadow — never a
+ * border**.
  *
- * When `onPress` is given the whole card becomes a spring-pressed, haptic
- * button with a proper accessibility role.
+ * That is only possible because Bloomly's canvas is warm white falling to
+ * blush while the card is cream. Cards had to grow hairline outlines the last
+ * time the canvas went pure white, and an outlined pastel card reads as a
+ * sticker rather than a surface. If borders ever look necessary again, the bug
+ * is in the palette, not here.
+ *
+ * With `onPress` the whole card becomes a spring-pressed haptic button with a
+ * proper accessibility role.
  */
 const Surface = ({
   children,
@@ -76,6 +104,7 @@ const Surface = ({
   elevation,
   padded = true,
   inset = false,
+  tint,
   lift = false,
   onPress,
   style,
@@ -95,22 +124,23 @@ const Surface = ({
 
   const base = useMemo<ViewStyle>(() => {
     const background =
-      v === 'inset' ? c.bgSecondary : v === 'quiet' ? c.cardQuiet : v === 'hero' ? c.cardElevated : c.card;
+      v === 'inset'
+        ? c.bgSecondary
+        : v === 'quiet'
+          ? c.cardQuiet
+          : v === 'glass'
+            ? 'transparent'
+            : v === 'hero'
+              ? c.cardElevated
+              : c.card;
     return {
       backgroundColor: background,
       borderRadius: g.radius,
       padding: padded ? g.pad : 0,
+      overflow: v === 'glass' || tint ? 'hidden' : undefined,
       ...(shadowKey === 'flat' ? {} : shadows[shadowKey]),
-      // Every card gets a hairline outline now. On a pure-white canvas a white
-      // card and the page are literally the same colour, so shadow alone left
-      // cards invisible — the outline is what makes them read as surfaces.
-      // Inset wells are excluded: they are recessed, so their own fill already
-      // separates them.
-      ...(v === 'inset'
-        ? {}
-        : { borderWidth: StyleSheet.hairlineWidth, borderColor: c.cardBorder }),
     };
-  }, [c, v, g, padded, shadowKey, shadows]);
+  }, [c, v, g, padded, shadowKey, shadows, tint]);
 
   const onLayout = lift
     ? (e: LayoutChangeEvent) => setTop(e.nativeEvent.layout.y)
@@ -122,20 +152,48 @@ const Surface = ({
       return { transform: [{ scale }] };
     }
     // Distance the card has travelled through the viewport, normalised. The
-    // card sits 10px low as it enters and settles to 0 — a rise, not a tilt,
-    // which reads as premium where a rotateX reads as a demo.
+    // card sits 10px low as it enters and settles to 0 — a *rise*, not a tilt.
+    // A rotateX here would read as a portfolio demo; a rise reads as weight.
     const d = scrollY.value - top;
     const rise = interpolate(d, [-520, -180], [10, 0], Extrapolation.CLAMP);
     return { transform: [{ scale }, { translateY: rise }] };
   });
 
-  if (!onPress) {
-    return (
-      <Animated.View style={[base, lift ? animated : null, style]} onLayout={onLayout}>
-        {children}
-      </Animated.View>
-    );
-  }
+  // Backdrops that live *behind* the children: the blur pass for glass, and the
+  // hue wash for tint. Both are absolute fills, so padding still applies to
+  // content normally.
+  const backdrop = (
+    <>
+      {v === 'glass' ? (
+        <BlurView
+          intensity={GLASS.intensity}
+          tint={c.blurTint}
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? GLASS.tintDark : GLASS.tint },
+          ]}
+        />
+      ) : null}
+      {tint ? (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { backgroundColor: tint, opacity: isDark ? 0.1 : 0.07 }]}
+        />
+      ) : null}
+    </>
+  );
+
+  const inner = (
+    <Animated.View
+      style={[base, lift || onPress ? animated : null, style]}
+      onLayout={onLayout}
+    >
+      {backdrop}
+      {children}
+    </Animated.View>
+  );
+
+  if (!onPress) return inner;
 
   return (
     <Pressable
@@ -151,9 +209,7 @@ const Surface = ({
       }}
       onPress={onPress}
     >
-      <Animated.View style={[base, animated, style]} onLayout={onLayout}>
-        {children}
-      </Animated.View>
+      {inner}
     </Pressable>
   );
 };

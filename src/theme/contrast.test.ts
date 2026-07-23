@@ -1,5 +1,5 @@
 import { lightPalette, darkPalette } from './palette';
-import { COLORS, PHASE_DEEP, PHASE_INK, INK } from '../constants';
+import { COLORS, PHASE_DEEP, PHASE_INK, INK, DEEP, BLOOM, BloomHue } from '../constants';
 
 /**
  * WCAG AA contrast audit for the palette.
@@ -36,13 +36,59 @@ export function contrast(fg: string, bg: string): number {
 const TEXT = 4.5;
 const UI = 3;
 
+/**
+ * Bloomly ships every brand hue in three values — pastel (petal), deep (stem),
+ * ink (soil). This block is the enforcement mechanism for that system: it is
+ * what makes "use the right value" a build failure rather than a code-review
+ * comment somebody forgets to leave.
+ */
+describe('the three-value system', () => {
+  const hues = Object.keys(BLOOM) as BloomHue[];
+
+  it.each(hues)('%s: ink carries text on both cream and blush', (hue) => {
+    // Both ends of the canvas gradient. A label that clears AA at the top of
+    // the page and fails at the bottom is still a failure — it just fails
+    // somewhere nobody screenshotted.
+    expect(contrast(BLOOM[hue].ink, lightPalette.card)).toBeGreaterThanOrEqual(TEXT);
+    expect(contrast(BLOOM[hue].ink, lightPalette.bgDeep)).toBeGreaterThanOrEqual(TEXT);
+  });
+
+  it.each(hues)('%s: ink carries a white label when used as a filled surface', (hue) => {
+    expect(contrast('#FFFFFF', BLOOM[hue].ink)).toBeGreaterThanOrEqual(TEXT);
+  });
+
+  it.each(hues)('%s: deep clears the UI threshold for strokes and dots', (hue) => {
+    expect(contrast(BLOOM[hue].deep, lightPalette.card)).toBeGreaterThanOrEqual(UI);
+    expect(contrast(BLOOM[hue].deep, lightPalette.bgDeep)).toBeGreaterThanOrEqual(UI);
+  });
+
+  it.each(hues)('%s: pastel carries text on the plum card in dark mode', (hue) => {
+    expect(contrast(BLOOM[hue].pastel, darkPalette.card)).toBeGreaterThanOrEqual(TEXT);
+  });
+
+  it.each(hues)('%s: pastel is deliberately too light for text on cream', (hue) => {
+    // Documents *why* deep and ink exist. If this ever passes, someone has
+    // darkened a pastel and the illustrations will have gone muddy.
+    expect(contrast(BLOOM[hue].pastel, lightPalette.card)).toBeLessThan(TEXT);
+  });
+
+  it('maps every pastel to both an ink and a deep', () => {
+    for (const hue of hues) {
+      expect(INK[BLOOM[hue].pastel]).toBe(BLOOM[hue].ink);
+      expect(DEEP[BLOOM[hue].pastel]).toBe(BLOOM[hue].deep);
+    }
+  });
+});
+
 describe('light theme contrast', () => {
   const p = lightPalette;
 
   it.each([
     ['primary text on canvas', p.text, p.bg, TEXT],
+    ['primary text on canvas bottom', p.text, p.bgDeep, TEXT],
     ['primary text on card', p.text, p.card, TEXT],
     ['secondary text on canvas', p.textSecondary, p.bg, TEXT],
+    ['secondary text on canvas bottom', p.textSecondary, p.bgDeep, TEXT],
     ['secondary text on card', p.textSecondary, p.card, TEXT],
     ['brand text on card', COLORS.primaryDark, p.card, TEXT],
     ['accent text on card', COLORS.accentDark, p.card, TEXT],
@@ -81,11 +127,40 @@ describe('dark theme contrast', () => {
   });
 });
 
-describe('Rose Quartz usage guard', () => {
+describe('Rose usage guard', () => {
   it('is too light to carry white text, which is why filled controls use primaryDark', () => {
     // Documents the constraint that shaped the palette: if this ever passes,
     // the brand color changed and Button/Toggle should be revisited.
     expect(contrast('#FFFFFF', COLORS.primary)).toBeLessThan(TEXT);
+  });
+});
+
+describe('the never-plain-white rule', () => {
+  it('keeps the canvas warm and the card cream, not both #FFFFFF', () => {
+    // Bloomly separates card from canvas by a small luminance step plus a wide
+    // warm shadow, which is only possible if they are different colours. The
+    // moment both go pure white, cards need borders — and a bordered pastel
+    // card reads as a sticker, not a surface.
+    expect(lightPalette.bg).not.toBe('#FFFFFF');
+    expect(lightPalette.bgDeep).not.toBe('#FFFFFF');
+    expect(darkPalette.bg).not.toBe('#000000');
+    expect(lightPalette.card).not.toBe(lightPalette.bgDeep);
+    expect(lightPalette.cardBorder).toBe('transparent');
+    expect(darkPalette.cardBorder).toBe('transparent');
+  });
+
+  it('keeps the card lighter than the canvas it floats on', () => {
+    // The direction matters: a card *darker* than its canvas reads as a hole.
+    const l = (hex: string) => {
+      const h = hex.replace('#', '');
+      return (
+        0.2126 * channel(parseInt(h.slice(0, 2), 16)) +
+        0.7152 * channel(parseInt(h.slice(2, 4), 16)) +
+        0.0722 * channel(parseInt(h.slice(4, 6), 16))
+      );
+    };
+    expect(l(lightPalette.card)).toBeGreaterThan(l(lightPalette.bgDeep));
+    expect(l(darkPalette.card)).toBeGreaterThan(l(darkPalette.bg));
   });
 });
 

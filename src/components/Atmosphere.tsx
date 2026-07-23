@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Defs, RadialGradient, Stop, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Stop, Path, G } from 'react-native-svg';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,29 +15,37 @@ import Animated, {
 import { Atmosphere as Atmos, MoteKind } from '../theme/atmosphere';
 
 /**
- * The live background. One layer, sitting behind every Screen, that makes the
- * app feel like it is breathing without asking any screen to participate.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * The live canvas. Behind every Screen, always.
+ * ═══════════════════════════════════════════════════════════════════════════
  *
  * Four strata, back to front:
- *   1. Canvas    — 4-stop vertical wash, graded by phase + time of day.
- *   2. Orbs      — two large soft-falloff blooms drifting on long, unrelated
- *                  periods so they cross and separate rather than pulsing in
- *                  lockstep.
- *   3. Motes     — three parallax particle layers.
- *   4. Grain     — a static speckle that keeps large flat gradients from
- *                  banding on cheap panels.
+ *   1. Canvas — 4-stop wash, graded by phase + hour in theme/atmosphere.ts.
+ *   2. Blooms — three large soft-falloff orbs drifting on unrelated periods.
+ *   3. Petals — three parallax layers of drifting petals (Bloomly's signature).
+ *   4. Grain  — a static speckle that stops large flat washes banding.
  *
- * PERFORMANCE CONTRACT — this thing is on screen 100% of the time, so it has a
- * hard budget: at most **five** animated nodes regardless of particle count,
- * zero React re-renders once mounted, and no per-particle animations.
+ * ── PERFORMANCE CONTRACT ──────────────────────────────────────────────────
  *
- * The motes borrow the wrap trick from BubbleTherapy's BubbleField: each layer
- * is a single Svg whose circles are drawn twice, at `y` and `y + h`, and the
- * whole layer translates by one height on a loop. The seam is invisible and the
- * cost is one transform per layer instead of one per particle.
+ * This is on screen 100% of the time, so it has a hard budget:
  *
- * Soft falloff comes from an SVG radialGradient rather than expo-blur: a real
- * blur pass over a full-screen view is expensive on Android and the gradient is
+ *   • at most **six** animated nodes regardless of particle count
+ *   • **zero** React re-renders once mounted
+ *   • **no** per-particle animation, ever
+ *
+ * That contract is what makes ambient beauty affordable. The moment a petal
+ * gets its own `useSharedValue`, 33 petals means 33 nodes and the budget is
+ * gone — which is how "just a few floating petals" ends up costing a frame
+ * budget on a mid-range Android.
+ *
+ * The trick that buys it: each layer is ONE `Svg` whose petals are drawn twice,
+ * at `y` and `y + h`. The layer translates upward by exactly one screen height
+ * on loop, so the second copy slides into the first copy's place and the seam
+ * is invisible. One transform per layer, not one per petal. Sway rides the same
+ * shared value, so it is free.
+ *
+ * Soft falloff comes from an SVG `radialGradient`, not `expo-blur`: a real blur
+ * pass over a full-screen view is expensive on Android, and the gradient is
  * both cheaper and softer at this scale.
  */
 
@@ -51,28 +59,34 @@ function seeded(seed: number) {
 }
 
 interface MoteSpec {
-  cx: number;
-  cy: number;
+  x: number;
+  y: number;
+  /** Radius for round kinds, half-length for petals. */
   r: number;
   o: number;
+  /** Static rotation, degrees. Petals only — a petal facing "up" reads as a leaf. */
+  rot: number;
+  /** Petal aspect: 0.42–0.68. Variation here is what stops them reading as a stamp. */
+  aspect: number;
 }
 
 /**
- * Per-kind particle character. Size and opacity, not colour — colour is the
- * phase's.
+ * Per-kind particle character. Size and opacity only — colour belongs to the
+ * phase.
  *
- * Radii are deliberately well above 1px: a sub-pixel dot at 2x DPI antialiases
- * into a hard speck that reads as dirt on the user's screen rather than
- * atmosphere inside the app. Anything that could be mistaken for a dead pixel
- * is a bug, so motes are large and very faint instead of small and legible.
+ * Radii sit well above 1px on purpose. A sub-pixel dot at 2× DPI antialiases
+ * into a hard speck that reads as **dirt on the user's screen** rather than as
+ * atmosphere inside the app. Anything mistakable for a dead pixel is a bug, so
+ * motes are large and very faint instead of small and legible.
+ *
+ * Stars are the one exception: a crisp point of light is the literal subject,
+ * and `atmosphere()` only ever selects them on a dark canvas.
  */
 const MOTE_STYLE: Record<Exclude<MoteKind, 'none'>, { r: [number, number]; o: [number, number] }> = {
-  dust: { r: [2.2, 5.0], o: [0.05, 0.13] },
-  pollen: { r: [2.6, 6.0], o: [0.06, 0.16] },
-  spark: { r: [2.0, 4.4], o: [0.09, 0.22] },
-  // Stars are the one kind allowed to be crisp — a point of light is the
-  // literal thing being depicted, and it only ever appears on a dark canvas.
-  star: { r: [1.0, 2.2], o: [0.16, 0.5] },
+  petal: { r: [5.5, 12], o: [0.1, 0.26] },
+  pollen: { r: [2.6, 6.0], o: [0.08, 0.2] },
+  dust: { r: [2.2, 5.0], o: [0.06, 0.15] },
+  star: { r: [1.0, 2.2], o: [0.18, 0.55] },
 };
 
 function buildMotes(kind: MoteKind, count: number, w: number, h: number, seed: number): MoteSpec[] {
@@ -80,20 +94,39 @@ function buildMotes(kind: MoteKind, count: number, w: number, h: number, seed: n
   const rand = seeded(seed);
   const { r, o } = MOTE_STYLE[kind];
   return Array.from({ length: count }, () => ({
-    cx: rand() * w,
-    cy: rand() * h,
+    x: rand() * w,
+    y: rand() * h,
     r: r[0] + rand() * (r[1] - r[0]),
     o: o[0] + rand() * (o[1] - o[0]),
+    rot: rand() * 360,
+    aspect: 0.42 + rand() * 0.26,
   }));
 }
 
 /**
- * One parallax particle layer. Circles are drawn at y and y+h so the upward
- * translate wraps seamlessly; `depth` scales both speed and size so nearer
- * layers move faster, which is what sells the parallax.
+ * A petal, drawn around its own origin so a static `transform` can rotate it.
+ *
+ * Two mirrored cubics meeting at the tips — the minimum that reads as *petal*
+ * rather than as *ellipse*. An ellipse at this size and opacity is just a
+ * blurry dot; the two points at top and bottom are the entire difference
+ * between "flower app" and "loading spinner".
+ */
+function petalPath(len: number, aspect: number): string {
+  const hy = len;
+  const hx = len * aspect;
+  return `M0 ${-hy}C${hx} ${-hy * 0.42} ${hx} ${hy * 0.42} 0 ${hy}C${-hx} ${hy * 0.42} ${-hx} ${-hy * 0.42} 0 ${-hy}Z`;
+}
+
+/**
+ * One parallax particle layer.
+ *
+ * `depth` scales speed, size and opacity together, so nearer layers move faster
+ * and read heavier — which is the whole of what sells parallax. Sway rides the
+ * same shared value as the fall, so horizontal drift costs nothing extra.
  */
 function MoteLayer({
   motes,
+  kind,
   color,
   w,
   h,
@@ -102,6 +135,7 @@ function MoteLayer({
   index,
 }: {
   motes: MoteSpec[];
+  kind: MoteKind;
   color: string;
   w: number;
   h: number;
@@ -116,47 +150,62 @@ function MoteLayer({
       t.value = 0;
       return;
     }
-    // Each layer gets a slightly different period so the three never align.
+    // Each layer gets a slightly different period so the three never align and
+    // the field never visibly repeats.
     const dur = driftSec * 1000 * (1.6 - depth * 0.5) * (1 + index * 0.17);
     t.value = withRepeat(withTiming(1, { duration: dur, easing: Easing.linear }), -1, false);
     return () => cancelAnimation(t);
   }, [driftSec, depth, index, t]);
 
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: -t.value * h }],
-  }));
+  const style = useAnimatedStyle(() => {
+    // Petals fall (canvas moves down); pollen and dust rise. Both wrap by
+    // exactly one screen height, so the direction is just a sign flip.
+    const dir = kind === 'petal' ? 1 : -1;
+    const fall = dir * t.value * h;
+    // Sway: a slow lateral wander, wider on nearer layers. Two full periods per
+    // fall so a petal crosses the screen twice on its way down.
+    const sway = Math.sin(t.value * Math.PI * 2 + index) * 14 * depth;
+    return { transform: [{ translateY: fall }, { translateX: sway }] };
+  });
 
   if (motes.length === 0) return null;
 
+  const isPetal = kind === 'petal';
+
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
+    <Animated.View
+      style={[StyleSheet.absoluteFill, { top: isPetal ? -h : 0 }, style]}
+      pointerEvents="none"
+    >
       <Svg width={w} height={h * 2}>
-        {motes.map((m, i) => (
-          <Circle
-            key={`a${i}`}
-            cx={m.cx}
-            cy={m.cy}
-            r={m.r * depth}
-            fill={color}
-            opacity={m.o * depth}
-          />
-        ))}
-        {motes.map((m, i) => (
-          <Circle
-            key={`b${i}`}
-            cx={m.cx}
-            cy={m.cy + h}
-            r={m.r * depth}
-            fill={color}
-            opacity={m.o * depth}
-          />
-        ))}
+        {/* Drawn twice — at y and y+h — so the wrap has no seam. */}
+        {[0, h].map((offset) =>
+          motes.map((m, i) =>
+            isPetal ? (
+              <G
+                key={`${offset}-${i}`}
+                transform={`translate(${m.x} ${m.y + offset}) rotate(${m.rot})`}
+              >
+                <Path d={petalPath(m.r * depth, m.aspect)} fill={color} opacity={m.o * depth} />
+              </G>
+            ) : (
+              <Circle
+                key={`${offset}-${i}`}
+                cx={m.x}
+                cy={m.y + offset}
+                r={m.r * depth}
+                fill={color}
+                opacity={m.o * depth}
+              />
+            )
+          )
+        )}
       </Svg>
     </Animated.View>
   );
 }
 
-/** A large soft bloom. Drifts on an elliptical path over tens of seconds. */
+/** A large soft bloom. Drifts on an open elliptical path over tens of seconds. */
 function Orb({
   color,
   size,
@@ -192,7 +241,8 @@ function Orb({
     return () => cancelAnimation(t);
   }, [driftSec, t]);
 
-  // Two unrelated frequencies on x and y trace an open loop rather than a line.
+  // Two unrelated frequencies on x and y trace an open loop rather than a line,
+  // so the bloom never appears to retrace its own path.
   const style = useAnimatedStyle(() => {
     const a = (t.value + phase) * Math.PI * 2;
     return {
@@ -225,7 +275,8 @@ function Orb({
 
 /**
  * Static speckle over the gradient. Large smooth washes band badly on 6-bit
- * panels; a faint irregular texture hides it and reads as paper grain.
+ * panels; a faint irregular texture hides the stepping and reads as paper
+ * grain, which suits a stationery-adjacent brand anyway.
  */
 function Grain({ w, h, tone }: { w: number; h: number; tone: string }) {
   const d = useMemo(() => {
@@ -248,13 +299,13 @@ function Grain({ w, h, tone }: { w: number; h: number; tone: string }) {
 
 interface AtmosphereProps {
   atmos: Atmos;
-  /** Dark canvases need a lighter grain or it reads as dirt. */
+  /** Dark canvases need a lighter grain, or it reads as dirt. */
   isDark: boolean;
 }
 
 /**
- * Renders an Atmosphere record. Pure presentation — all grading decisions were
- * made in theme/atmosphere.ts, which is where they can be tested.
+ * Renders an Atmosphere record. Pure presentation — every grading decision was
+ * made in `theme/atmosphere.ts`, which is where it can be tested.
  */
 const Atmosphere = ({ atmos, isDark }: AtmosphereProps) => {
   const { width: w, height: h } = useWindowDimensions();
@@ -263,7 +314,7 @@ const Atmosphere = ({ atmos, isDark }: AtmosphereProps) => {
   // Respect the system flag even if the caller forgot to thread it through.
   const driftSec = systemReduced ? Infinity : atmos.driftSec;
   const motes = useMemo(
-    () => buildMotes(atmos.mote, systemReduced ? 0 : atmos.moteCount, w, h, 20260721),
+    () => buildMotes(atmos.mote, systemReduced ? 0 : atmos.moteCount, w, h, 20260723),
     [atmos.mote, atmos.moteCount, systemReduced, w, h]
   );
 
@@ -273,10 +324,24 @@ const Atmosphere = ({ atmos, isDark }: AtmosphereProps) => {
     return [motes.slice(0, third), motes.slice(third, third * 2), motes.slice(third * 2)];
   }, [motes]);
 
-  // Light-mode motes are warm and barely-there; a neutral grey speck on warm
-  // paper reads as a smudge rather than as floating pollen.
-  const moteColor = isDark ? 'rgba(255,255,255,0.9)' : 'rgba(186,148,158,0.75)';
-  const grainTone = isDark ? 'rgba(255,255,255,0.035)' : 'rgba(60,40,50,0.045)';
+  /**
+   * Petals take the phase's own hue; everything else takes a neutral.
+   *
+   * A grey speck on warm paper reads as a smudge — the particle has to belong
+   * to the same light as the canvas or the eye files it as damage. In dark mode
+   * the petal lightens instead, because a rose petal on plum ink at 15% is
+   * invisible.
+   */
+  const moteColor =
+    atmos.mote === 'petal'
+      ? isDark
+        ? 'rgba(255,236,243,0.85)'
+        : atmos.hue
+      : isDark
+        ? 'rgba(255,255,255,0.9)'
+        : 'rgba(186,148,158,0.75)';
+
+  const grainTone = isDark ? 'rgba(255,255,255,0.035)' : 'rgba(90,50,66,0.04)';
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -320,6 +385,7 @@ const Atmosphere = ({ atmos, isDark }: AtmosphereProps) => {
         <MoteLayer
           key={i}
           motes={layer}
+          kind={atmos.mote}
           color={moteColor}
           w={w}
           h={h}

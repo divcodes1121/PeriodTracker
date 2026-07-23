@@ -1,21 +1,46 @@
 /**
- * Atmosphere — the ambient state of the app.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * BLOOMLY — Atmosphere. The ambient state of the app.
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * The old design language kept ~80% of every screen neutral, which made colour
- * purely decorative: luteal Tuesday and ovulation Saturday rendered as the same
- * beige. This module makes colour *semantic* instead. It answers one question —
- * "what does the app feel like right now?" — from three inputs:
+ * One question, answered once: **what does the app feel like right now?**
  *
- *   cycle phase  · the slow tide, changes over days
- *   time of day  · the fast tide, changes over hours
- *   reduced motion · accessibility, changes everything
+ * Three inputs:
+ *   cycle phase    the slow tide  — changes over days
+ *   time of day    the fast tide  — changes over hours
+ *   reduced motion accessibility  — changes everything
  *
- * and returns a record the visual layer consumes wholesale. One function, so a
- * phase change re-tints the entire app coherently rather than via conditionals
- * scattered across eleven screens.
+ * and one record out, which the visual layer consumes wholesale. A single
+ * function, so a phase change re-tints the entire app coherently instead of via
+ * conditionals scattered across eleven screens.
  *
- * RN-free on purpose (same as utils/tinyEscapes.ts and utils/kintsugi.ts) so the
- * grading is unit-tested in the node test project rather than eyeballed.
+ * ── Why this got rebuilt ──────────────────────────────────────────────────
+ *
+ * The previous version was zeroed out to plain #FFF / #000 after device
+ * feedback that phase tinting read as *a coloured cast over the app*. That
+ * feedback was correct, and the diagnosis was wrong. The problem was never
+ * that the canvas had colour — it was that the canvas had colour **uniformly**:
+ * a flat 8% rose over the entire screen has no light source, so the eye reads
+ * it as a broken white balance rather than as atmosphere.
+ *
+ * Three things fix it, and all three are encoded below:
+ *
+ *   1. **The canvas is already warm before phase touches it.** Bloomly's
+ *      resting light canvas is warm-white falling to blush. Phase then shifts
+ *      that ramp a few percent. Shifting a warm canvas reads as *weather*;
+ *      tinting a white canvas reads as *a filter*.
+ *
+ *   2. **Tint pools downward.** `PHASE_LIFT` rises from ~0.15 at the top of
+ *      the screen to 1.0 at the bottom. Colour gathers where the light would
+ *      settle, which gives the gradient a direction and therefore a cause.
+ *      This is the single change that made phase colour stop looking broken.
+ *
+ *   3. **Day is nearly clean.** Midday is the reference white. The phase is
+ *      most visible at dawn, dusk and night — the hours the app is actually
+ *      opened, and the hours the eye forgives colour.
+ *
+ * RN-free on purpose (like `utils/tinyEscapes.ts` and `utils/aquarium.ts`) so
+ * every grading decision is unit-tested rather than eyeballed on a simulator.
  */
 
 export type PhaseKey = 'menstrual' | 'follicular' | 'ovulation' | 'luteal';
@@ -23,41 +48,71 @@ export type PhaseKey = 'menstrual' | 'follicular' | 'ovulation' | 'luteal';
 /** Coarse time bands. Deliberately not 24 buckets — the eye reads four. */
 export type TimeBand = 'dawn' | 'day' | 'dusk' | 'night';
 
-/** What ambient particles look like. Rendered by <Atmosphere/>. */
-export type MoteKind = 'none' | 'dust' | 'pollen' | 'spark' | 'star';
+/**
+ * What ambient particles look like.
+ *
+ * `petal` is Bloomly's signature and the default in light mode: soft, slow,
+ * falling. `pollen` is its lighter cousin for high-energy phases, `star` is
+ * night only, `dust` is the neutral fallback.
+ */
+export type MoteKind = 'none' | 'petal' | 'pollen' | 'dust' | 'star';
 
 export interface Atmosphere {
-  /** 4-stop vertical canvas wash, top → bottom. */
+  /** 4-stop vertical canvas wash, top → bottom. Never flat, never pure white. */
   canvas: [string, string, string, string];
   /**
-   * Three large blurred blooms that drift on unrelated periods. Colours already
-   * carry their alpha. Three rather than two because two blobs read as two
-   * blobs — a third breaks the symmetry into something that looks like flowing
+   * Three large soft blooms that drift on unrelated periods. Colours carry
+   * their own alpha. Three rather than two because two blobs read as two
+   * blobs — a third breaks the symmetry into something that looks like moving
    * light instead.
    */
   orbs: [string, string, string];
-  /** Colour of the ambient glow behind hero elements. */
+  /** Colour of the ambient glow behind hero elements (the Bloom Ring halo). */
   glow: string;
-  /** Particle character for this atmosphere. */
+  /** Solid phase hue, for anything that needs the colour without the alpha. */
+  hue: string;
+  /** Particle character. */
   mote: MoteKind;
   /** Particle count. Already reduced-motion aware — 0 means draw nothing. */
   moteCount: number;
   /**
    * Direction the light comes from, in degrees (0 = from the top, clockwise).
-   * Card highlights and the hero ring sweep align to this, so lighting across
+   * Card rim highlights and the ring sweep align to this, so lighting across
    * the app agrees with itself instead of every gradient picking its own angle.
    */
   lightAngle: number;
-  /**
-   * 0..1 — how much the atmosphere should tint neutral surfaces. Night and
-   * menstrual run warmer/heavier; day runs almost clear.
-   */
+  /** 0..1 — how warm the hour is. Drives the greeting and the mote tint. */
   warmth: number;
   /** Seconds for one full ambient drift cycle. Long. Subconscious. */
   driftSec: number;
 }
 
-/** Hour → band. Exported for tests and for the greeting logic to share. */
+// ───────────────────────────────────────────────────────────────────────────
+// Colour maths (pure, tiny, testable)
+// ───────────────────────────────────────────────────────────────────────────
+
+function parseHex(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function toHex(rgb: [number, number, number]): string {
+  return `#${rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Linear blend, `t` of `b` over `a`. Good enough at these tiny amounts. */
+export function mix(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = parseHex(a);
+  const [br, bg, bb] = parseHex(b);
+  const k = Math.max(0, Math.min(1, t));
+  return toHex([ar + (br - ar) * k, ag + (bg - ag) * k, ab + (bb - ab) * k]);
+}
+
+/** Hour → band. Exported so the greeting can't invent its own cutoffs. */
 export function timeBand(hour: number): TimeBand {
   if (hour < 5) return 'night';
   if (hour < 9) return 'dawn';
@@ -66,60 +121,99 @@ export function timeBand(hour: number): TimeBand {
   return 'night';
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// The garden year — per-phase character
+// ───────────────────────────────────────────────────────────────────────────
+
 /**
- * Per-phase character. These are *atmosphere* hues — low alpha, meant to be
- * layered over the canvas — not the brand pastels in constants/COLORS, which
- * stay as-is for rings, dots and meters.
+ * Rose → Peach → Gold → Lavender. Warm to cool, closing on itself.
+ *
+ * `hue` is what the canvas mixes toward; `glow` is the (lighter) halo behind
+ * the Bloom Ring. They differ because a glow sits on top of the canvas and
+ * needs to out-value it, or the hero has no light of its own.
  */
 const PHASE_ATMOS: Record<
   PhaseKey,
-  { hue: string; glow: string; mote: MoteKind; warmth: number }
+  { hue: string; glow: string; mote: MoteKind; drift: number }
 > = {
-  // The background is deliberately PLAIN — white in light, black in dark.
-  //
-  // Phase used to tint the whole canvas, which was the point of this module.
-  // On a real device that read as a coloured cast over everything rather than
-  // as atmosphere, so colour has been pulled back to where it carries meaning:
-  // controls, selection states, the cycle ring, and the phase dot. The hue is
-  // still exported for the hero glow, but the canvas alpha is zero.
-  menstrual: { hue: 'rgba(196,86,124,', glow: 'rgba(214,110,148,', mote: 'none', warmth: 0 },
-  follicular: { hue: 'rgba(240,168,196,', glow: 'rgba(246,190,212,', mote: 'none', warmth: 0 },
-  ovulation: { hue: 'rgba(232,112,164,', glow: 'rgba(242,146,186,', mote: 'none', warmth: 0 },
-  luteal: { hue: 'rgba(198,132,182,', glow: 'rgba(212,158,198,', mote: 'none', warmth: 0 },
+  /** Letting go. Rose, slow, petals falling. */
+  menstrual: { hue: '#E77397', glow: 'rgba(231,115,151,', mote: 'petal', drift: 38 },
+  /** Budding. Peach, brisker, pollen rising. */
+  follicular: { hue: '#F7B58E', glow: 'rgba(247,181,142,', mote: 'pollen', drift: 30 },
+  /** Full bloom. Gold, liveliest. */
+  ovulation: { hue: '#E2B45C', glow: 'rgba(226,180,92,', mote: 'pollen', drift: 26 },
+  /** Winding down. Lavender, slowest — luteal settles inward. */
+  luteal: { hue: '#BCA3DE', glow: 'rgba(188,163,222,', mote: 'petal', drift: 46 },
 };
 
 /**
- * Per-band grading applied on top of the phase. Light mode only here; dark mode
- * inverts the ramp in `atmosphere()` since a dark canvas needs the tint to *add*
- * light rather than subtract it.
+ * Light-mode base ramps, before phase. Already warm — this is the point.
+ *
+ * `tint` is how strongly the phase is allowed to colour this hour. Day sits at
+ * 0.35 (the reference white); night runs highest, because a dim screen can
+ * carry far more colour before it reads as a cast, and because 11pm is when
+ * someone actually wants the app to feel like a lamp rather than a form.
  */
-const BAND: Record<
+const BAND_LIGHT: Record<
   TimeBand,
-  { top: string; bottom: string; lightAngle: number; lift: number; mote: MoteKind | null }
+  { ramp: [string, string, string, string]; tint: number; lightAngle: number; warmth: number }
 > = {
-  // Plain white. `lightAngle` still varies so the ring sweep and card rims
-  // shift through the day — that is lighting direction, not colour.
-  dawn: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 65, lift: 0, mote: null },
-  day: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 15, lift: 0, mote: null },
-  dusk: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 295, lift: 0, mote: null },
-  night: { top: '#FFFFFF', bottom: '#FFFFFF', lightAngle: 340, lift: 0, mote: null },
+  dawn: {
+    ramp: ['#FFFCF8', '#FFF7F3', '#FDF1EF', '#FAEBEB'],
+    tint: 0.7,
+    lightAngle: 65,
+    warmth: 0.7,
+  },
+  day: {
+    ramp: ['#FFFCFA', '#FFF9F7', '#FEF5F4', '#FCF0F1'],
+    tint: 0.35,
+    lightAngle: 15,
+    warmth: 0.35,
+  },
+  dusk: {
+    ramp: ['#FFFAF6', '#FEF3F1', '#FBEBEE', '#F6E4EE'],
+    tint: 0.85,
+    lightAngle: 295,
+    warmth: 0.85,
+  },
+  night: {
+    ramp: ['#FDF8F7', '#FAF1F3', '#F6EAF1', '#F2E5F0'],
+    tint: 1,
+    lightAngle: 340,
+    warmth: 0.5,
+  },
 };
 
-/** Dark mode: plain black. No plum, no pink cast, no gradient. */
-const BAND_DARK: Record<TimeBand, { top: string; bottom: string }> = {
-  dawn: { top: '#000000', bottom: '#000000' },
-  day: { top: '#000000', bottom: '#000000' },
-  dusk: { top: '#000000', bottom: '#000000' },
-  night: { top: '#000000', bottom: '#000000' },
+/** Dark-mode base ramps. Plum ink, never neutral charcoal. */
+const BAND_DARK: Record<
+  TimeBand,
+  { ramp: [string, string, string, string]; tint: number }
+> = {
+  dawn: { ramp: ['#140F16', '#17111A', '#1A131E', '#1D1522'], tint: 0.8 },
+  day: { ramp: ['#130E15', '#151018', '#18121B', '#1A141E'], tint: 0.5 },
+  dusk: { ramp: ['#150F18', '#19121D', '#1D1522', '#211827'], tint: 1 },
+  night: { ramp: ['#110D13', '#140F17', '#17111C', '#1A1420'], tint: 1.1 },
 };
 
-/** Base particle counts before reduced-motion scaling. */
+/**
+ * How much of the phase hue reaches each of the four canvas stops.
+ *
+ * Rising downward is the whole trick. Colour pooling at the bottom of the
+ * screen gives the gradient a light source; colour spread evenly gives it a
+ * broken white balance. Same pigment, completely different read.
+ */
+const PHASE_LIFT = [0.15, 0.45, 0.75, 1] as const;
+
+/** Base tint strength before the band multiplier. Dark carries more. */
+const TINT_BASE = { light: 0.075, dark: 0.13 };
+
+/** Base particle counts before reduced-motion scaling. Sparse on purpose. */
 const MOTE_COUNT: Record<MoteKind, number> = {
   none: 0,
-  dust: 14,
-  pollen: 18,
-  spark: 10,
-  star: 22,
+  petal: 11,
+  pollen: 15,
+  dust: 12,
+  star: 20,
 };
 
 export interface AtmosphereInput {
@@ -127,16 +221,18 @@ export interface AtmosphereInput {
   /** 0–23. */
   hour: number;
   isDark: boolean;
-  /** When true, all drift stops and particle counts fall to zero. */
+  /** When true all drift stops and particle counts fall to zero. */
   reducedMotion?: boolean;
 }
 
 /**
  * The whole visual mood of the app, from three inputs.
  *
- * Reduced motion is handled here rather than at each call site so there is
- * exactly one place that can get it wrong: motes go to 0 and driftSec goes to
- * Infinity, which the renderer reads as "draw the static frame".
+ * Reduced motion is resolved here rather than at each call site so there is
+ * exactly one place that can get it wrong: motes go to 0 and `driftSec` goes to
+ * Infinity, which the renderer reads as "draw the static frame". Crucially it
+ * removes **motion only** — the colour grading survives, because someone who
+ * gets motion sick still deserves the app to feel like evening at 9pm.
  */
 export function atmosphere({
   phase,
@@ -146,57 +242,52 @@ export function atmosphere({
 }: AtmosphereInput): Atmosphere {
   const p = PHASE_ATMOS[phase] ?? PHASE_ATMOS.menstrual;
   const band = timeBand(hour);
-  const b = BAND[band];
 
-  // Dark mode needs the tint to add light, not subtract it, so alphas run
-  // higher against the near-black canvas or the grading disappears entirely.
-  // Light mode needs more alpha than intuition suggests: the same tint that
-  // reads clearly against near-black almost vanishes against warm paper, so
-  // matching the two by eye rather than by number keeps the themes at parity.
-  // Light now runs *hotter* than dark on the blooms specifically — a rose wash
-  // on white has far less contrast to work with than the same wash on plum.
-  // All zero: the canvas is plain and the drifting blooms are gone. Only the
-  // hero glow keeps a value, because that sits behind the cycle ring where the
-  // phase colour is meaningful rather than ambient.
-  const a = isDark
-    ? { wash: 0, orbA: 0, orbB: 0, orbC: 0, glow: 0.2 }
-    : { wash: 0, orbA: 0, orbB: 0, orbC: 0, glow: 0.14 };
+  const light = BAND_LIGHT[band];
+  const dark = BAND_DARK[band];
+  const base = isDark ? dark.ramp : light.ramp;
+  const strength = (isDark ? TINT_BASE.dark : TINT_BASE.light) * (isDark ? dark.tint : light.tint);
 
-  const lift = b.lift;
-  const tint = (alpha: number) => `${p.hue}${(alpha * lift).toFixed(3)})`;
+  // Mix the base ramp toward the phase hue, more strongly further down.
+  const canvas = base.map((stop, i) => mix(stop, p.hue, strength * PHASE_LIFT[i])) as [
+    string,
+    string,
+    string,
+    string,
+  ];
 
-  const base = isDark ? BAND_DARK[band] : b;
+  // Orbs. Dark needs more alpha to lift light off a near-black canvas; light
+  // needs less, because a wash on warm paper has far less headroom before it
+  // stops being atmosphere and starts being a stain.
+  const orbA = isDark ? 0.17 : 0.1;
+  const orbB = isDark ? 0.15 : 0.085;
+  const orbC = isDark ? 0.1 : 0.06;
+  const bandScale = isDark ? dark.tint : light.tint;
 
-  // Night stars override the phase particle — moonlight wins over pollen.
-  const mote: MoteKind = b.mote ?? p.mote;
+  const rgba = (alpha: number) => `${p.glow}${(alpha * bandScale).toFixed(3)})`;
+
+  // Night overrides the phase particle: moonlight wins over petals. Dark mode
+  // gets stars at night too — that is the one time a crisp point of light is
+  // the literal subject rather than grit on the screen.
+  const mote: MoteKind = band === 'night' && isDark ? 'star' : p.mote;
 
   return {
-    // Four identical stops: a genuinely flat fill rather than a gradient whose
-    // middle band happens to be fully transparent. Kept as four so the shape of
-    // the record is unchanged for consumers.
-    canvas: [base.top, base.top, base.top, base.bottom],
-    orbs: [
-      tint(a.orbA),
-      `${p.glow}${(a.orbB * lift).toFixed(3)})`,
-      // The third bloom is the phase's own hue again but weakest and slowest;
-      // it is what turns two drifting circles into a moving gradient field.
-      tint(a.orbC),
-    ],
-    glow: `${p.glow}${(a.glow * lift).toFixed(3)})`,
+    canvas,
+    orbs: [rgba(orbA), rgba(orbB), rgba(orbC)],
+    glow: rgba(isDark ? 0.3 : 0.22),
+    hue: p.hue,
     mote: reducedMotion ? 'none' : mote,
     moteCount: reducedMotion ? 0 : MOTE_COUNT[mote],
-    lightAngle: b.lightAngle,
-    warmth: Math.min(1, p.warmth * lift),
-    // Luteal settles inward, so it drifts slowest; ovulation is the liveliest.
-    // Still measured in tens of seconds — this must stay subconscious.
-    driftSec: reducedMotion ? Infinity : phase === 'ovulation' ? 26 : phase === 'luteal' ? 42 : 34,
+    lightAngle: light.lightAngle,
+    warmth: light.warmth,
+    driftSec: reducedMotion ? Infinity : p.drift,
   };
 }
 
 /**
  * Greeting that matches the atmosphere rather than inventing its own cutoffs.
- * HomeScreen previously hardcoded 12/18 boundaries that disagreed with the
- * visual grading — the canvas went dusk while the text still said "afternoon".
+ * Home previously hardcoded 12/18 boundaries that disagreed with the visual
+ * grading — the canvas went dusk while the copy still said "afternoon".
  */
 export function greetingFor(band: TimeBand): string {
   switch (band) {
